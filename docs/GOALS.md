@@ -92,11 +92,14 @@ quietly mismanaging society funds?*
 
 A centralized digital ledger with:
 
-- **Multi-admin approval** — N-of-M sign-off before an entry posts
+- **Multi-admin approval** — at least two-thirds sign-off before an entry posts
 - **Append-only records** — entries are added, never edited in place
-- **Read-only resident access** to the full history
+- **Read-only resident access** to the full history, with the ability to flag
+  an entry as disputed
 - **Digital approvals**, replacing paper signatures
 - **Automated financial reporting**
+- **An auditor role**, distinct from admin and resident: an auditor's sign-off
+  is what closes a financial year
 
 ### Making the record trustworthy
 
@@ -163,34 +166,80 @@ recorded.
 **Tamper-evident is not tamper-proof.** Hash-chaining makes tampering
 *detectable* by anyone who verifies the chain. It does not make tampering
 *impossible* — whoever controls the database can recompute the whole chain and
-present a consistent forgery. What closes that gap is publishing the chain head
-somewhere the admins do not control, so a recomputed chain can be caught. Until
-that is decided, the guarantee is strong social accountability, not
-cryptographic proof. The honest word is *tamper-evident*, and it is worth using
-consistently.
+present a consistent forgery.
 
-**An append-only ledger still has to handle mistakes.** A wrong amount gets
-entered; a resident disputes a charge. Neither can be fixed by editing, so both
-need **reversing entries** — a new signed, chained entry that negates an earlier
-one, leaving both visible. The mechanism is implied by the feature set but not
-yet defined.
+**Settled 2026-10-21:** signing keys live on the server, each approval carries
+an audit record, and **the chain head is published outside admin control** on a
+recurring schedule to recipients who keep their own copies. That published head
+is what a recomputed chain can be caught against, so it is required rather than
+optional. The claim the product makes is **the record cannot be changed
+quietly** — never that it cannot be forged by whoever runs the server.
+*Tamper-evident*, consistently; never *tamper-proof*.
 
-**Key custody is the hard problem.** Per-action digital signatures have to work
-for non-technical volunteers, on phones, over WhatsApp, in several languages.
-If signing is burdensome, admins will share credentials — and shared
-credentials collapse N-of-M approval back into single-person control, the exact
-failure the product exists to prevent. The security model and the field-reality
-constraints meet here, and this is where the product is won or lost.
+**Still open:** the publication mechanism, cadence and recipients.
 
-**Audit report format may not be a free choice.** The annual audit is legally
-mandated, so the governing state Cooperative Societies Act likely constrains
-what the report must contain. Worth confirming before designing the output.
+**Corrections are settled 2026-10-22.** Nothing is ever edited or deleted. A
+correction is a **new signed, chained entry referencing the one it corrects**,
+carrying a **mandatory reason**; the original stays visible permanently, marked
+reversed. Three distinct operations: a **reversal** cancels an entry, a
+**reversal + replacement** cancels and posts the corrected amount atomically,
+and a **flag** lets any resident mark an entry disputed with **no financial
+effect**. A resident can raise a dispute but cannot move money — if the admins
+agree, they post the reversal themselves.
 
-**Money representation is a one-way decision.** How ₹ amounts are stored is not
-yet specified. Floating-point currency in a ledger claiming audit-grade
-accuracy produces errors that surface only at reconciliation, and retrofitting
-the fix once entries are hash-chained means rewriting the chain. This should be
-settled before the first schema.
+**Approval requires at least two-thirds of admins, rounded up**
+(`ceil(2 × M / 3)`: 4 of 5, 5 of 7). A society may configure a **higher**
+threshold, never a lower one. Reversals need the same threshold as the original,
+so a minority cannot unwind a committee decision. An entry can be reversed at
+most once, and a reversal cannot itself be reversed.
+
+**An entry in a closed financial year cannot be reversed in that year** —
+confirmed with a practising chartered accountant. The reversal posts in the
+**current** period as an adjusting entry referencing the original across the
+year boundary, so the closed year's filed figures stay intact. Reversed entries
+always appear in reports; an audit report that omits them conceals exactly what
+the chain exists to prove.
+
+**A financial year is closed by an auditor's sign-off** — not by an admin
+action and not by a date rolling over. The committee cannot close its own
+books, for the same reason it cannot approve an entry alone: the party being
+checked does not declare the check complete. Until the auditor signs off the
+year stays open and entries in it remain reversible normally.
+
+**Still open:** whether an adjusting entry needs specific disclosure in the
+next AGM report, and whether a resident can withdraw a flag they raised.
+
+**Key custody is settled, and it was settled against the stronger
+cryptography.** Per-action signatures have to work for non-technical volunteers
+on phones. Keys held on each admin's own device would stop even the server
+forging an approval, but key loss is a realistic and frequent event for this
+user base, and every workable recovery story reintroduces a shared secret. The
+predictable outcome is a committee that writes the key down or asks for one
+login they all use — N-of-M back to one person, while believing it is
+cryptographically secure. **Keys are therefore server-held**, and the published
+chain head above is what bounds the resulting trust in the operator.
+
+**Audit report format may not be a free choice — awaiting a CA.** The annual
+audit is legally mandated, so the governing state Cooperative Societies Act
+likely constrains what the report must contain. **Blocked on professional
+advice, not on design**; confirm before building the report output. Two
+questions are outstanding: what the report must contain, and whether a
+cross-year adjusting entry (a correction to a sealed year, posted in the
+current one) requires specific disclosure in the next AGM report.
+
+**Money representation is settled 2026-10-22.** Every amount is an **integer
+count of the currency's minor units** (₹1,250.75 is `125075`) stored alongside
+an explicit **ISO 4217 currency code**. Floating-point currency is ruled out at
+every layer: the errors surface only at reconciliation, and retrofitting the
+fix once entries are hash-chained means rewriting the chain. The currency code
+is carried from the first schema even though it is always `INR` today —
+**INR now, other currencies are future scope**, and backfilling that column
+later would touch hash-chained rows. The unit is always *minor units of the
+stated currency*, never hardcoded paise: INR has 2 decimal places, JPY has 0,
+KWD has 3.
+
+**Still open:** the rounding policy for computed amounts (interest, penalty,
+pro-rata), where sub-minor-unit precision would otherwise be lost.
 
 ---
 

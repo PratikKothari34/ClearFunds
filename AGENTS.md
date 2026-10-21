@@ -58,34 +58,91 @@ there is nothing to build — ask for one rather than picking a starting point.
 Each issue carries its own scope and the contract the frontend expects;
 anything outside that scope is a separate issue.
 
-No stack has been chosen yet and no implementation has started. Until that
-changes, the unsettled decisions in `docs/GOALS.md` are the work — see the
-next section.
+**The frontend stack is decided; no implementation has started on either
+side.** The frontend is React + TypeScript on Vite, deployed as a static SPA,
+with TanStack Router and Query. It holds no signing keys, renders no reports,
+and performs no money arithmetic — see the settled items in the next section.
+**The backend stack is `tadiPro250`'s to choose**, constrained only by the
+contract those items describe.
 
 ## Before you change anything
 
-**Read `docs/GOALS.md` → "Open questions" first.** Five decisions there are
-unsettled, and each gets substantially more expensive after code exists. Three
-will block or misdirect most implementation work:
+**Read `docs/GOALS.md` → "Open questions" first.** The decisions that would
+block implementation are settled; what remains open is listed there, and none
+of it blocks a first schema.
 
-1. **Money representation is unspecified.** Do not introduce floating-point
-   currency. Errors surface only at reconciliation, and fixing it after entries
-   are hash-chained means rewriting the chain. This belongs in the first schema
-   decision, not after it.
+Settled, and binding on backend work:
 
-2. **An append-only ledger still has to handle mistakes.** Wrong amounts and
-   disputed charges cannot be fixed by editing. They need **reversing
-   entries** — a new signed, chained entry that negates an earlier one, leaving
-   both visible. No edit or delete path should be built on ledger entries.
-
-3. **"Tamper-evident" is not "tamper-proof."** Hash-chaining makes tampering
+1. **"Tamper-evident" is not "tamper-proof."** Hash-chaining makes tampering
    *detectable*, not *impossible* — whoever controls the database can recompute
    the entire chain. Do not write documentation, UI copy, or comments claiming
    the ledger is immutable or tamper-proof. The accurate word is
    **tamper-evident**, and the research uses it deliberately.
 
-If your work requires one of these resolved, say so and ask rather than
-picking a default.
+2. **Signing keys are server-held, and that makes the published chain head a
+   requirement.** The server signs on an authenticated admin's behalf; no key
+   material reaches the client. Because the operator could therefore mint an
+   approval, the design depends on **publishing the chain head outside admin
+   control** on a recurring schedule, to recipients who keep their own copies.
+   Hash-chaining inside a database the admins control detects nothing an admin
+   with database access cannot repair. Treat the published head as part of the
+   feature, not a later addition — shipping the chain without it makes the
+   product's central claim untrue. Mechanism and cadence are still open.
+
+3. **Reports are generated server-side from signed data.** An audit report
+   re-derived in the client can be altered before it is read. **Reversed
+   entries always appear in reports** — omitting them conceals what the chain
+   exists to prove.
+
+4. **Money is an integer count of the currency's minor units, with an explicit
+   ISO 4217 currency code.** ₹1,250.75 is `125075`, stored next to `"INR"`.
+   **No floating-point currency at any layer** — the errors surface at
+   reconciliation and the fix means rewriting the chain. Carry the `currency`
+   column from the first schema even though it is always `INR` today: INR is
+   the only currency now and others are future scope, but backfilling that
+   column later would touch hash-chained rows. The unit is *minor units of the
+   stated currency*, never a hardcoded ÷100 — JPY has 0 decimal places and KWD
+   has 3. The API contract is integer minor units regardless of the database
+   column type. **Rounding policy for computed amounts is still open**; decide
+   it explicitly server-side rather than inheriting a language default.
+
+5. **Corrections are new entries; nothing is ever edited or deleted.** A
+   correction references the entry it corrects, carries a **mandatory reason**,
+   and leaves the original visible and marked reversed. **No edit, delete,
+   void-in-place or soft-delete path on ledger entries** — mutating an entry
+   breaks its hash. Three operations: **reversal** (cancels), **reversal +
+   replacement** (cancels and posts the corrected amount atomically), and
+   **flag** (any resident marks an entry disputed, **no financial effect** —
+   residents raise disputes, they do not move money). Enforce server-side:
+   **an entry can be reversed at most once**, and **a reversal cannot itself be
+   reversed**. Compute balances so reversed pairs net to zero by construction
+   rather than by special-casing.
+
+6. **Approval requires at least two-thirds of admins, rounded up** —
+   `ceil(2 × M / 3)`, so 4 of 5 and 5 of 7, never 3 of 5. **This is a hard
+   floor enforced in code, not a default in a settings table.** A society may
+   configure a higher threshold; **it must never be able to configure a lower
+   one.** Reversals require the same threshold as the original entry.
+
+7. **An entry in a closed financial year cannot be reversed in that year.**
+   The reversal posts in the **current** period as an adjusting entry
+   referencing the original across the year boundary, leaving the closed year's
+   filed figures intact — reversing inside an audited period invalidates a
+   filed audit report. Any per-period total must therefore be computed from
+   entries **posted** in that period, never from the entries a reversal points
+   at.
+
+8. **"Closed" means an auditor has signed off — not an admin action, and not a
+   date rolling over.** The committee cannot close its own books, for the same
+   reason it cannot approve an entry alone. This implies **an auditor role
+   distinct from admin and resident**, and a year-close record carrying the
+   auditor's identity, signature and timestamp. Until that sign-off exists the
+   year is open and its entries reverse normally. **A date-based or
+   admin-triggered close would let the committee lock its own books, so do not
+   implement one as a convenience.**
+
+If your work requires one of the unsettled decisions resolved, say so and ask
+rather than picking a default.
 
 ## Conventions
 
@@ -133,8 +190,14 @@ worse than useless — it is misleading in a context where the whole point is
 proving nothing was hidden.
 
 **The security model only works if people can actually use it.** N-of-M
-approval and per-action digital signatures are being delivered to volunteers on
-phones, over WhatsApp, in several languages. If signing is burdensome, admins
-will share credentials — and shared credentials collapse N-of-M approval back
-into the single-person control the product exists to prevent. A security
-measure that gets worked around has made things worse, not better.
+approval and per-action signatures are being delivered to volunteers on phones.
+If signing is burdensome, admins will share credentials — and shared
+credentials collapse N-of-M approval back into the single-person control the
+product exists to prevent. A security measure that gets worked around has made
+things worse, not better.
+
+This is why keys are server-held rather than device-held: device keys would
+stop even the operator forging an approval, but losing a phone would cost an
+admin their ability to approve, and every workable recovery story reintroduces
+a shared secret. The trade was made deliberately, and the published chain head
+is what bounds it. Do not reopen it by adding client-side key generation.
