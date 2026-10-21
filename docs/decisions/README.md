@@ -1,7 +1,9 @@
 # Decision log
 
-Load-bearing decisions for ClearFunds. This directory is source of truth #2 —
-`CLAUDE.md` outranks it, nothing else does.
+Load-bearing decisions for ClearFunds. Entries here are authoritative: when a
+summary document and an entry disagree about a decision, the entry wins.
+
+For what the product is and why, see [`../GOALS.md`](../GOALS.md).
 
 ## When to write an entry
 

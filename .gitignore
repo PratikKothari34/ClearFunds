@@ -1,7 +1,6 @@
 # --- Local-only instruction + memory (never published) ---
 CLAUDE.md
 CLAUDE.local.md
-AGENTS.md
 docs/memory/
 docs/decisions/*
 !docs/decisions/README.md
