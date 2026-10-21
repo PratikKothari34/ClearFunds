@@ -39,6 +39,29 @@ Then:
 There is no source tree yet. This repository currently holds scaffolding and
 design documentation only.
 
+## Who builds what
+
+Work is split by person, not by ticket:
+
+- **Backend is `tadiPro250`'s.** Schema, migrations, server routes, the API
+  implementation, signing and chain verification on the server side.
+- **Frontend is `PratikKothari34`'s.**
+
+Stay in your lane. If your side needs something from the other, **state the
+contract you need** — endpoint, payload shape, error cases — and raise it,
+rather than implementing the other half to unblock yourself. Two
+implementations of the same boundary is worse than a blocked branch.
+
+**Backend work starts from a GitHub issue, not from this file.** Reading the
+repository is not an assignment. If there is no open issue assigned to you,
+there is nothing to build — ask for one rather than picking a starting point.
+Each issue carries its own scope and the contract the frontend expects;
+anything outside that scope is a separate issue.
+
+No stack has been chosen yet and no implementation has started. Until that
+changes, the unsettled decisions in `docs/GOALS.md` are the work — see the
+next section.
+
 ## Before you change anything
 
 **Read `docs/GOALS.md` → "Open questions" first.** Five decisions there are
@@ -76,6 +99,13 @@ picking a default.
   review, and every review thread resolved before merge. Pushing new commits
   dismisses existing approvals, so push before asking for review, not after.
   Merges are squash or rebase only.
+- **No `Co-authored-by` trailer on commits**, and no agent attribution of any
+  kind in a commit message or PR description. Some coding agents append one
+  automatically; strip it before committing. GitHub parses that trailer and
+  credits the named account as a repository contributor, which misstates
+  authorship — and removing it afterwards means rewriting pushed history, which
+  `main` forbids. Also keep absolute paths from your own machine out of commit
+  messages.
 - **Line endings** are normalized by `.gitattributes`: LF everywhere, CRLF for
   `.ps1`, `.cmd`, and `.bat`. Do not override it.
 - **Licensing: GPL-3.0** (`LICENSE`, verbatim and not to be edited).
