@@ -32,7 +32,9 @@ Then:
 - **[`docs/decisions/README.md`](docs/decisions/README.md)** — the decision log
   format, and the rule for when a decision earns an entry. Read it before
   recording a decision.
-- **`README.md`** at the root, once it exists — setup and how to run things.
+- **`README.md`** at the root — **does not exist yet.** There is nothing to
+  set up or run, so nothing to document. When a stack is chosen it gets
+  written; until then its absence is accurate, not an oversight.
 
 There is no source tree yet. This repository currently holds scaffolding and
 design documentation only.
@@ -80,9 +82,16 @@ picking a default.
   Copyright holders are listed in `COPYRIGHT`; add a contributor there rather
   than altering `LICENSE`, which would break automated license detection.
 - **Never commit secrets**, `.env` files, or build output. `.gitignore` covers
-  the common cases, but it is not a safety net you should lean on.
+  the common cases, but it is not a safety net you should lean on. **This
+  repository is public** — a pushed secret is public permanently, and deleting
+  it in a later commit does not remove it from the history.
+- **Money is not a float.** When the schema arrives, amounts are stored as
+  integer minor units or an exact decimal type. This is listed under the open
+  questions because it is unsettled, but no reading of it permits binary
+  floating point in a ledger.
 - Some paths in `.gitignore` are intentionally local to a working copy and will
-  not be present in your clone. Their absence is not a missing file.
+  not be present in your clone. Their absence is not a missing file, and
+  nothing you write should depend on one.
 
 ## A note on the domain
 
