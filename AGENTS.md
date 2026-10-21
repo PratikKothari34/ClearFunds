@@ -76,6 +76,9 @@ picking a default.
   Merges are squash or rebase only.
 - **Line endings** are normalized by `.gitattributes`: LF everywhere, CRLF for
   `.ps1`, `.cmd`, and `.bat`. Do not override it.
+- **Licensing: GPL-3.0** (`LICENSE`, verbatim and not to be edited).
+  Copyright holders are listed in `COPYRIGHT`; add a contributor there rather
+  than altering `LICENSE`, which would break automated license detection.
 - **Never commit secrets**, `.env` files, or build output. `.gitignore` covers
   the common cases, but it is not a safety net you should lean on.
 - Some paths in `.gitignore` are intentionally local to a working copy and will
