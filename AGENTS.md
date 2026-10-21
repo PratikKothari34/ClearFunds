@@ -68,6 +68,12 @@ picking a default.
   `NNNN-kebab-title.md`, numbered in order. Only load-bearing choices earn an
   entry — ones where reversing later would cost real rework. Format is in that
   directory's `README.md`.
+- **`main` is protected. Open a pull request; do not push to it.** Direct
+  pushes are rejected. Also enforced: linear history (merge commits are
+  refused, so rebase rather than merge `main` into your branch), one approving
+  review, and every review thread resolved before merge. Pushing new commits
+  dismisses existing approvals, so push before asking for review, not after.
+  Merges are squash or rebase only.
 - **Line endings** are normalized by `.gitattributes`: LF everywhere, CRLF for
   `.ps1`, `.cmd`, and `.bat`. Do not override it.
 - **Never commit secrets**, `.env` files, or build output. `.gitignore` covers
