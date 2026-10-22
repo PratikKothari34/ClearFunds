@@ -4,9 +4,10 @@ CLAUDE.local.md
 docs/memory/
 docs/decisions/*
 !docs/decisions/README.md
-docs/renameItNext
+docs/research/
 docs/subagents/
 action_report.md
+docs/github-contributors-ticket.md
 .claude/settings.local.json
 
 # --- Secrets ---
