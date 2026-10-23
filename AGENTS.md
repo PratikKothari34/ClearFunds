@@ -8,9 +8,12 @@ the files below.
 **ClearFunds** is a web app that keeps an **append-only, tamper-evident expense
 ledger for housing-society funds.**
 
-Multiple admins — treasurer, secretary, committee members — log in and approve
-entries. **No single admin can alter an entry on their own.** Residents get
-read-only access to the full transaction history with a running balance.
+Multiple admins — treasurer, secretary, president, committee members — log in
+and approve entries. **No single admin can alter an entry on their own.** The
+president has the final say on each month's expense sheet; an auditor, a role
+distinct from both admin and resident, is the only one who can close a
+financial year. Residents get read-only access to the full transaction
+history with a running balance.
 
 Built for residential housing societies of roughly 80–150 flats, in India. The
 domain vocabulary is specific: monthly maintenance dues per flat, UPI and bank
@@ -32,12 +35,15 @@ Then:
 - **[`docs/decisions/README.md`](docs/decisions/README.md)** — the decision log
   format, and the rule for when a decision earns an entry. Read it before
   recording a decision.
-- **`README.md`** at the root — **does not exist yet.** There is nothing to
-  set up or run, so nothing to document. When a stack is chosen it gets
-  written; until then its absence is accurate, not an oversight.
+- **`CONTRIBUTING.md`** at the root — the branch, review, label and commit
+  conventions, and the definition of done for each lane. Read it before
+  opening a PR.
+- **`frontend/README.md`** — how to install, run, test and build the
+  frontend. There is no root `README.md`: each lane documents its own stack,
+  because a root one would go stale on every change to either.
 
-There is no source tree yet. This repository currently holds scaffolding and
-design documentation only.
+**The frontend exists and runs.** `frontend/` holds a React 19 + TypeScript
+SPA on Vite. The backend does not exist yet.
 
 ## Who builds what
 
@@ -62,10 +68,16 @@ there is nothing to build — ask for one rather than picking a starting point.
 Each issue carries its own scope and the contract the frontend expects;
 anything outside that scope is a separate issue.
 
-**The frontend stack is decided; no implementation has started on either
-side.** The frontend is React + TypeScript on Vite, deployed as a static SPA,
-with TanStack Router and Query. It holds no signing keys, renders no reports,
-and performs no money arithmetic — see the settled items in the next section.
+**The frontend is built; the backend has not started.** The frontend is
+React 19 + TypeScript on Vite, deployed as a static SPA, with TanStack Router
+(route-level code splitting), TanStack Query, TanStack Virtual for the ledger,
+Tailwind v4 reading its theme from CSS tokens, and `react-i18next`. It holds
+no signing keys, renders no reports, and performs no money arithmetic — see
+the settled items in the next section.
+
+It currently reads sample data from one module; every place a server payload
+belongs is marked there, and the per-band `failed` props are where each
+query's error state wires in.
 **The backend stack is `tadiPro250`'s to choose**, constrained only by the
 contract those items describe.
 

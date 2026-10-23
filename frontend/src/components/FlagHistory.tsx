@@ -1,5 +1,8 @@
 import { Band } from './Band'
+import { canSeeFlagAuthor } from '../lib/identity'
+import { useViewerRole } from '../lib/viewer'
 import type { FlagLogItem } from '../lib/types'
+import { formatDate } from '../lib/dates'
 
 /**
  * An entry's question log — all of it, resolved and unresolved.
@@ -26,6 +29,8 @@ export function FlagHistory({
 }: {
   readonly entries: readonly FlagLogItem[]
 }) {
+  const showAuthor = canSeeFlagAuthor(useViewerRole())
+
   return (
     <Band heading="Questions raised" headingId="cf-entry-flags">
       {entries.length === 0 ? (
@@ -44,11 +49,22 @@ export function FlagHistory({
               <p className="m-0 max-w-[68ch]">{item.question}</p>
               <p className="m-0 text-meta text-ink-quiet">
                 {/*
-                 * The handle, or nothing. A resident payload omits the
-                 * author of another resident's question, so the absence
-                 * is the anonymity rather than a styling choice.
+                 * The handle, or nothing — checked against the viewer's
+                 * role as well as against the payload.
+                 *
+                 * A resident payload should omit the author of another
+                 * resident's question, and that omission remains the
+                 * real protection: only the server can keep a handle out
+                 * of a response. But this component rendered whatever
+                 * arrived, so a payload that over-shares — a backend
+                 * bug, a shared endpoint, one role's response reused for
+                 * another — put the identity straight on a resident's
+                 * screen. Two independent checks, because the one that
+                 * matters is not ours.
                  */}
-                {item.authorHandle ? `${item.authorHandle} · ` : ''}
+                {showAuthor && item.authorHandle
+                  ? `${item.authorHandle} · `
+                  : ''}
                 {formatDate(item.raisedAt)}
                 {' · '}
                 {item.resolvedAt ? (
@@ -71,12 +87,4 @@ export function FlagHistory({
       )}
     </Band>
   )
-}
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-IN', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  })
 }

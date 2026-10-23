@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { LedgerList } from '../components/LedgerList'
 import { LedgerSummary } from '../components/LedgerSummary'
-import { SAMPLE_LEDGER } from '../lib/sample'
+import { devLedger } from '../lib/devData'
 
 export const Route = createFileRoute('/ledger/reversed')({
   component: LedgerReversed,
@@ -22,7 +22,7 @@ export const Route = createFileRoute('/ledger/reversed')({
  * page is short.
  */
 function LedgerReversed() {
-  const entries = SAMPLE_LEDGER.filter(
+  const entries = devLedger().filter(
     (e) => e.state === 'reversed' || e.state === 'reversal',
   )
 
@@ -30,7 +30,7 @@ function LedgerReversed() {
     <>
       <LedgerSummary
         shown={entries.length}
-        total={SAMPLE_LEDGER.length}
+        total={devLedger().length}
         filterLabel="that were cancelled or that cancel another entry"
       />
       <LedgerList

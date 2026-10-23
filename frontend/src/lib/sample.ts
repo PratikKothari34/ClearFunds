@@ -56,7 +56,12 @@ export const SAMPLE_ENTRIES: readonly Entry[] = [
     direction: 'in',
     state: 'posted',
     balanceAfter: { minor: 52485000, currency: INR },
-    openFlagCount: 2,
+    // ONE, not two. This entry has two flags in SAMPLE_FLAG_LOG and f-2
+    // carries a resolvedAt, and only unresolved flags count in the
+    // figure shown to residents. The fixture said 2, which contradicted
+    // the rule the code enforces and would have made a wrong badge look
+    // correct in every screenshot and every manual check.
+    openFlagCount: 1,
     fingerprint: 'b14e0d88',
   },
   {
@@ -172,20 +177,74 @@ const FILLER_PAYEES = [
   'Ledgerly Software',
 ] as const
 
+/*
+ * The filler walks BACKWARDS in sequence (844, 843, 842 ...) because the
+ * list renders newest-first, but a running balance only makes sense
+ * walked FORWARDS. Mixing the two directions was the bug here: the loop
+ * applied each delta in array order, so entry 844's balanceAfter was
+ * computed from 845's rather than from 843's, and walking the chain in
+ * sequence order showed the balance moving the wrong way at every step.
+ *
+ * Nothing threw. The figures just did not reconcile, on the one surface
+ * where a resident is invited to check that they do — which is the whole
+ * reason the running balance is on screen. Sample data that does not
+ * add up trains everyone looking at it to stop adding it up.
+ *
+ * So the amounts are generated first, then the balance is accumulated
+ * from the OLDEST entry forwards, and only then is the array reversed
+ * into display order. The delta and the direction are decided in one
+ * place, so they cannot disagree.
+ */
 function filler(): Entry[] {
-  const out: Entry[] = []
-  let balance = 40085000
+  const OLDEST_SEQUENCE = 785
+  const COUNT = 60
 
-  for (let i = 0; i < 60; i += 1) {
-    const sequence = 844 - i
-    // Varied, deterministic amounts: no randomness, so a snapshot or a
-    // screenshot of this data is reproducible.
-    const amount = 150000 + ((i * 37_000) % 2_300_000)
-    const inbound = i % 9 === 0
+  // Oldest first: index 0 is sequence 785, index 59 is sequence 844.
+  const planned = Array.from({ length: COUNT }, (_, ascending) => {
+    // `i` is kept counting down from the newest so the amounts, dates
+    // and narrations are byte-identical to before: this fix is about
+    // the balance, and a screenshot of the ledger should not change.
+    const i = COUNT - 1 - ascending
+    return {
+      i,
+      sequence: OLDEST_SEQUENCE + ascending,
+      // Varied, deterministic amounts: no randomness, so a snapshot or a
+      // screenshot of this data is reproducible.
+      amount: 150000 + ((i * 37_000) % 2_300_000),
+      inbound: i % 9 === 0,
+    }
+  })
+
+  /*
+   * The opening balance is derived, not chosen, and the figure it is
+   * derived from is the one the hand-written entries above actually
+   * need.
+   *
+   * The oldest hand-written entry is e-845, which pays OUT Rs 12,500
+   * and reports a balanceAfter of Rs 4,00,850. So the newest filler
+   * entry (844) must leave the balance at Rs 4,00,850 + Rs 12,500, or
+   * the step from 844 into 845 moves by zero while claiming to move by
+   * the amount - which is what it did: both ended on the same figure
+   * and the two halves of the fixture met at a seam that did not
+   * reconcile.
+   */
+  const OLDEST_HANDWRITTEN_BALANCE = 40085000
+  const OLDEST_HANDWRITTEN_OUTFLOW = 1250000
+  const closingBalance =
+    OLDEST_HANDWRITTEN_BALANCE + OLDEST_HANDWRITTEN_OUTFLOW
+  const netChange = planned.reduce(
+    (sum, p) => sum + (p.inbound ? p.amount : -p.amount),
+    0,
+  )
+  let balance = closingBalance - netChange
+
+  const ascendingEntries: Entry[] = []
+
+  for (const { i, sequence, amount, inbound } of planned) {
     balance += inbound ? amount : -amount
 
     const index = i % FILLER_NARRATIONS.length
-    out.push({
+    ascendingEntries.push({
       id: `e-${sequence}`,
       sequence,
       // Dates walk backwards from the newest filler entry.
@@ -205,7 +264,9 @@ function filler(): Entry[] {
     })
   }
 
-  return out
+  // Into display order. The balance was accumulated oldest-first; the
+  // ledger reads newest-first.
+  return ascendingEntries.reverse()
 }
 
 export const SAMPLE_LEDGER: readonly Entry[] = [

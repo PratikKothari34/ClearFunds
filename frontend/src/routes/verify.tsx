@@ -1,7 +1,9 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { Band } from '../components/Band'
-import { SAMPLE_ANCHOR, SAMPLE_LEDGER } from '../lib/sample'
+import { newestEntry } from '../lib/ledger'
 import type { AnchorStatus } from '../lib/types'
+import { formatDateTime } from '../lib/dates'
+import { devAnchor, devLedger } from '../lib/devData'
 
 export const Route = createFileRoute('/verify')({
   component: Verify,
@@ -30,8 +32,13 @@ export const Route = createFileRoute('/verify')({
  * "verified".
  */
 function Verify() {
-  const status: AnchorStatus = SAMPLE_ANCHOR
-  const newest = SAMPLE_LEDGER[0]
+  const status: AnchorStatus = devAnchor()
+  // The highest sequence, NOT `devLedger()[0]`. Reading position 0 is
+  // only correct while the list happens to be sorted newest-first, and
+  // this page is the one place where naming the wrong entry as "newest
+  // here" misstates what was compared. Same bug class as the sign-off
+  // oldest-month read: derive the extreme, never trust the index.
+  const newest = newestEntry(devLedger())
 
   return (
     <>
@@ -173,14 +180,4 @@ function Result({ status }: { readonly status: AnchorStatus }) {
         </div>
       )
   }
-}
-
-function formatDateTime(iso: string): string {
-  return new Date(iso).toLocaleString('en-IN', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  })
 }

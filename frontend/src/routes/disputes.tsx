@@ -1,6 +1,9 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { Band } from '../components/Band'
-import { SAMPLE_FLAG_LOG, SAMPLE_LEDGER } from '../lib/sample'
+import { canSeeFlagAuthor } from '../lib/identity'
+import { useViewerRole } from '../lib/viewer'
+import { formatDate } from '../lib/dates'
+import { devFlagLog, devLedger } from '../lib/devData'
 
 export const Route = createFileRoute('/disputes')({
   component: Disputes,
@@ -23,7 +26,12 @@ export const Route = createFileRoute('/disputes')({
  * record, the count is a to-do list.
  */
 function Disputes() {
-  const all = Object.entries(SAMPLE_FLAG_LOG).flatMap(([entryId, items]) =>
+  // Residents are anonymous to each other; the committee sees who asked.
+  // Decided once here and passed down, so the two lists below cannot
+  // disagree about it.
+  const showAuthor = canSeeFlagAuthor(useViewerRole())
+
+  const all = Object.entries(devFlagLog()).flatMap(([entryId, items]) =>
     items.map((item) => ({ ...item, entryId })),
   )
 
@@ -56,7 +64,9 @@ function Disputes() {
               >
                 <p className="m-0 max-w-[68ch]">{item.question}</p>
                 <p className="m-0 text-meta text-ink-quiet">
-                  {item.authorHandle ? `${item.authorHandle} · ` : ''}
+                  {showAuthor && item.authorHandle
+                    ? `${item.authorHandle} · `
+                    : ''}
                   {formatDate(item.raisedAt)}
                   {' · '}
                   <Link
@@ -115,14 +125,6 @@ function Disputes() {
  * rows this device happens to hold.
  */
 function describeEntry(entryId: string): string {
-  const entry = SAMPLE_LEDGER.find((e) => e.id === entryId)
+  const entry = devLedger().find((e) => e.id === entryId)
   return entry ? entry.narration : `Entry ${entryId}`
-}
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-IN', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  })
 }

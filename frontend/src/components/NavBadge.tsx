@@ -23,7 +23,21 @@ export function NavBadge({
   readonly count: number
   readonly label: string
 }) {
-  if (count <= 0) return null
+  /*
+   * `count <= 0` alone is not enough, because EVERY comparison against
+   * NaN is false. A NaN count — a figure arriving as a string the server
+   * did not mean to send, a subtraction against a missing field, a
+   * JSON null coerced with +— sailed straight past that guard and
+   * rendered "NaN" in the badge and "NaNNaN items need you in
+   * Approvals" to a screen reader.
+   *
+   * It must also be an integer: 2.5 items need nobody, and a
+   * fractional badge means the figure was computed from something it
+   * should not have been. Refusing to render is right either way — a
+   * missing badge says "nothing is known to be waiting", which is
+   * honest, where a wrong one is not.
+   */
+  if (!Number.isInteger(count) || count <= 0) return null
 
   const shown = count > BADGE_CAP ? `${BADGE_CAP}+` : String(count)
 

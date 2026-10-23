@@ -1,6 +1,7 @@
 import { Link } from '@tanstack/react-router'
 import { Amount } from './Amount'
 import type { Entry } from '../lib/types'
+import { formatDate } from '../lib/dates'
 
 /**
  * One ledger row — and, when an entry has been reversed, ONE row
@@ -90,19 +91,33 @@ export function EntryRow({ entry }: { readonly entry: Entry }) {
       {/*
        * The reversal, inside the same row item. Indented and in --break
        * so the relationship is visible without a connecting line.
+       *
+       * Gated on `reversed` ALONE, not on `reversed && reversedBy`. The
+       * row is already struck through at this point, so gating the whole
+       * block on the link meant a reversed entry that arrived without one
+       * rendered as cancelled with NO reason and no explanation — the one
+       * thing a mandatory-reason rule exists to put on screen. The link
+       * and the date are what degrade when `reversedBy` is missing; the
+       * reason is not.
        */}
-      {reversed && entry.reversedBy && (
+      {reversed && (
         <p className="m-0 pl-(--cf-s2) border-l-2 border-break text-meta text-break max-w-[68ch]">
-          Cancelled on {formatDate(entry.reversedBy.postedAt)}
+          {entry.reversedBy
+            ? `Cancelled on ${formatDate(entry.reversedBy.postedAt)}`
+            : 'Cancelled'}
           {entry.reversalReason && <>: {entry.reversalReason}</>}
-          {' '}
-          <Link
-            to="/ledger/$entryId"
-            params={{ entryId: entry.reversedBy.id }}
-            className="underline decoration-1 underline-offset-2"
-          >
-            See the correction
-          </Link>
+          {entry.reversedBy && (
+            <>
+              {' '}
+              <Link
+                to="/ledger/$entryId"
+                params={{ entryId: entry.reversedBy.id }}
+                className="underline decoration-1 underline-offset-2"
+              >
+                See the correction
+              </Link>
+            </>
+          )}
         </p>
       )}
 
@@ -140,12 +155,4 @@ export function EntryRow({ entry }: { readonly entry: Entry }) {
       )}
     </article>
   )
-}
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-IN', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  })
 }

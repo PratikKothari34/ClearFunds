@@ -3,7 +3,8 @@ import { Amount } from '../components/Amount'
 import { Band } from '../components/Band'
 import { Fingerprint } from '../components/Fingerprint'
 import { FlagHistory } from '../components/FlagHistory'
-import { SAMPLE_FLAG_LOG, SAMPLE_LEDGER } from '../lib/sample'
+import { formatDate, formatDateTime } from '../lib/dates'
+import { devFlagLog, devLedger } from '../lib/devData'
 
 export const Route = createFileRoute('/ledger/$entryId')({
   component: EntryDetail,
@@ -23,7 +24,7 @@ export const Route = createFileRoute('/ledger/$entryId')({
  */
 function EntryDetail() {
   const { entryId } = Route.useParams()
-  const entry = SAMPLE_LEDGER.find((e) => e.id === entryId)
+  const entry = devLedger().find((e) => e.id === entryId)
 
   if (!entry) {
     return (
@@ -44,7 +45,7 @@ function EntryDetail() {
   }
 
   const reversed = entry.state === 'reversed'
-  const log = SAMPLE_FLAG_LOG[entry.id] ?? []
+  const log = devFlagLog()[entry.id] ?? []
 
   return (
     <>
@@ -141,22 +142,4 @@ function EntryDetail() {
       <FlagHistory entries={log} />
     </>
   )
-}
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-IN', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  })
-}
-
-function formatDateTime(iso: string): string {
-  return new Date(iso).toLocaleString('en-IN', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  })
 }

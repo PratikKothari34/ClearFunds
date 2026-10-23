@@ -2,6 +2,7 @@ import { Band } from '../Band'
 import { Amount } from '../Amount'
 import { BandFallback } from './BandFallback'
 import type { Money } from '../../lib/types'
+import { formatDate } from '../../lib/dates'
 
 /**
  * Band 1. Never collapses, never has a label above the figure.
@@ -72,10 +73,3 @@ export function BalanceBand({
  * a date, and a short month name because 10/11 is ambiguous between two
  * conventions in a product that will be read by an auditor.
  */
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-IN', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  })
-}

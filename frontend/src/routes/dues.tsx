@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { Amount } from '../components/Amount'
 import { Band } from '../components/Band'
-import { SAMPLE_DUES } from '../lib/sample'
+import { devDues } from '../lib/devData'
 
 export const Route = createFileRoute('/dues')({
   component: Dues,
@@ -25,7 +25,7 @@ export const Route = createFileRoute('/dues')({
  * number is the worst kind to get wrong.
  */
 function Dues() {
-  const rows = SAMPLE_DUES
+  const rows = devDues()
   const owing = rows.filter((r) => r.outstanding.minor > 0)
 
   return (

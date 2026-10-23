@@ -1,7 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { Band } from '../components/Band'
-import { SAMPLE_REPORTS } from '../lib/sample'
 import type { ReportSummary } from '../lib/types'
+import { formatDate } from '../lib/dates'
+import { devReports } from '../lib/devData'
 
 export const Route = createFileRoute('/reports')({
   component: Reports,
@@ -22,7 +23,7 @@ export const Route = createFileRoute('/reports')({
  * right.
  */
 function Reports() {
-  const reports = SAMPLE_REPORTS
+  const reports = devReports()
 
   return (
     <>
@@ -77,12 +78,4 @@ function ReportRow({ report }: { readonly report: ReportSummary }) {
       </button>
     </li>
   )
-}
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-IN', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  })
 }

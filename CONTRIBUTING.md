@@ -43,9 +43,9 @@ ClearFunds/
 └── LICENSE  COPYRIGHT  .gitattributes  .gitignore                                → both
 ```
 
-`frontend/`, `backend/` and `contracts/` do not exist yet. **Each one is
-created by its owner's first PR.** Nobody creates a placeholder in the other
-person's lane, and that includes empty directories and READMEs.
+`frontend/` exists. `backend/` and `contracts/` do not yet — **each is created
+by its owner's first PR.** Nobody creates a placeholder in the other person's
+lane, and that includes empty directories and READMEs.
 
 ### 1.1 Owners by path
 
@@ -80,7 +80,7 @@ two disagree, fix CODEOWNERS in its own PR.
 | `contracts/README.md` | Both | A new kind of contract file is introduced |
 | `contracts/CHANGELOG.md` | Both | **Every** contract PR appends exactly one line (§6) |
 | `.github/pull_request_template.md`, `.github/ISSUE_TEMPLATE/*.md` | Both | The process in this file changes |
-| `CLAUDE.md`, `CLAUDE.local.md`, `docs/memory/` and the other local-only paths in `.gitignore` | Each person's own copy | Never committed. Nothing committed may depend on them |
+| Anything `.gitignore` excludes | Each person's own copy | Never committed, so **nothing committed may depend on one.** If a doc, script or test needs it, it does not work from a clean clone |
 
 A lane README is part of that lane's definition of done (§7). If your PR
 changes how your side runs, the README changes in the same PR.
@@ -222,9 +222,11 @@ gh repo edit $R --default-branch dev
 # 2. Replace the existing main ruleset (id 25568002) and add dev's
 gh api -X PUT  repos/$R/rulesets/25568002 --input .github/rulesets/main.json
 gh api -X POST repos/$R/rulesets          --input .github/rulesets/dev.json
-# 3. Labels (§5.3)
+# 3. Labels (§5.3). Only the ones GitHub does not create by default:
+#    `bug` and `documentation` already exist on a new repo — reuse them
+#    rather than adding a second label that means the same thing.
 for l in "frontend:1d76db" "backend:5319e7" "contract:fbca04" "decision:0e8a16" \
-         "blocked:b60205" "docs:0075ca" "chore:c5def5"; do
+         "blocked:b60205" "chore:c5def5"; do
   gh label create "${l%%:*}" --color "${l##*:}" -R $R --force; done
 ```
 
@@ -356,7 +358,7 @@ rest) are not used.
 | `decision` | Settles an open question. Closes with a docs PR (§5.4) |
 | `bug` | Behaves wrongly. A wrong balance or a false "verified" is the worst kind |
 | `blocked` | Cannot proceed without the other person. See §5.6 |
-| `docs` | Shared documentation only |
+| `documentation` | Shared documentation only. GitHub's own label — there is no separate `docs` label, so an issue is not mislabelled by picking the wrong one of two |
 | `chore` | Tooling, CI, repo housekeeping |
 
 ### 5.4 Decisions

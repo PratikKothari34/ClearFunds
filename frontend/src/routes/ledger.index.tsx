@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { LedgerList } from '../components/LedgerList'
 import { LedgerSummary } from '../components/LedgerSummary'
-import { SAMPLE_LEDGER } from '../lib/sample'
+import { devLedger } from '../lib/devData'
 
 export const Route = createFileRoute('/ledger/')({
   component: LedgerAll,
@@ -17,8 +17,8 @@ export const Route = createFileRoute('/ledger/')({
 function LedgerAll() {
   return (
     <>
-      <LedgerSummary shown={SAMPLE_LEDGER.length} total={SAMPLE_LEDGER.length} />
-      <LedgerList entries={SAMPLE_LEDGER} />
+      <LedgerSummary shown={devLedger().length} total={devLedger().length} />
+      <LedgerList entries={devLedger()} />
     </>
   )
 }

@@ -2,8 +2,9 @@ import { createFileRoute } from '@tanstack/react-router'
 import { Amount } from '../components/Amount'
 import { Band } from '../components/Band'
 import { isClosed, opinionWords, worstOpinion } from '../lib/opinion'
-import { SAMPLE_ADJUSTING, SAMPLE_AUDIT_YEARS } from '../lib/sample'
 import type { AuditYear } from '../lib/types'
+import { formatDate } from '../lib/dates'
+import { devAdjusting, devAuditYears } from '../lib/devData'
 
 export const Route = createFileRoute('/year-end')({
   component: YearEnd,
@@ -34,7 +35,7 @@ export const Route = createFileRoute('/year-end')({
  * the AGM report view shows the same words and neither copy can drift.
  */
 function YearEnd() {
-  const years = SAMPLE_AUDIT_YEARS
+  const years = devAuditYears()
   const worst = worstOpinion(years)
 
   return (
@@ -63,7 +64,7 @@ function YearEnd() {
         heading="Corrections to years already closed"
         headingId="cf-yearend-adjusting"
       >
-        {SAMPLE_ADJUSTING.length === 0 ? (
+        {devAdjusting().length === 0 ? (
           <p className="m-0 text-ink-quiet max-w-[68ch]">
             No closed year has needed a correction.
           </p>
@@ -75,7 +76,7 @@ function YearEnd() {
               general meeting.
             </p>
             <ul className="list-none m-0 p-0 flex flex-col gap-(--cf-s2)">
-              {SAMPLE_ADJUSTING.map((item) => (
+              {devAdjusting().map((item) => (
                 <li
                   key={item.entryId}
                   className="pl-(--cf-s2) border-l-2 border-attention"
@@ -125,12 +126,4 @@ function YearRow({ year }: { readonly year: AuditYear }) {
       )}
     </Band>
   )
-}
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-IN', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  })
 }

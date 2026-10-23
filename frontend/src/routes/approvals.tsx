@@ -2,8 +2,9 @@ import { createFileRoute } from '@tanstack/react-router'
 import { Amount } from '../components/Amount'
 import { Band } from '../components/Band'
 import { formatMoney } from '../lib/money'
-import { SAMPLE_APPROVALS } from '../lib/sample'
 import type { PendingApproval } from '../lib/types'
+import { formatDate } from '../lib/dates'
+import { devApprovals } from '../lib/devData'
 
 export const Route = createFileRoute('/approvals')({
   component: Approvals,
@@ -28,7 +29,7 @@ export const Route = createFileRoute('/approvals')({
  * server-side; this page would have no way to express it.
  */
 function Approvals() {
-  const pending = SAMPLE_APPROVALS
+  const pending = devApprovals()
 
   return (
     <>
@@ -128,12 +129,4 @@ function ApprovalItem({ item }: { readonly item: PendingApproval }) {
       </div>
     </Band>
   )
-}
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-IN', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  })
 }

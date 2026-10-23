@@ -1,7 +1,9 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { Amount } from '../components/Amount'
 import { Band } from '../components/Band'
-import { SAMPLE_DUES, SAMPLE_FLAG_LOG } from '../lib/sample'
+import { isFromFlat } from '../lib/identity'
+import { formatDate } from '../lib/dates'
+import { devDues, devFlagLog } from '../lib/devData'
 
 export const Route = createFileRoute('/my-flat')({
   component: MyFlat,
@@ -21,10 +23,13 @@ export const Route = createFileRoute('/my-flat')({
  */
 function MyFlat() {
   // Standing in for the viewer's own flat until auth exists.
-  const flat = SAMPLE_DUES[1]
-  const mine = Object.entries(SAMPLE_FLAG_LOG).flatMap(([entryId, items]) =>
+  const flat = devDues()[1]
+  // isFromFlat, not `.includes(flat)`: a substring test matches 'B-40'
+  // against 'B-402' and would show this resident another flat's
+  // questions, on the page that promises the opposite.
+  const mine = Object.entries(devFlagLog()).flatMap(([entryId, items]) =>
     items
-      .filter((item) => item.authorHandle?.includes(flat?.flat ?? ''))
+      .filter((item) => isFromFlat(item.authorHandle, flat?.flat))
       .map((item) => ({ ...item, entryId })),
   )
 
@@ -72,9 +77,16 @@ function MyFlat() {
           </dd>
         </dl>
 
+        {/*
+          Names the committee roles rather than two of them. The
+          president is an admin in the approval system, so "only the
+          treasurer and secretary" was a promise the product does not
+          keep — and a privacy claim that turns out to be narrower than
+          stated costs more trust than saying it plainly here.
+        */}
         <p className="mt-(--cf-s2) mb-0 text-meta text-ink-quiet">
-          As of {formatDate(flat.asOf)}. Only you and the society&rsquo;s
-          treasurer and secretary can see this.
+          As of {formatDate(flat.asOf)}. Other residents cannot see this. The
+          society&rsquo;s committee can.
         </p>
       </Band>
 
@@ -119,12 +131,4 @@ function MyFlat() {
       </Band>
     </>
   )
-}
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-IN', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  })
 }

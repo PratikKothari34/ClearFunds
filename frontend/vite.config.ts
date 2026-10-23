@@ -8,7 +8,25 @@ import { tanstackRouter } from '@tanstack/router-plugin/vite'
 // Route-level splitting is a standing budget, not a later optimization:
 // the resident read path (hero, dashboard, ledger) must not pull in
 // approvals, reports, dues, sign-off or committee management.
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
+  /*
+   * The fixture gate. `lib/devData.ts` imports `./devData.source`, which
+   * resolves to the sample data in development and to an empty module in
+   * a production build, so `lib/sample.ts` is not in the production
+   * module graph at all.
+   *
+   * This is an ALIAS rather than an `import.meta.env.DEV` branch because
+   * a branch cannot remove an import: the statement is hoisted before
+   * the dead branch is dropped, so the module stays in the graph and its
+   * strings stay in the chunk. `npm run fixtures` greps the built output
+   * and fails if any fixture string survives, so this is verified rather
+   * than assumed.
+   */
+  resolve: {
+    alias: (mode === 'production'
+      ? { './devData.source': './devData.empty' }
+      : {}) as Record<string, string>,
+  },
   plugins: [
     tanstackRouter({ target: 'react', autoCodeSplitting: true }),
     react(),
@@ -68,4 +86,4 @@ export default defineConfig({
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
   },
-})
+}))

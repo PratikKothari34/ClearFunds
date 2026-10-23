@@ -61,6 +61,20 @@ function Login() {
 
       <form
         className="w-full max-w-[22rem] flex flex-col gap-(--cf-s3)"
+        /*
+         * method="post" although nothing is posted yet.
+         *
+         * A form with no method defaults to GET-to-self, so if
+         * preventDefault is ever removed, throws, or does not run because
+         * the handler failed to hydrate, the browser navigates to
+         * ?identifier=<phone or email>&flat=<flat>. That puts a
+         * resident's identifying details in the URL bar, in browser
+         * history, in any proxy log and in the Referer of whatever loads
+         * next. POST keeps them in the body on that same accidental path.
+         * It costs nothing today and removes the failure mode entirely.
+         */
+        method="post"
+        action=""
         // Stubbed: the session endpoint does not exist. Submitting
         // does nothing rather than appearing to work.
         onSubmit={(event) => event.preventDefault()}

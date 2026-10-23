@@ -2,9 +2,9 @@ import { Link, createFileRoute } from '@tanstack/react-router'
 import { Amount } from '../components/Amount'
 import { Band } from '../components/Band'
 import { formatMoney } from '../lib/money'
-import { SAMPLE_SIGNOFF } from '../lib/sample'
 import { oldestUnsigned, waitingBehind } from '../lib/signoff'
 import type { SignoffPeriod } from '../lib/types'
+import { devSignoff } from '../lib/devData'
 
 export const Route = createFileRoute('/sign-off')({
   component: SignOff,
@@ -39,7 +39,7 @@ function SignOff() {
    * screen would look wrong. The id is `s-YYYY-MM`, so it sorts
    * lexicographically in calendar order.
    */
-  const period = oldestUnsigned(SAMPLE_SIGNOFF)
+  const period = oldestUnsigned(devSignoff())
 
   if (!period) {
     return (
@@ -55,7 +55,7 @@ function SignOff() {
   }
 
   return (
-    <PeriodSignoff period={period} waiting={waitingBehind(SAMPLE_SIGNOFF)} />
+    <PeriodSignoff period={period} waiting={waitingBehind(devSignoff())} />
   )
 }
 

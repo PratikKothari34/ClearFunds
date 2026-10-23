@@ -24,17 +24,24 @@ vocabulary is specific and worth stating plainly: maintenance dues collected
 monthly per flat, UPI and bank transfers, an annual general meeting (AGM), and
 a financial audit the society is legally required to undergo each year.
 
-Five roles, one shared need.
+Six roles, one shared need.
 
 | Role | What they need |
 |---|---|
 | Resident | Transparency and visibility — read-only |
 | Treasurer | Efficient expense management |
 | Secretary | Verification and oversight |
+| President | The final say on each month's expense sheet |
 | Committee | Shared responsibility |
 | Auditor | Reliable financial records |
 
-What all five want is the same thing: **trust and accountability.**
+What all six want is the same thing: **trust and accountability.**
+
+The president signs off each month, and that sign-off is not the same thing as
+closing the financial year — **only an auditor closes a year.** Below a
+committee-set rupee limit the treasurer and secretary approve together;
+above it, and to change the limit itself, approval is N-of-M. No role, the
+president included, moves the ledger alone.
 
 ---
 
@@ -145,9 +152,11 @@ on phones.
 
 - Simple interface
 - Mobile-first
-- WhatsApp integration
 - Multiple languages
 - Onboarding and training for committee members
+- WhatsApp integration — **future scope, not a current delivery channel.**
+  Nothing in the product reaches a resident through WhatsApp today, so no
+  reach or onboarding claim may assume it
 
 ---
 

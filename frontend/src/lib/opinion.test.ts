@@ -116,6 +116,46 @@ describe('worstOpinion', () => {
     expect(worstOpinion([year('2026-27'), year('2025-26')])).toBeUndefined()
     expect(worstOpinion([])).toBeUndefined()
   })
+
+  it('never promotes an opinion value it does not recognise to the headline', () => {
+    /*
+     * An unranked value - 'unqualified' is the real-world term a
+     * backend or an auditor's own system might send for what this
+     * product calls 'clean' - has no entry in OPINION_RANK, so the
+     * comparison against it is `undefined > n`, which is false. It is
+     * therefore skipped rather than ranked.
+     *
+     * Skipping is the safe direction: the headline can only ever be a
+     * value this product knows the severity of, so it cannot print a
+     * word whose seriousness it cannot order. The cost is that a value
+     * nobody here recognised is INVISIBLE in the headline, which is
+     * why the wire contract must be a fixed enum and not free text -
+     * stated here so the constraint is testable rather than assumed.
+     */
+    const unranked = [
+      { year: '2025-26', opinion: 'unqualified' },
+    ] as unknown as AuditYear[]
+    expect(worstOpinion(unranked)).toBeUndefined()
+  })
+
+  it('still finds the worst known opinion when an unknown one sits beside it', () => {
+    // The unknown value must not mask a real one, and must not win.
+    const mixed = [
+      { year: '2025-26', opinion: 'unqualified' },
+      { year: '2024-25', opinion: 'disclaimer' },
+    ] as unknown as AuditYear[]
+    expect(worstOpinion(mixed)).toBe('disclaimer')
+  })
+
+  it('treats a null opinion from JSON as no opinion, not as clean', () => {
+    // JSON has no undefined. `if (!year.opinion) continue` catches
+    // both, which is what makes an open year stay out of the headline.
+    const asJson = [
+      { year: '2026-27', opinion: null },
+      { year: '2025-26', opinion: 'qualified' },
+    ] as unknown as AuditYear[]
+    expect(worstOpinion(asJson)).toBe('qualified')
+  })
 })
 
 describe('isClosed', () => {

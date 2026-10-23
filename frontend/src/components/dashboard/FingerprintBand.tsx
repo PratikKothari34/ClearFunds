@@ -1,6 +1,7 @@
 import { Link } from '@tanstack/react-router'
 import { Band } from '../Band'
 import type { AnchorStatus } from '../../lib/types'
+import { formatDate } from '../../lib/dates'
 
 /**
  * Band 3. Never collapses — absence would read as a pass.
@@ -218,12 +219,4 @@ function VerifyLink() {
       </Link>
     </p>
   )
-}
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-IN', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  })
 }

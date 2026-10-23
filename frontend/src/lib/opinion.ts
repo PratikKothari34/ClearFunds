@@ -56,12 +56,41 @@ export function worstOpinion(
   years: readonly AuditYear[],
 ): OpinionSeverity | undefined {
   let worst: OpinionSeverity | undefined
+  let worstRank = -1
+
   for (const year of years) {
     if (!year.opinion) continue
-    if (worst === undefined || OPINION_RANK[year.opinion] > OPINION_RANK[worst]) {
+
+    /*
+     * Every candidate is ranked, including the first one.
+     *
+     * The bug this replaces: the guard read
+     * `worst === undefined || RANK[year.opinion] > RANK[worst]`, and
+     * the left side short-circuits, so the FIRST opinion in the array
+     * was accepted without its rank ever being consulted. A value this
+     * product does not rank - 'unqualified', the real-world term an
+     * auditor's own system may send for what we call 'clean' - became
+     * the headline when it arrived first and was silently skipped when
+     * it arrived second. The headline therefore depended on array
+     * order, and could print a word whose seriousness this code cannot
+     * order against any other.
+     *
+     * An unranked value is dropped instead. That is the safe
+     * direction: the headline can only ever be a severity whose place
+     * in clean < qualified < adverse < disclaimer is known. It also
+     * means an unrecognised value is INVISIBLE here, which is why the
+     * wire contract for this field must be a closed enum and not free
+     * text.
+     */
+    const rank = OPINION_RANK[year.opinion]
+    if (typeof rank !== 'number') continue
+
+    if (rank > worstRank) {
+      worstRank = rank
       worst = year.opinion
     }
   }
+
   return worst
 }
 
@@ -74,5 +103,13 @@ export function worstOpinion(
  * today and call that closed.
  */
 export function isClosed(year: AuditYear): boolean {
-  return year.closedAt !== undefined
+  // `!= null`, NOT `!== undefined`, and the loose operator is deliberate:
+  // it is the one place in this file that catches both null and
+  // undefined. JSON has no `undefined`, so a backend that serialises an
+  // open year as `"closedAt": null` passes a `!== undefined` test and the
+  // year reads as CLOSED — which would mean the product shows a resident
+  // that an auditor signed off when no auditor has seen it, and blocks
+  // reversals in a year that is still open. The type says `?: string`,
+  // but the wire is what arrives.
+  return year.closedAt != null
 }

@@ -56,9 +56,25 @@ describe('parseMoney', () => {
     expect(parseMoney('1.234', 'KWD')!.minor).toBe(1234)
   })
 
-  it('tolerates grouping and spacing a person would type', () => {
-    expect(parseMoney('1,20,000.50', 'INR')!.minor).toBe(12000050)
+  it('tolerates the spacing a person would type', () => {
     expect(parseMoney('  400 ', 'INR')!.minor).toBe(40000)
+    // U+00A0, which is what a paste out of a spreadsheet or a PDF
+    // carries. \s does not match it, so stripping only \s left the
+    // string unparseable and the person retyping an amount they
+    // already typed correctly.
+    expect(parseMoney('1 400.50', 'INR')!.minor).toBe(140050)
+  })
+
+  it('refuses a comma rather than guessing which separator it is', () => {
+    // '12,50' is twelve rupees fifty paise to one person and twelve
+    // thousand five hundred to another, and this function cannot tell
+    // which from the string. Stripping commas picked the second
+    // reading silently, storing Rs 1,250.00 for Rs 12.50 - a 100x
+    // overstatement on an entry that looks entirely plausible in a
+    // list. Null puts the question back to the person who knows.
+    for (const ambiguous of ['12,50', '1,20,000.50', '1,250', '1,234.56']) {
+      expect(parseMoney(ambiguous, 'INR'), ambiguous).toBeNull()
+    }
   })
 
   it('keeps a negative sign', () => {
@@ -95,9 +111,17 @@ describe('formatMoney', () => {
     for (const s of ['0.01', '12.50', '1250.75', '99999.99']) {
       const m = parseMoney(s, 'INR')!
       const formatted = formatMoney(m, { showSymbol: false })
-      expect(parseMoney(formatted.replace(/[A-Z\s]/g, ''), 'INR')!.minor).toBe(
-        m.minor,
-      )
+
+      /*
+       * The commas come OUT here, which is the asymmetry on purpose.
+       * Display groups digits because a resident reads 1,20,000 faster
+       * than 120000; input refuses a comma because it cannot tell a
+       * thousands separator from a decimal point. So a round trip has
+       * to undo the grouping the formatter added, and nothing may feed
+       * a formatted string back into parseMoney in the app.
+       */
+      const digits = formatted.replace(/[A-Z\s, ]/g, '')
+      expect(parseMoney(digits, 'INR')!.minor).toBe(m.minor)
     }
   })
 
@@ -156,5 +180,109 @@ describe('formatter reuse', () => {
     formatMoney({ minor: 125000, currency: 'INR' })
     expect(formatMoney({ minor: 1250, currency: 'JPY' })).not.toContain('.')
     expect(formatMoney({ minor: 125075, currency: 'INR' })).toContain('.75')
+  })
+})
+
+describe('precision near the safe-integer ceiling', () => {
+  it('never alters the digits of an amount parseMoney would accept', () => {
+    /*
+     * The bug this caught: formatMoney divided by 10**digits in binary
+     * floating point. Above roughly 2^53/100 the gap between adjacent
+     * doubles exceeds one paisa, so 9007199254740991 printed as
+     * ...409.90 where the true value ends ...409.91 - a digit lost in
+     * the DIVISION, which is why pinning the fraction digits did not
+     * save it: Intl rounded a quotient that was already wrong.
+     *
+     * The fix hands Intl an exact decimal STRING, which it parses
+     * losslessly. parseMoney accepts anything up to MAX_SAFE_INTEGER,
+     * so format must be exact over that whole range or the two
+     * disagree about what the product can represent.
+     */
+    const wrong: number[] = []
+    for (const minor of [
+      Number.MAX_SAFE_INTEGER,
+      Number.MAX_SAFE_INTEGER - 1,
+      9_007_199_254_740_001,
+      4_503_599_627_370_497,
+      1_000_000_000_000_001,
+    ]) {
+      const out = formatMoney({ minor, currency: 'INR' }, { showSymbol: false })
+      if (out.replace(/\D/g, '') !== String(minor)) wrong.push(minor)
+    }
+    expect(wrong).toEqual([])
+  })
+
+  it('round-trips the largest amount each currency can hold', () => {
+    // Three different minor-unit scales, each at the ceiling, because
+    // the division that was wrong was by 10**digits.
+    for (const [currency, typed] of [
+      ['INR', '90071992547409.91'],
+      ['JPY', '9007199254740991'],
+      ['KWD', '9007199254740.991'],
+    ] as const) {
+      const m = parseMoney(typed, currency)
+      expect(m, `${currency} ${typed} parses`).not.toBeNull()
+      const digits = formatMoney(m!, { showSymbol: false }).replace(/\D/g, '')
+      expect(digits, `${currency} round trip`).toBe(String(m!.minor))
+    }
+  })
+})
+
+describe('negative zero', () => {
+  it('parseMoney does not return a signed zero', () => {
+    /*
+     * '-0' and '-0.00' are things a person types mid-correction. A -0
+     * compares equal to 0 while reading as negative to every sign
+     * test, so `minor < 0 ? 'debit' : 'credit'` and
+     * `Object.is(minor, -0)` disagree about the same value.
+     */
+    for (const typed of ['-0', '-0.00', '-0.0']) {
+      const m = parseMoney(typed, 'INR')
+      expect(m, typed).not.toBeNull()
+      expect(Object.is(m!.minor, -0), typed).toBe(false)
+      expect(m!.minor, typed).toBe(0)
+    }
+  })
+
+  it('formatMoney prints no minus sign for a zero that arrived signed', () => {
+    // Intl formats -0 as "-Rs 0.00". A minus in front of a zero
+    // balance reads as the society being very slightly overdrawn.
+    expect(formatMoney({ minor: -0, currency: 'INR' })).not.toContain('-')
+    expect(formatParts({ minor: -0, currency: 'INR' }).integer).not.toContain(
+      '-',
+    )
+  })
+})
+
+describe('a malformed currency code from the server', () => {
+  it('degrades instead of throwing, so one bad field does not blank the route', () => {
+    /*
+     * `new Intl.NumberFormat(locale, { currency: '' })` throws a
+     * RangeError. Thrown during render it takes down the whole route -
+     * the ledger, the balance, every amount on screen - over one
+     * malformed field, where showing the digits without a symbol would
+     * have told the resident almost everything they came for.
+     */
+    for (const bad of ['', 'rupees', 'IN', 'INRR', '123']) {
+      expect(
+        () => formatMoney({ minor: 125075, currency: bad }),
+        bad,
+      ).not.toThrow()
+      expect(() => formatParts({ minor: 125075, currency: bad }), bad).not.toThrow()
+      // And the digits still survive, which is the point of degrading
+      // rather than rendering nothing.
+      expect(
+        formatMoney({ minor: 125075, currency: bad }).replace(/\D/g, ''),
+        bad,
+      ).toContain('125075')
+    }
+  })
+
+  it('still reports a usable minor-unit scale for an unknown currency', () => {
+    // minorUnitDigits throws from the same constructor. Falling back to
+    // 2 is a guess, but a guess that keeps the page up and is right for
+    // most currencies; throwing is right for none.
+    expect(() => minorUnitDigits('')).not.toThrow()
+    expect(minorUnitDigits('')).toBe(2)
   })
 })

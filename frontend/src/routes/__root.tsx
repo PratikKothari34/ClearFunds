@@ -4,7 +4,9 @@ import { AppShell } from '../components/AppShell'
 import { Hero } from '../components/Hero'
 import { RoleSwitch } from '../components/RoleSwitch'
 import { countsFor } from '../lib/counts'
+import { devCounts } from '../lib/devCounts'
 import { useBoot } from '../lib/useBoot'
+import { ViewerRoleContext } from '../lib/viewer'
 import type { Role, Viewer } from '../lib/types'
 
 export const Route = createRootRoute({
@@ -78,7 +80,18 @@ function RootLayout() {
   }
 
   return (
-    <>
+    /*
+      The role provider wraps the whole shell, because the surfaces that
+      branch on it are nested several levels down — the disputes list and
+      an entry's question log both decide whether to show who asked.
+
+      Deliberately NOT wrapped around the bare-route branch above. That
+      branch returns before this point, so /login gets the context
+      default, which is `resident` — the least privileged role. A screen
+      rendered outside the provider hides identities instead of showing
+      them, so forgetting the provider is never the leak.
+    */
+    <ViewerRoleContext.Provider value={role}>
       {/*
         The first focusable thing on the page. A resident using a
         keyboard or a screen reader should not have to walk the whole
@@ -95,7 +108,22 @@ function RootLayout() {
         Skip to content
       </a>
 
-      <AppShell viewer={viewer} counts={countsFor(role)}>
+      {/*
+        Badge figures come from the fixtures in development and from
+        nothing at all in a production build, which is why the gate is
+        here rather than inside countsFor.
+
+        `import.meta.env.DEV` is replaced by a literal at build time and
+        the dead branch is tree-shaken, so the fixture — every flat's
+        questions and dues — is absent from the production bundle
+        instead of merely unused in it. countsFor with no sources
+        returns an empty map, and an absent figure renders no badge
+        rather than a zero: a zero claims nothing is waiting.
+      */}
+      <AppShell
+        viewer={viewer}
+        counts={import.meta.env.DEV ? devCounts(role) : countsFor(role)}
+      >
         {/*
           Development only, and compiled out of a production build
           entirely rather than hidden. It sits inside the shell so the
@@ -104,6 +132,6 @@ function RootLayout() {
         <RoleSwitch role={role} onChange={setRole} />
         <Outlet />
       </AppShell>
-    </>
+    </ViewerRoleContext.Provider>
   )
 }
