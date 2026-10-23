@@ -47,6 +47,10 @@ Work is split by person, not by ticket:
   implementation, signing and chain verification on the server side.
 - **Frontend is `PratikKothari34`'s.**
 
+Directory ownership follows the split: `frontend/` is Pratik's, `backend/` is
+Prem's, and `contracts/`, `docs/` and the root files are shared. The full
+table is in [`CONTRIBUTING.md`](CONTRIBUTING.md) §1.1.
+
 Stay in your lane. If your side needs something from the other, **state the
 contract you need** — endpoint, payload shape, error cases — and raise it,
 rather than implementing the other half to unblock yourself. Two
@@ -380,12 +384,15 @@ rather than picking a default.
   `NNNN-kebab-title.md`, numbered in order. Only load-bearing choices earn an
   entry — ones where reversing later would cost real rework. Format is in that
   directory's `README.md`.
-- **`main` is protected. Open a pull request; do not push to it.** Direct
-  pushes are rejected. Also enforced: linear history (merge commits are
-  refused, so rebase rather than merge `main` into your branch), one approving
-  review, and every review thread resolved before merge. Pushing new commits
-  dismisses existing approvals, so push before asking for review, not after.
-  Merges are squash or rebase only.
+- **How work moves is in [`CONTRIBUTING.md`](CONTRIBUTING.md): lanes and
+  directory ownership, issues, branches, PRs and contracts.** In short:
+  every change starts from an issue in your lane; branch
+  `<area>/<issue>-<slug>` from `dev`; open the PR into `dev`, where it is
+  squash-merged after the other person approves. `main` only receives `dev`
+  through a promote PR. Neither branch takes direct pushes, and nobody,
+  the admin included, merges without the other person's approval. Pushing new
+  commits dismisses existing approvals, so push before asking for review, not
+  after.
 - **No `Co-authored-by` trailer on commits**, and no agent attribution of any
   kind in a commit message or PR description. Some coding agents append one
   automatically; strip it before committing. GitHub parses that trailer and

@@ -1,0 +1,34 @@
+# ClearFunds: code owners
+#
+# Ownership table of record. Prose version and the reasoning: CONTRIBUTING.md
+# section 1.1.
+#
+#   @PratikKothari34  ->  Pratik V Kothari          frontend, repository owner
+#   @tadiPro250       ->  Prem Prateek Tadinada     backend
+#
+# Code-owner review is deliberately NOT required by the rulesets
+# (CONTRIBUTING.md section 3.4). With two people the one required approval is
+# always the other person already; requiring the code owner would make a PR in
+# your own lane wait for your own approval, which GitHub never allows. This file
+# still matters: it auto-requests the lane owner when the other person crosses
+# into their lane, and it is the ownership record.
+#
+# Rules for editing this file:
+#   1. LAST matching pattern wins, not the most specific. The catch-all stays
+#      first.
+#   2. No `!` negation and no `[a-z]` ranges. Both are ignored without an error.
+#   3. Changing a handle is a change of ownership. Make it its own PR.
+#   4. After editing, open the file in the GitHub UI, which reports syntax errors.
+
+# ---- catch-all and shared paths: both ----
+*                       @PratikKothari34 @tadiPro250
+
+# ---- lanes ----
+/frontend/              @PratikKothari34
+/docs/frontend/         @PratikKothari34
+
+/backend/               @tadiPro250
+/docs/backend/          @tadiPro250
+
+# ---- the boundary: both, always (CONTRIBUTING.md section 6) ----
+/contracts/             @PratikKothari34 @tadiPro250
