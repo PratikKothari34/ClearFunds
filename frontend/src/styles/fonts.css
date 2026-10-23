@@ -1,0 +1,93 @@
+/*
+ * Faces, declared by hand rather than by importing Fontsource's CSS.
+ *
+ * Fontsource ships one stylesheet per family covering every subset it
+ * has. Importing that pulls Cyrillic, Greek and Vietnamese into the
+ * default payload for an audience that reads none of them. The design
+ * budget is written against mid-range Android on patchy 4G, so the
+ * default payload carries the Latin subset and nothing else.
+ *
+ * Devanagari is NOT here. Source Sans 3 has no Devanagari coverage, so
+ * Hindi and Marathi need a separate family, and loading it by default
+ * would double the font payload for the majority who do not switch
+ * locale. It lives in fonts.devanagari.css, imported by the i18n layer
+ * only when the locale selects it.
+ *
+ * Every face is `font-display: swap`: the system fallback renders
+ * immediately and is replaced when the webfont lands. A resident on a
+ * slow connection reads their balance in a system face rather than
+ * waiting on a blank line.
+ *
+ * The fallback metrics below are not decoration. Without them the swap
+ * reflows the page, which on the dashboard moves the amount a resident
+ * is reading mid-glance. The adjust values match each face to its
+ * declared fallback so the two occupy near-identical space.
+ */
+
+@font-face {
+  font-family: 'Source Sans 3';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/source-sans-3-latin-400-normal.woff2') format('woff2');
+  /* Latin, punctuation and the currency range. No Devanagari: the face
+     has none, so claiming it would suppress the fallback and render
+     tofu. */
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6,
+    U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20B9, U+2074,
+    U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Source Sans 3';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fonts/source-sans-3-latin-500-normal.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6,
+    U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20B9, U+2074,
+    U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* Band headings only, one weight. A second weight would be 20 KB for a
+   distinction nothing in the design makes. */
+@font-face {
+  font-family: 'Source Serif 4';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/source-serif-4-latin-400-normal.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6,
+    U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20B9, U+2074,
+    U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/*
+ * Metric-matched fallbacks, so the swap does not reflow.
+ *
+ * `size-adjust` and the metric overrides make the system face occupy
+ * the same vertical space as the webfont. Without them the amount on
+ * the dashboard shifts when the font lands.
+ *
+ * These families are referenced from the font stacks in index.css, and
+ * must come BEFORE the generic family there, not instead of it: an
+ * override family with no local face resolves to nothing.
+ */
+@font-face {
+  font-family: 'Source Sans 3 Fallback';
+  src: local('Segoe UI'), local('Roboto'), local('Helvetica Neue'),
+    local('Arial');
+  size-adjust: 97.5%;
+  ascent-override: 93%;
+  descent-override: 27%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: 'Source Serif 4 Fallback';
+  src: local('Georgia'), local('Times New Roman'), local('Noto Serif');
+  size-adjust: 96%;
+  ascent-override: 95%;
+  descent-override: 29%;
+  line-gap-override: 0%;
+}

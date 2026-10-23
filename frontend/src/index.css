@@ -1,0 +1,122 @@
+@import 'tailwindcss';
+@import './styles/tokens.css';
+@import './styles/fonts.css';
+
+/*
+ * Tailwind v4 reads its theme from CSS, not a JS config. These map the
+ * nine tokens onto utility names so `text-ink` and `bg-surface` work and
+ * nothing in a component needs a raw hex.
+ */
+@theme inline {
+  --color-surface: var(--cf-surface);
+  --color-ink: var(--cf-ink);
+  --color-ink-quiet: var(--cf-ink-quiet);
+  --color-rule: var(--cf-rule);
+  --color-credit: var(--cf-credit);
+  --color-debit: var(--cf-debit);
+  --color-attention: var(--cf-attention);
+  --color-anchor: var(--cf-anchor);
+  --color-break: var(--cf-break);
+
+  --font-sans: var(--cf-sans);
+  --font-serif: var(--cf-serif);
+  --font-mono: var(--cf-mono);
+
+  --text-meta: var(--cf-t-meta);
+  --text-body: var(--cf-t-body);
+  --text-head: var(--cf-t-head);
+  --text-sub: var(--cf-t-sub);
+  --text-big: var(--cf-t-big);
+  /*
+   * `figure`, not `balance`. Tailwind already ships `.text-balance` for
+   * `text-wrap: balance`, so a font-size utility of that name generates
+   * a second rule with the same selector and the built-in wins on
+   * source order — the 39px balance figure would silently render at
+   * 16px, with nothing in the build to say so.
+   */
+  --text-figure: var(--cf-t-figure);
+}
+
+/*
+ * color-scheme is set from data-theme rather than declared `light dark`,
+ * so form controls and scrollbars follow the chosen theme instead of the
+ * OS when the two disagree.
+ */
+:root {
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+}
+
+html {
+  /* 16px is the floor for any figure a resident checks. */
+  font-size: 100%;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--cf-surface);
+  color: var(--cf-ink);
+  font-family: var(--cf-sans);
+  font-size: var(--cf-t-body);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/*
+ * Every money figure and every hash uses tabular figures, so digits in a
+ * column line up and a changed digit is visible in place rather than
+ * shifting the row.
+ */
+.cf-tabular {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
+/*
+ * Focus must be visible for a keyboard user and must not be suppressed to
+ * tidy up mouse interaction. --cf-anchor clears 3:1 against both surfaces.
+ */
+:focus-visible {
+  outline: 2px solid var(--cf-anchor);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/*
+ * Announced by screen readers, invisible on screen. Required because CSS
+ * line-through on a reversed entry is announced by nothing at all: the
+ * word "cancelled" has to exist in the accessibility tree.
+ */
+.cf-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Reduced motion is honoured globally, not per-component. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

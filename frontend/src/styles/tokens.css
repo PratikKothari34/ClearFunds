@@ -1,0 +1,117 @@
+/*
+ * The nine design tokens.
+ *
+ * Every ratio in the comments was computed with the WCAG 2.1 formula
+ * (L_hi + 0.05) / (L_lo + 0.05) against that theme's own --cf-surface.
+ * Body text needs 4.5:1; large text and graphical objects need 3:1.
+ *
+ * Four of these failed on first specification and the first round of
+ * replacements failed too. A token without a computed number beside it
+ * has not been checked — and a number nobody re-ran is not a computed
+ * number: 14 of the 16 first written here were wrong. The numbers below
+ * are asserted in tokens.contrast.test.ts, which parses this file, so a
+ * hex edited without its comment fails the suite.
+ *
+ * Nine is the ceiling. A tenth would need a meaning no existing token
+ * carries.
+ */
+
+:root {
+  --cf-surface: #fbfaf7; /* warm-neutral paper, not cream */
+  --cf-ink: #1a1d21; /* 16.20:1 */
+  --cf-ink-quiet: #5c6169; /* 5.97:1 never reduced in opacity */
+  --cf-rule: #8f8a7e; /* 3.30:1 graphical only, never text, never <1px */
+  --cf-credit: #1c5b4a; /* 7.61:1 deep pine, not mint */
+  --cf-debit: #8a3324; /* 7.80:1 burnt sienna, not red */
+  --cf-attention: #a8490a; /* 5.55:1 needs THIS viewer */
+  --cf-anchor: #2d4a8a; /* 8.18:1 externally published */
+  --cf-break: #8c2f39; /* 7.80:1 mismatch, gap, reversal */
+
+  /*
+   * The dark values, declared once here and only referenced below, because
+   * the two dark selectors would otherwise each carry their own copy of
+   * nine hexes and the palette would drift between them. Ratios are
+   * against --cf-d-surface, not the light surface above.
+   */
+  --cf-d-surface: #16181c;
+  --cf-d-ink: #e8e6e1; /* 14.25:1 */
+  --cf-d-ink-quiet: #9ba1a9; /* 6.83:1 never reduced in opacity */
+  --cf-d-rule: #626569; /* 3.03:1 least headroom in the palette */
+  --cf-d-credit: #5fbfa2; /* 8.01:1 */
+  --cf-d-debit: #e0836f; /* 6.47:1 */
+  --cf-d-attention: #f0a868; /* 8.89:1 */
+  --cf-d-anchor: #7fa3e0; /* 6.96:1 */
+  --cf-d-break: #de8a92; /* 6.90:1 */
+
+  /* 8px base scale: 32px between bands, 16px within. */
+  --cf-s1: 0.5rem;
+  --cf-s2: 1rem;
+  --cf-s3: 1.5rem;
+  --cf-s4: 2rem;
+  --cf-gutter: 1rem;
+
+  /* 1.25 ratio off a 16px body. 16px is the floor for any figure a
+     resident checks — not 14, not 15. */
+  --cf-t-meta: 0.8rem; /* 12.8px */
+  --cf-t-body: 1rem; /* 16px   */
+  --cf-t-head: 1.25rem; /* 20px   */
+  --cf-t-sub: 1.5625rem; /* 25px   */
+  --cf-t-big: 1.953rem; /* 31.25px */
+  --cf-t-figure: 2.4375rem; /* 39px   */
+
+  /* 'Noto Sans Devanagari' sits in the stack permanently but its
+     @font-face is only loaded on a Devanagari locale, so it costs
+     nothing until it resolves. The *-Fallback families are metric
+     matched (see fonts.css) and must precede the generic family: they
+     stop the page reflowing when the webfont swaps in. */
+  --cf-sans:
+    'Source Sans 3', 'Noto Sans Devanagari', 'Source Sans 3 Fallback',
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --cf-serif:
+    'Source Serif 4', 'Source Serif 4 Fallback', ui-serif, Georgia, serif;
+  /* Platform monospace, no webfont. A fingerprint needs a face that
+     distinguishes 0 from O and 1 from l and holds its columns, and
+     every platform face in this stack already does both. Shipping a
+     subsetted hex font would add a request to the one screen a
+     suspicious resident is already waiting on, to change nothing they
+     could name. ui-monospace resolves to SF Mono / Roboto Mono /
+     Segoe UI Mono, so the glyphs are the system's best, not a
+     fallback. */
+  --cf-mono: ui-monospace, 'Cascadia Mono', 'Segoe UI Mono', 'Roboto Mono',
+    Menlo, Consolas, monospace;
+}
+
+/*
+ * Dark is not a filtered light theme. --cf-credit and --cf-debit have
+ * separate values because an inverted red on a dark ground reads as a
+ * warning rather than a debit.
+ *
+ * Both selectors are required: the media query covers an untouched
+ * first load, the attribute covers an explicit choice. The attribute is
+ * set before first paint by an inline script in index.html.
+ */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --cf-surface: var(--cf-d-surface);
+    --cf-ink: var(--cf-d-ink);
+    --cf-ink-quiet: var(--cf-d-ink-quiet);
+    --cf-rule: var(--cf-d-rule);
+    --cf-credit: var(--cf-d-credit);
+    --cf-debit: var(--cf-d-debit);
+    --cf-attention: var(--cf-d-attention);
+    --cf-anchor: var(--cf-d-anchor);
+    --cf-break: var(--cf-d-break);
+  }
+}
+
+:root[data-theme='dark'] {
+  --cf-surface: var(--cf-d-surface);
+  --cf-ink: var(--cf-d-ink);
+  --cf-ink-quiet: var(--cf-d-ink-quiet);
+  --cf-rule: var(--cf-d-rule);
+  --cf-credit: var(--cf-d-credit);
+  --cf-debit: var(--cf-d-debit);
+  --cf-attention: var(--cf-d-attention);
+  --cf-anchor: var(--cf-d-anchor);
+  --cf-break: var(--cf-d-break);
+}

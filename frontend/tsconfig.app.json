@@ -1,0 +1,35 @@
+{
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
+    "target": "es2023",
+    "lib": ["ES2023", "DOM"],
+    "module": "esnext",
+    /* node: the contrast suite reads tokens.css off disk to check the
+       shipped stylesheet rather than a copy of its values.
+       vitest/globals: `describe`/`it`/`expect` without an import. */
+    "types": ["vite/client", "node", "vitest/globals"],
+    "allowArbitraryExtensions": true,
+    "skipLibCheck": true,
+
+    /* Strict is not optional in a product that handles money: without it
+       an undefined amount flows into a formatter as a silent NaN. */
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+
+    /* Bundler mode */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "jsx": "react-jsx",
+
+    /* Linting */
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "erasableSyntaxOnly": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  "include": ["src"]
+}
