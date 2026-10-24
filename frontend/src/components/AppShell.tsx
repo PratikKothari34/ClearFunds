@@ -18,13 +18,19 @@ import { LanguageSwitch } from './LanguageSwitch'
  * teaches a volunteer to hunt for the thing they use every month.
  *
  * `counts` drives both the badges and which items earn a mobile tab
- * slot. It comes from the dashboard payload, so the bar does not cost a
+ * slot. The ROOT ROUTE supplies it - from the fixture in development,
+ * from `countsFor` otherwise - and `DashboardData` does NOT carry it.
+ * At cutover it needs its own figures from the server, so the bar does
+ * not cost a
  * request of its own.
  */
 
 export interface AppShellProps {
   readonly viewer: Viewer
-  /** Keyed by route, from the dashboard payload. Absent means zero. */
+  /**
+   * Keyed by route. An ABSENT key renders no badge; a zero would
+   * claim nothing is waiting, which is a different statement.
+   */
   readonly counts?: Readonly<Record<string, number>>
   readonly children: ReactNode
 }

@@ -213,13 +213,13 @@ export interface ReportSummary {
 }
 
 /**
- * The fingerprint band's data. Two dates, never a one-word status: a
- * resident is told when the record was published and when this device
- * last compared against it.
- */
-/**
  * The result of comparing this device's view against the chain head
  * published outside the committee's control.
+ *
+ * This is the fingerprint band's data: TWO DATES, never a one-word
+ * status. A resident is told when the record was published and when
+ * this device last compared against it, because a single word like
+ * "verified" hides which of those two things is stale.
  *
  * A UNION, not one shape with a `state` tag, because the states do not
  * all know the same things. `unreachable` is the case that forces it:

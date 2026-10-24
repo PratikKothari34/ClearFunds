@@ -1,5 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { Band } from '../components/Band'
+import { BandFallback } from '../components/BandFallback'
 import type { ReportSummary } from '../lib/types'
 import { formatDate } from '../lib/dates'
 import { devReports } from '../lib/devData'
@@ -25,6 +26,25 @@ export const Route = createFileRoute('/reports')({
 function Reports() {
   const reports = devReports()
 
+  /*
+   * Absent, and separately empty — this page had NEITHER branch.
+   *
+   * An empty list rendered the "Available" heading above nothing at
+   * all, which reads as a rendering fault rather than an answer, and a
+   * failed read rendered the same thing. Both now say which one it is,
+   * because "no report has been generated yet" is an ordinary state
+   * for a new society and "the list did not load" is not.
+   */
+  if (reports === null) {
+    return (
+      <BandFallback
+        heading="Reports could not be loaded"
+        headingId="cf-reports-absent"
+        explanation="The list of reports did not load. This does not mean no reports exist — it means the list was not reached. Nothing has been generated or changed."
+      />
+    )
+  }
+
   return (
     <>
       <Band>
@@ -38,11 +58,19 @@ function Reports() {
       </Band>
 
       <Band heading="Available" headingId="cf-reports-list">
-        <ul className="list-none m-0 p-0 flex flex-col gap-(--cf-s3)">
-          {reports.map((report) => (
-            <ReportRow key={report.id} report={report} />
-          ))}
-        </ul>
+        {reports.length === 0 ? (
+          <p className="m-0 text-ink-quiet max-w-[68ch]">
+            No report has been generated yet. A report is produced from the
+            recorded entries at the time you download it, so one can be
+            generated as soon as there are entries to report on.
+          </p>
+        ) : (
+          <ul className="list-none m-0 p-0 flex flex-col gap-(--cf-s3)">
+            {reports.map((report) => (
+              <ReportRow key={report.id} report={report} />
+            ))}
+          </ul>
+        )}
       </Band>
     </>
   )

@@ -27,7 +27,8 @@ export function LanguageSwitch() {
     setPending(true)
     try {
       // On a Devanagari locale this awaits the font chunk. The select
-      // stays interactive and the label changes only once the switch
+      // is disabled for the moment it takes, and the label changes
+      // only once the switch
       // has actually happened, so a slow connection shows the old
       // language rather than an untranslated page in the new one.
       await setLocale(next)

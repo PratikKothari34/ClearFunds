@@ -1,6 +1,7 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { Amount } from '../components/Amount'
 import { Band } from '../components/Band'
+import { BandFallback } from '../components/BandFallback'
 import { Fingerprint } from '../components/Fingerprint'
 import { FlagHistory } from '../components/FlagHistory'
 import { formatDate, formatDateTime } from '../lib/dates'
@@ -24,7 +25,30 @@ export const Route = createFileRoute('/ledger/$entryId')({
  */
 function EntryDetail() {
   const { entryId } = Route.useParams()
-  const entry = devLedger().find((e) => e.id === entryId)
+  const ledger = devLedger()
+
+  /*
+   * ABSENT BEFORE NOT-FOUND, and the order matters here more than
+   * anywhere else.
+   *
+   * With a null ledger a `.find` returns undefined, so the branch
+   * below fires and tells a resident "There is no entry with that
+   * reference" — about an entry that exists, reached from a link in
+   * an AGM report they were handed. Denying a record exists is the
+   * precise opposite of what a tamper-evident ledger is for, and it
+   * would be the product's own fault presented as the record's.
+   */
+  if (ledger === null) {
+    return (
+      <BandFallback
+        heading="This entry could not be loaded"
+        headingId="cf-entry-absent"
+        explanation="The history did not load, so this entry cannot be shown. This is NOT a statement that the entry does not exist. Try again, or open the history and find it there."
+      />
+    )
+  }
+
+  const entry = ledger.find((e) => e.id === entryId)
 
   if (!entry) {
     return (
@@ -45,7 +69,11 @@ function EntryDetail() {
   }
 
   const reversed = entry.state === 'reversed'
-  const log = devFlagLog()[entry.id] ?? []
+  // `?.` then `?? []`: a null flag log means the questions were not
+  // fetched, which this surface already renders as no questions. The
+  // entry itself is on screen, so a fallback band here would hide the
+  // record to report a missing sidebar.
+  const log = devFlagLog()?.[entry.id] ?? []
 
   return (
     <>

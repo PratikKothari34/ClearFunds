@@ -1,7 +1,11 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { Amount } from '../components/Amount'
 import { Band } from '../components/Band'
+import { BandFallback } from '../components/BandFallback'
 import { devDues } from '../lib/devData'
+import { canSeeAllDues } from '../lib/identity'
+import { useViewerRole } from '../lib/viewer'
+import { Link } from '@tanstack/react-router'
 
 export const Route = createFileRoute('/dues')({
   component: Dues,
@@ -15,6 +19,17 @@ export const Route = createFileRoute('/dues')({
  * of a resident payload at all — not hidden, absent. Residents see
  * their own position on their own flat page.
  *
+ * THE ROLE CHECK IS NOT DECORATION. This page carried the sentence
+ * "Residents see only their own flat" while having no check at all:
+ * viewing it as a resident rendered every flat's arrears under a line
+ * promising the opposite. `nav.ts` filters the menu, and says in its
+ * own header that its filtering is cosmetic and nothing in it is a
+ * permission check — a URL typed by hand skips the menu entirely.
+ *
+ * The client check is depth. The server must refuse the payload: a
+ * resident who edits their own bundle still must not be able to make
+ * the table arrive.
+ *
  * A real table here, unlike the ledger: the rows are homogeneous, short
  * and compared column against column, which is exactly what a table is
  * for. The ledger is not that, which is why it is not one.
@@ -25,8 +40,55 @@ export const Route = createFileRoute('/dues')({
  * number is the worst kind to get wrong.
  */
 function Dues() {
+  const role = useViewerRole()
   const rows = devDues()
+
+  /*
+   * Absent, not empty. An empty dues table means every flat has paid
+   * — the figure a treasurer chases arrears from. A failed read
+   * showing it would have the treasurer stop chasing.
+   *
+   * Checked AFTER the role gate below in intent but before any row is
+   * read, so the order here is: no data, then not permitted. Both
+   * return before the table is built.
+   */
+  if (rows === null) {
+    return (
+      <BandFallback
+        heading="Dues could not be loaded"
+        headingId="cf-dues-absent"
+        explanation="The by-flat dues did not load, so no figures are shown. This is NOT a statement that every flat has paid. Nothing has been recorded or marked paid."
+      />
+    )
+  }
+
   const owing = rows.filter((r) => r.outstanding.minor > 0)
+
+  /*
+   * Checked before any row is read, so a resident never reaches the
+   * table-building code at all. Points at their own flat rather than
+   * reading as a dead end: the figure they actually want is one tap
+   * away, and a bare "not allowed" invites them to ask an admin to
+   * screenshot it.
+   */
+  if (!canSeeAllDues(role)) {
+    return (
+      <Band>
+        <h2 className="font-serif text-head font-normal mt-0 mb-(--cf-s1)">
+          Dues by flat are not shown here
+        </h2>
+        <p className="m-0 text-ink-quiet max-w-[68ch]">
+          What each flat owes is visible only to the treasurer, the secretary
+          and the president, who collect it. Your own flat&rsquo;s position is
+          on{' '}
+          <Link to="/my-flat" className="underline">
+            your flat page
+          </Link>
+          .
+        </p>
+      </Band>
+    )
+  }
 
   return (
     <>

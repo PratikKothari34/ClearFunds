@@ -33,11 +33,16 @@ export default defineConfig(({ mode }) => ({
     tailwindcss(),
   ],
   build: {
-    // Measured floor with no application code: react-dom is ~524 KB
-    // unminified and dominates the bundle; router-core, query-core and
-    // history add ~210 KB between them. All of it is shared by every
-    // route, so splitting cannot reduce first paint -- it can only make
-    // the stable half cacheable on its own.
+    // Measured floor with no application code: react and react-dom
+    // dominate the bundle, and router-core, query-core and history are
+    // the next largest. All of it is shared by every route, so
+    // splitting cannot reduce first paint -- it can only make the
+    // stable half cacheable on its own.
+    //
+    // No byte counts here on purpose. The vendor figures that matter
+    // are gzip, not raw, and they are asserted in scripts/budget.mjs
+    // against a per-group ceiling, which is the one place they can go
+    // stale loudly instead of quietly.
     //
     // 180 kB is therefore set against the APP chunk, not the vendor one:
     // it is the number that moves when a feature is careless, and the one

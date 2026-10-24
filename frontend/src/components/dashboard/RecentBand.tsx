@@ -1,7 +1,7 @@
 import { Link } from '@tanstack/react-router'
 import { Band } from '../Band'
 import { EntryRow } from '../EntryRow'
-import { BandFallback } from './BandFallback'
+import { BandFallback } from '../BandFallback'
 import type { Entry } from '../../lib/types'
 
 /**

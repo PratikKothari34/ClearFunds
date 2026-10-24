@@ -1,4 +1,5 @@
 import type { FlagLogItem, PendingApproval, Role, SignoffPeriod } from './types'
+import { canSeeApprovalQueue } from './identity'
 
 /**
  * The badge figures on navigation, derived from the data rather than
@@ -106,7 +107,10 @@ export function countsFor(
   }
 
   // A resident raises questions; they do not clear other people's.
-  if (role !== 'resident' && role !== 'auditor' && sources.approvals) {
+  // The rule itself lives in `identity.ts` because the route gates on
+  // it too, and a badge that disagrees with the page is worse than
+  // either being wrong alone.
+  if (canSeeApprovalQueue(role) && sources.approvals) {
     counts['/approvals'] = pendingApprovalCount(sources.approvals)
   }
 

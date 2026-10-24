@@ -14,7 +14,7 @@ function linearize(channel: number): number {
 }
 
 /** `#rgb` or `#rrggbb` to its three 0-255 channels. */
-export function parseHex(hex: string): [number, number, number] {
+function parseHex(hex: string): [number, number, number] {
   const h = hex.trim().replace(/^#/, '')
   const full =
     h.length === 3
@@ -33,7 +33,7 @@ export function parseHex(hex: string): [number, number, number] {
   ]
 }
 
-export function relativeLuminance(hex: string): number {
+function relativeLuminance(hex: string): number {
   const [r, g, b] = parseHex(hex)
   return (
     0.2126 * linearize(r) + 0.7152 * linearize(g) + 0.0722 * linearize(b)

@@ -1,20 +1,25 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { LedgerList } from '../components/LedgerList'
+import { BandFallback } from '../components/BandFallback'
 import { LedgerSummary } from '../components/LedgerSummary'
 import { devLedger } from '../lib/devData'
+import { inChainOrder, reversedRows } from '../lib/ledger'
 
 export const Route = createFileRoute('/ledger/reversed')({
   component: LedgerReversed,
 })
 
 /**
- * Corrections only: entries that were cancelled, and the entries that
- * cancelled them.
+ * Corrections only: entries that were cancelled, each shown with the
+ * correction that cancelled it.
  *
- * BOTH sides are included on purpose. Showing only the cancelled
- * entries would list money that left and never came back; showing only
- * the reversals would list money arriving for no reason. The pair is
- * the correction, so the filter keeps the pair.
+ * ONE ROW PER CORRECTION, not two. The pair is the unit — but it is
+ * one row item of variable height, with the reversal rendered as a
+ * link beside the entry it cancels, never as a row of its own.
+ * Admitting both states as top-level rows listed each correction
+ * twice: struck through as money out, then again as money in, the same
+ * reason under both, with a count above saying two entries. See
+ * `reversedRows`.
  *
  * Filtering is done here against sample data. On real data it is a
  * server-side filter: the server reports how many entries it excluded,
@@ -22,16 +27,39 @@ export const Route = createFileRoute('/ledger/reversed')({
  * page is short.
  */
 function LedgerReversed() {
-  const entries = devLedger().filter(
-    (e) => e.state === 'reversed' || e.state === 'reversal',
-  )
+  /*
+   * `reversedRows`, not a filter admitting both states. A reversal is
+   * rendered as a link beside the entry it cancels, so listing it as
+   * its own row shows one correction twice — struck through as money
+   * out, then again as money in, same reason under both, "2 entries"
+   * above. Read once so `shown` and `total` agree.
+   */
+  const loaded = devLedger()
+
+  /*
+   * Absent, not empty. The empty copy here says no entry has ever been
+   * cancelled, which on a tamper-evident ledger is a claim about the
+   * committee's conduct rather than a neutral blank.
+   */
+  if (loaded === null) {
+    return (
+      <BandFallback
+        heading="The history could not be loaded"
+        headingId="cf-ledger-absent"
+        explanation="The ledger did not load, so nothing is listed below. This is not a statement that the society has no entries — it means the record was not reached. Nothing has been changed."
+      />
+    )
+  }
+
+  const all = inChainOrder(loaded)
+  const entries = reversedRows(all)
 
   return (
     <>
       <LedgerSummary
         shown={entries.length}
-        total={devLedger().length}
-        filterLabel="that were cancelled or that cancel another entry"
+        total={all.length}
+        filterLabel="that were cancelled, each shown with the correction that cancelled it"
       />
       <LedgerList
         entries={entries}

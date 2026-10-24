@@ -24,10 +24,40 @@ import type { SignoffPeriod } from './types'
 export function oldestUnsigned(
   periods: readonly SignoffPeriod[],
 ): SignoffPeriod | undefined {
-  return periods.reduce<SignoffPeriod | undefined>(
-    (oldest, p) => (oldest === undefined || p.id < oldest.id ? p : oldest),
-    undefined,
-  )
+  return periods.reduce<SignoffPeriod | undefined>((oldest, p) => {
+    /*
+     * The same value check as `newestEntry`, for the same reason.
+     *
+     * Lexicographic order is calendar order only for a well-formed
+     * `s-YYYY-MM`. A period with a missing or malformed id compares
+     * false in BOTH directions, so it is neither accepted nor
+     * rejected — if it arrives first it is kept by the `undefined`
+     * branch and nothing afterwards can displace it, and the president
+     * is then shown the wrong month with the right heading above it.
+     * That is the failure this module's header says it exists to
+     * prevent, so the id is checked rather than assumed.
+     */
+    if (!isPeriodId(p.id)) return oldest
+    if (oldest === undefined) return p
+    return p.id < oldest.id ? p : oldest
+  }, undefined)
+}
+
+/**
+ * Whether an id is a period id that sorts in calendar order.
+ *
+ * Zero-padding is what makes the lexicographic comparison correct, so
+ * the month must be two digits: `s-2026-4` would sort after
+ * `s-2026-12`. The month range is checked too, because `s-2026-00`
+ * would sort before every real month and take the sign-off surface with
+ * it.
+ */
+function isPeriodId(id: unknown): id is string {
+  if (typeof id !== 'string') return false
+  const m = /^s-(\d{4})-(\d{2})$/.exec(id)
+  if (!m) return false
+  const month = Number(m[2])
+  return month >= 1 && month <= 12
 }
 
 /**

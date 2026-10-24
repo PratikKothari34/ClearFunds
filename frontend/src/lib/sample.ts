@@ -16,8 +16,15 @@ import type {
  *
  * ONE module on purpose: the cutover to real data is then a single
  * file to delete plus the imports that break, rather than a hunt for
- * literals scattered through components. Nothing here is imported by
- * a test — a test asserting against sample data asserts nothing.
+ * literals scattered through components.
+ *
+ * Four test files DO import this module, and that is allowed only
+ * because of WHAT they assert: invariants that must hold OF the fixture
+ * (ids unique, one currency, every amount a safe integer), and derived
+ * values cross-checked against a recomputation. None of them asserts a
+ * literal taken from here. A test that hardcodes a number out of this
+ * file asserts nothing, because the number can be edited to make the
+ * test pass again - which deletes the test while leaving it green.
  *
  * The values are chosen to exercise the cases that are easy to get
  * wrong, not to look tidy:
@@ -26,8 +33,12 @@ import type {
  *     the dashboard and not only on the ledger.
  *   - The reversal itself, so the back-reference renders too.
  *   - An entry carrying open flags.
- *   - A crore-scale balance, because Rs 1,20,00,000 at 16px at 320px is
- *     the width case the layout has to survive.
+ *   - A lakh-scale balance, Rs 4,82,350, which is the realistic figure
+ *     for a society of this size and exercises the Indian grouping
+ *     (two digits, then two, then three) that a Western formatter gets
+ *     wrong. The crore-scale WIDTH case is covered by money.test.ts,
+ *     not here: a fixture inflated past what a society holds makes
+ *     every screenshot taken from it misleading.
  */
 
 const INR = 'INR'

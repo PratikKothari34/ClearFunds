@@ -1,4 +1,4 @@
-import { Band } from '../Band'
+import { Band } from './Band'
 
 /**
  * What a band renders when its own fetch failed.
@@ -11,7 +11,8 @@ import { Band } from '../Band'
  * fingerprint band would read as a pass. None of those is what a failed
  * request means.
  *
- * It is one component rather than a block copied into five bands
+ * It is one component rather than a block copied into every surface
+ * that can fail - four dashboard bands and a dozen routes
  * because the copies would drift, and the one that drifts is the one
  * that renders nothing.
  *

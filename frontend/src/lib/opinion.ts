@@ -113,3 +113,48 @@ export function isClosed(year: AuditYear): boolean {
   // but the wire is what arrives.
   return year.closedAt != null
 }
+
+/**
+ * The opinions on record that could not be ranked.
+ *
+ * WHY THIS IS SEPARATE FROM `worstOpinion` AND NOT A THROWN ERROR
+ *
+ * `worstOpinion` skips a value it cannot rank, which is correct — it
+ * must still answer for the years it CAN read, and an exception would
+ * take down the whole page. But the skip is silent, and the direction
+ * it fails in is the dangerous one: a disclaimer recorded as
+ * "disclaimer of opinion" instead of `disclaimer` is dropped, and a
+ * society with a disclaimer on file then shows a headline of `clean`.
+ * The worst possible outcome, presented as the best.
+ *
+ * So the page names what was unreadable beside the headline rather
+ * than quietly reporting a better one. An opinion the product cannot
+ * read is a fact about the record, and this product does not hide
+ * facts about the record.
+ *
+ * Returns the YEARS, not the raw values: the year is what a committee
+ * member can act on, and the unreadable string itself is not something
+ * to print on an AGM surface.
+ */
+export function unrankableYears(
+  years: readonly AuditYear[],
+): readonly string[] {
+  const out: string[] = []
+  for (const year of years) {
+    if (!year.opinion) continue
+    if (typeof OPINION_RANK[year.opinion] !== 'number') out.push(year.year)
+  }
+  return out
+}
+
+/**
+ * Whether an opinion value is one this product can describe.
+ *
+ * `opinionWords` is a switch over the four cases with no default, so an
+ * off-enum value returns `undefined` and renders "The auditor gave ."
+ * — a sentence that reads as a product fault rather than as a
+ * record the product could not read. Callers check this first.
+ */
+export function isKnownOpinion(opinion: string): opinion is OpinionSeverity {
+  return typeof OPINION_RANK[opinion as OpinionSeverity] === 'number'
+}

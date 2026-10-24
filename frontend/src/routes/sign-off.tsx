@@ -1,6 +1,7 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { Amount } from '../components/Amount'
 import { Band } from '../components/Band'
+import { BandFallback } from '../components/BandFallback'
 import { formatMoney } from '../lib/money'
 import { oldestUnsigned, waitingBehind } from '../lib/signoff'
 import type { SignoffPeriod } from '../lib/types'
@@ -39,7 +40,27 @@ function SignOff() {
    * screen would look wrong. The id is `s-YYYY-MM`, so it sorts
    * lexicographically in calendar order.
    */
-  const period = oldestUnsigned(devSignoff())
+  const periods = devSignoff()
+
+  /*
+   * ABSENT IS NOT EMPTY, and here the empty copy is the sharpest false
+   * statement in the product: "Every month up to now has been signed
+   * off." is a compliance claim, read by a president deciding whether
+   * anything needs their signature. A failed read produced it
+   * verbatim, so an unsigned month would be invisible while the page
+   * said the books were current.
+   */
+  if (periods === null) {
+    return (
+      <BandFallback
+        heading="Sign-off could not be loaded"
+        headingId="cf-signoff-absent"
+        explanation="The months waiting for sign-off did not load. This does NOT mean every month has been signed off — it means the list was not reached. Nothing has been signed."
+      />
+    )
+  }
+
+  const period = oldestUnsigned(periods)
 
   if (!period) {
     return (
@@ -54,9 +75,7 @@ function SignOff() {
     )
   }
 
-  return (
-    <PeriodSignoff period={period} waiting={waitingBehind(devSignoff())} />
-  )
+  return <PeriodSignoff period={period} waiting={waitingBehind(periods)} />
 }
 
 function PeriodSignoff({
@@ -119,10 +138,23 @@ function PeriodSignoff({
        */}
       {period.openFlagCount > 0 && (
         <Band heading="Questions not yet answered" headingId="cf-signoff-flags">
+          {/*
+            COUNTS QUESTIONS, NOT ENTRIES. `openFlagCount` is the number
+            of unresolved flags in the period, and two residents can ask
+            about the same entry. "3 entries have a question" was a
+            sentence the number does not support: it would report three
+            entries where one entry had three questions, and the
+            president is signing on the strength of it.
+
+            The entry count is not derivable from here either — that
+            needs a distinct-entry figure from the server, which is not
+            in the payload. So the copy says the thing the number IS.
+          */}
           <p className="m-0 max-w-[68ch] pl-(--cf-s2) border-l-2 border-attention">
             <span className="cf-tabular">{period.openFlagCount}</span>{' '}
-            {period.openFlagCount === 1 ? 'entry has' : 'entries have'} a
-            question from a resident that nobody has answered.{' '}
+            {period.openFlagCount === 1 ? 'question' : 'questions'} from
+            residents {period.openFlagCount === 1 ? 'has' : 'have'} not been
+            answered yet.{' '}
             <Link
               to="/ledger/flagged"
               className="text-anchor underline decoration-1 underline-offset-2"

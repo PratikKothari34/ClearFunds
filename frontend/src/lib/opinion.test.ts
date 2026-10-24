@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { isClosed, opinionWords, worstOpinion } from './opinion'
+import {
+  isClosed,
+  isKnownOpinion,
+  opinionWords,
+  unrankableYears,
+  worstOpinion,
+} from './opinion'
 import { OPINION_RANK } from './types'
 import type { AuditYear, OpinionSeverity } from './types'
 
@@ -9,6 +15,13 @@ const ALL: readonly OpinionSeverity[] = [
   'adverse',
   'disclaimer',
 ]
+
+// One builder for both the ranking and the unreadable-opinion tests,
+// so neither can be asserted against a shape the other does not use.
+const year = (y: string, opinion?: OpinionSeverity): AuditYear =>
+  opinion
+    ? { year: y, closedAt: `${y}-09-18T00:00:00+05:30`, opinion }
+    : { year: y }
 
 /*
  * These tests guard wording, not behaviour, which is unusual and
@@ -87,10 +100,6 @@ describe('opinion ranking', () => {
 })
 
 describe('worstOpinion', () => {
-  const year = (y: string, opinion?: OpinionSeverity): AuditYear =>
-    opinion
-      ? { year: y, closedAt: `${y}-09-18T00:00:00+05:30`, opinion }
-      : { year: y }
 
   it('returns the most serious, not the latest', () => {
     // The headline failure: a clean year after a disclaimer would
@@ -169,5 +178,110 @@ describe('isClosed', () => {
     // A year from 2019 with no auditor sign-off is still open. Time
     // does not close books, and neither does the committee.
     expect(isClosed({ year: '2018-19' })).toBe(false)
+  })
+})
+
+describe('isKnownOpinion', () => {
+  /*
+   * `opinionWords` is a switch over the four cases with no default, so
+   * an off-enum value returns undefined and the page rendered the
+   * sentence "The auditor gave ." - which reads as a broken product
+   * rather than as a record the product could not read.
+   */
+  it('accepts every opinion the product can describe', () => {
+    for (const opinion of ALL) {
+      expect(isKnownOpinion(opinion)).toBe(true)
+    }
+  })
+
+  it('rejects a value this product does not rank', () => {
+    /*
+     * 'unqualified' is the real-world term an auditor's own system may
+     * send for what this product calls 'clean'. It is the realistic
+     * off-enum value, not a contrived one.
+     */
+    for (const value of ['unqualified', 'except for', '', 'CLEAN']) {
+      expect(isKnownOpinion(value)).toBe(false)
+    }
+  })
+
+  it('gates exactly the values opinionWords can answer for', () => {
+    /*
+     * The two must not drift: a value this predicate admits and
+     * `opinionWords` cannot describe is the original bug restored.
+     */
+    for (const opinion of ALL) {
+      expect(opinionWords(opinion)).toBeTruthy()
+    }
+  })
+})
+
+describe('unrankableYears', () => {
+  /*
+   * `worstOpinion` skips what it cannot rank, and it has to - it must
+   * still answer for the years it can read. But the skip fails in the
+   * dangerous direction: a society with a disclaimer recorded off-enum
+   * would show a headline of "reasonable assurance". The best possible
+   * answer, derived from the worst possible record. So the page says
+   * what it could not read, beside the headline computed without it.
+   */
+  it('names no year when every opinion is readable', () => {
+    const years = ALL.map((opinion, i) => year(`2020-2${i}`, opinion))
+    expect(unrankableYears(years)).toEqual([])
+  })
+
+  it('names the year whose opinion could not be ranked', () => {
+    const years = [
+      year('2024-25', 'clean'),
+      year('2025-26', 'unqualified' as OpinionSeverity),
+    ]
+    expect(unrankableYears(years)).toEqual(['2025-26'])
+  })
+
+  it('does not name a year that simply has no opinion yet', () => {
+    /*
+     * An open year is not an unreadable one. Naming it would put a
+     * warning beside the headline every year before the audit lands.
+     */
+    expect(unrankableYears([year('2025-26', undefined)])).toEqual([])
+  })
+
+  it('treats a null opinion from JSON as no opinion', () => {
+    /*
+     * JSON has no undefined, so the wire sends null. An `=== undefined`
+     * check would call that unreadable and raise a warning on every
+     * open year.
+     */
+    const fromJson = JSON.parse('[{"year":"2025-26","opinion":null}]') as
+      AuditYear[]
+    expect(unrankableYears(fromJson)).toEqual([])
+  })
+
+  it('finds every unreadable year, not just the first', () => {
+    const years = [
+      year('2023-24', 'except for' as OpinionSeverity),
+      year('2024-25', 'clean'),
+      year('2025-26', 'unqualified' as OpinionSeverity),
+    ]
+    expect(unrankableYears(years)).toEqual(['2023-24', '2025-26'])
+  })
+
+  it('is non-empty exactly when worstOpinion dropped something', () => {
+    /*
+     * The pairing IS the rule: the headline above is wrong whenever
+     * this list is non-empty, and a reader has no other way to know
+     * that. A year whose opinion is dropped must always be named.
+     */
+    const dropped = [year('2025-26', 'unqualified' as OpinionSeverity)]
+    expect(worstOpinion(dropped)).toBeUndefined()
+    expect(unrankableYears(dropped).length).toBeGreaterThan(0)
+
+    const readable = [year('2025-26', 'disclaimer')]
+    expect(worstOpinion(readable)).toBe('disclaimer')
+    expect(unrankableYears(readable)).toEqual([])
+  })
+
+  it('returns an empty list for no years at all', () => {
+    expect(unrankableYears([])).toEqual([])
   })
 })

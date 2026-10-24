@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatDate, formatDateTime } from './dates'
+import { byTimestampAsc, formatDate, formatDateTime } from './dates'
 
 /*
  * The time zone is an accounting rule, not a display preference, so
@@ -81,5 +81,80 @@ describe('formatDateTime', () => {
 
   it('renders a dash for an unreadable timestamp', () => {
     expect(formatDateTime('not a date')).toBe('—')
+  })
+})
+
+describe('byTimestampAsc', () => {
+  /*
+   * The disputes list is ordered oldest-first with this, because the
+   * question waiting longest is the one the committee has failed for
+   * longest. The ordering is the claim the page makes.
+   */
+  const sorted = (list: readonly (string | undefined)[]) =>
+    [...list].sort(byTimestampAsc)
+
+  it('puts the earlier instant first', () => {
+    expect(
+      byTimestampAsc('2026-04-01T10:00:00+05:30', '2026-04-02T10:00:00+05:30'),
+    ).toBeLessThan(0)
+  })
+
+  it('puts the later instant second', () => {
+    expect(
+      byTimestampAsc('2026-04-02T10:00:00+05:30', '2026-04-01T10:00:00+05:30'),
+    ).toBeGreaterThan(0)
+  })
+
+  it('compares the instant, not the written text', () => {
+    /*
+     * Two ways of writing the same moment must compare equal, and a
+     * later moment written in an earlier-looking zone must still sort
+     * later. A string comparison gets both of these wrong.
+     */
+    expect(
+      byTimestampAsc('2026-04-01T10:00:00+05:30', '2026-04-01T04:30:00Z'),
+    ).toBe(0)
+    expect(
+      byTimestampAsc('2026-04-01T23:00:00+05:30', '2026-04-01T19:00:00Z'),
+    ).toBeLessThan(0)
+  })
+
+  it('sends an unreadable timestamp to the end from either position', () => {
+    /*
+     * Every comparison against NaN is false in BOTH directions, so a
+     * subtraction-only comparator leaves the answer dependent on where
+     * the bad value happened to sit in the input.
+     */
+    const good = '2026-04-01T10:00:00+05:30'
+    expect(byTimestampAsc(undefined, good)).toBeGreaterThan(0)
+    expect(byTimestampAsc(good, undefined)).toBeLessThan(0)
+    expect(byTimestampAsc('not a date', good)).toBeGreaterThan(0)
+    expect(byTimestampAsc(good, 'not a date')).toBeLessThan(0)
+  })
+
+  it('treats two unreadable timestamps as equal rather than unstable', () => {
+    expect(byTimestampAsc(undefined, undefined)).toBe(0)
+    expect(byTimestampAsc('not a date', undefined)).toBe(0)
+  })
+
+  it('orders a list oldest first whatever order it arrived in', () => {
+    const a = '2026-04-01T10:00:00+05:30'
+    const b = '2026-04-05T10:00:00+05:30'
+    const c = '2026-04-09T10:00:00+05:30'
+    expect(sorted([c, a, b])).toEqual([a, b, c])
+    expect(sorted([a, b, c])).toEqual([a, b, c])
+  })
+
+  it('keeps an unreadable entry in the list rather than losing it', () => {
+    /*
+     * A sort cannot drop a row, but the assertion is here deliberately:
+     * the fix for a badly ordered list must never become a filter. A
+     * question with an unreadable date is still a question nobody has
+     * answered.
+     */
+    const good = '2026-04-01T10:00:00+05:30'
+    const out = sorted([undefined, good])
+    expect(out).toHaveLength(2)
+    expect(out.at(-1)).toBeUndefined()
   })
 })

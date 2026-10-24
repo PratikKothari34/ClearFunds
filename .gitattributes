@@ -6,3 +6,19 @@
 *.jpg binary
 *.pdf binary
 *.xlsx binary
+
+# Fonts and web images. These were relying on `text=auto` above, which asks
+# git to GUESS per file from its contents. The guess is right today, but a
+# binary that happens to look text-like gets its bytes rewritten on checkout,
+# and for a font that means a corrupt file with no error - and a corrupt file
+# no longer byte-matches the upstream package the OFL notice in
+# frontend/public/fonts/OFL.txt relies on. Declared explicitly instead.
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.eot binary
+*.webp binary
+*.avif binary
+*.gif binary
+*.ico binary

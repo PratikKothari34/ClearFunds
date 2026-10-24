@@ -1,7 +1,7 @@
 import { Link } from '@tanstack/react-router'
 import { Band } from '../Band'
 import { Amount } from '../Amount'
-import { BandFallback } from './BandFallback'
+import { BandFallback } from '../BandFallback'
 import type { AttentionItem } from '../../lib/types'
 
 /**

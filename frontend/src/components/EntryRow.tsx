@@ -145,12 +145,19 @@ export function EntryRow({ entry }: { readonly entry: Entry }) {
        * Only UNRESOLVED flags are counted here. A resolved flag leaves
        * the count and stays in the entry's append-only log: the log is
        * the record, the count is a to-do list.
+       *
+       * COUNTS QUESTIONS, NOT RESIDENTS. One resident may ask twice, so
+       * "2 residents have asked" was a claim about how many people are
+       * unhappy with this entry — derived from a number that does not
+       * carry it. On a surface where residents are anonymous to each
+       * other, overstating how many of them objected is the wrong
+       * direction to be wrong in.
        */}
       {entry.openFlagCount > 0 && (
         <p className="m-0 text-meta text-ink-quiet">
           <span className="cf-tabular">{entry.openFlagCount}</span>{' '}
-          {entry.openFlagCount === 1 ? 'resident has' : 'residents have'} asked
-          about this entry
+          {entry.openFlagCount === 1 ? 'question has' : 'questions have'} been
+          asked about this entry
         </p>
       )}
     </article>

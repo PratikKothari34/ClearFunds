@@ -1,6 +1,6 @@
 import { Band } from '../Band'
 import { Amount } from '../Amount'
-import { BandFallback } from './BandFallback'
+import { BandFallback } from '../BandFallback'
 import type { Money } from '../../lib/types'
 import { formatDate } from '../../lib/dates'
 
@@ -24,7 +24,12 @@ export function BalanceBand({
   onRetry,
 }: {
   readonly balance: Money
-  /** ISO 8601, formatted here for the resident's locale. */
+  /**
+   * ISO 8601. Formatted by `formatDate`, which is pinned to `en-IN` and
+   * `Asia/Kolkata` - NOT the device locale. A resident reading from
+   * abroad must see the same date the society means, because the day a
+   * balance was taken decides which financial year it belongs to.
+   */
   readonly asOf: string
   readonly entryCount: number
   /**
@@ -67,9 +72,3 @@ export function BalanceBand({
     </Band>
   )
 }
-
-/**
- * "22 Oct 2026". Day-month-year, because that is how the audience reads
- * a date, and a short month name because 10/11 is ambiguous between two
- * conventions in a product that will be read by an auditor.
- */

@@ -27,3 +27,30 @@ export const ViewerRoleContext = createContext<Role>('resident')
 export function useViewerRole(): Role {
   return useContext(ViewerRoleContext)
 }
+
+/**
+ * The flat the signed-in resident occupies, or `undefined`.
+ *
+ * A SECOND context, not a second field on the first one, and the
+ * reason is the warning above: a context that accumulates fields
+ * becomes a global store with extra steps. These two are deliberately
+ * separate values with separate defaults, so neither can be widened by
+ * someone adding "just one more" field to a viewer object.
+ *
+ * It exists because `/my-flat` decides WHOSE dues and WHOSE questions
+ * to render, and it was deciding that from a module constant. A role
+ * cannot answer that question - two residents share a role and do not
+ * share a flat.
+ *
+ * The default is `undefined`, which is the least-privileged answer for
+ * the same reason `resident` is: a component rendered outside the
+ * provider renders the "no flat is linked" state rather than some
+ * resident's arrears. An absent flat is also the honest value for
+ * every non-resident role, because an auditor has no flat at all -
+ * which is why the type is optional rather than a sentinel string.
+ */
+export const ViewerFlatContext = createContext<string | undefined>(undefined)
+
+export function useViewerFlat(): string | undefined {
+  return useContext(ViewerFlatContext)
+}

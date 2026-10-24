@@ -47,9 +47,29 @@ describe('the default font payload', () => {
   })
 
   it('does not import a Fontsource stylesheet, which carries every subset', () => {
-    // @fontsource/*/index.css covers Cyrillic, Greek and Vietnamese.
-    expect(INDEX).not.toMatch(/@fontsource/)
-    expect(FONTS).not.toMatch(/@fontsource/)
+    /*
+     * The IMPORTS, not the word - the same correction the Devanagari
+     * test above already carries. @fontsource/*\/index.css covers
+     * Cyrillic, Greek and Vietnamese, and importing one is what this
+     * forbids. An earlier version matched the bare string and went red
+     * when a comment in fonts.css was expanded to record that the
+     * woff2 files are copied from those packages and byte-match them -
+     * punishing the explanation, exactly as the Devanagari case did.
+     * The packages stay in package.json as the provenance and the
+     * refresh path; what must never happen is their CSS entering the
+     * graph.
+     */
+    for (const src of [INDEX, FONTS]) {
+      expect(src).not.toMatch(/@import[^;]*@fontsource/)
+      expect(src).not.toMatch(/from\s*['"]@fontsource/)
+      expect(src).not.toMatch(/require\(\s*['"]@fontsource/)
+    }
+    // No face may be served out of node_modules either, which is the
+    // other way a subset arrives: the declared urls are all /fonts/.
+    for (const url of srcUrls(FONTS)) {
+      expect(url).not.toContain('node_modules')
+      expect(url).not.toContain('@fontsource')
+    }
   })
 
   it('declares only the Latin faces the design names', () => {

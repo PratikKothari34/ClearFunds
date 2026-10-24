@@ -14,8 +14,14 @@ import { Link } from '@tanstack/react-router'
  * record can be checked, and a change would show. Never that it cannot
  * be forged by whoever runs the server.
  *
- * Rendered in the mono face loaded on this route and the verify route
- * only — a third family on the ledger buys nothing.
+ * Rendered in the PLATFORM monospace stack (`--cf-mono`), not a
+ * webfont. No mono face is loaded anywhere in the app, deliberately: a
+ * third family costs payload on the resident read path, and the only
+ * job the mono does here is making the characters even width so two
+ * values can be compared by eye. The platform stack does that.
+ *
+ * So nothing in this component depends on a font download, and nothing
+ * that does should be added to it.
  */
 
 export function Fingerprint({
@@ -33,10 +39,18 @@ export function Fingerprint({
       </p>
 
       {/*
-       * Grouped in fours and spaced, so it can be read out over a phone
-       * and compared character by character without losing the place.
-       * letter-spacing is on the container, not faked with inserted
-       * spaces, so a copy-paste gives the real value.
+       * NOT grouped into blocks. letter-spacing only, which widens the
+       * gaps evenly so the eye can walk the value character by
+       * character.
+       *
+       * Grouping in fours would read better aloud, and the comment here
+       * used to claim it did. It cannot be done by inserting spaces
+       * into the text: `select-all` exists so a resident can copy this
+       * value and paste it somewhere to compare, and a copied value
+       * carrying spaces that are not in the real fingerprint matches
+       * nothing. Real grouping needs the value split into spans with
+       * CSS gaps and a clean copy path, which is a change to make
+       * deliberately rather than to imply in a comment.
        */}
       <p className="mt-(--cf-s1) mb-0 font-mono tracking-[0.12em] break-all select-all">
         {value}

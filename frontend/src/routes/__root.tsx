@@ -6,43 +6,16 @@ import { RoleSwitch } from '../components/RoleSwitch'
 import { countsFor } from '../lib/counts'
 import { devCounts } from '../lib/devCounts'
 import { useBoot } from '../lib/useBoot'
-import { ViewerRoleContext } from '../lib/viewer'
-import type { Role, Viewer } from '../lib/types'
+import { ViewerFlatContext, ViewerRoleContext } from '../lib/viewer'
+import {
+  PLACEHOLDER_ROLE,
+  placeholderViewer,
+} from '../lib/placeholder'
+import type { Role } from '../lib/types'
 
 export const Route = createRootRoute({
   component: RootLayout,
 })
-
-/*
- * Standing in for the authenticated viewer until the session endpoint
- * exists. It is declared here, once, so there is exactly one place to
- * delete when the real one lands — a placeholder copied into each route
- * is a placeholder that survives the cutover.
- *
- * Role is `treasurer` deliberately: it is the only role whose item list
- * overflows the mobile bar, so developing against it keeps the overflow
- * path visible instead of discovered later.
- */
-const PLACEHOLDER_ROLE: Role = 'treasurer'
-
-/**
- * A flat number belongs to a resident and to nobody else.
- *
- * The type makes `flat` optional because an auditor has none, and the
- * rule behind that is the one that shapes every payload here: a field a
- * viewer may not see is ABSENT, not present-and-hidden. Building the
- * placeholder the same way means switching to the auditor view actually
- * exercises the missing-flat path, rather than passing a flat that the
- * auditor's screens happen not to read.
- */
-function placeholderViewer(role: Role): Viewer {
-  return {
-    role,
-    handle: 'you',
-    societyName: 'Sunrise CHS',
-    ...(role === 'resident' ? { flat: 'B-402' } : {}),
-  }
-}
 
 /**
  * Routes that render without the shell.
@@ -71,7 +44,15 @@ function RootLayout() {
    * empty shell: an empty dashboard reads as a society with no money.
    */
   if (boot !== 'ready') {
-    return <Hero phase={boot === 'failed' ? 'failed' : 'loading'} />
+    /*
+     * `boot-failed`, not the hero's anchor phase. `useBoot`'s `failed`
+     * means the boot fetch failed, which is a different fact from the
+     * published record being unreachable — and this branch returns the
+     * hero INSTEAD of the shell, so there is no ledger behind it. The
+     * anchor copy would claim the history is on screen while the
+     * history is exactly what is missing.
+     */
+    return <Hero phase={boot === 'failed' ? 'boot-failed' : 'loading'} />
   }
 
   // Bare routes render themselves whole, including their own <main>.
@@ -93,6 +74,17 @@ function RootLayout() {
     */
     <ViewerRoleContext.Provider value={role}>
       {/*
+        The flat is provided from the same viewer object the shell is
+        given, so the page that renders "Your flat" and the heading
+        that names the society cannot disagree about who is looking.
+
+        `viewer.flat` is present only when the role is `resident`, so
+        every other role gets `undefined` and `/my-flat` renders its
+        "no flat is linked" band. That is the honest answer for an
+        auditor, who has no flat at all.
+      */}
+      <ViewerFlatContext.Provider value={viewer.flat}>
+      {/*
         The first focusable thing on the page. A resident using a
         keyboard or a screen reader should not have to walk the whole
         navigation to reach the balance they came for.
@@ -113,12 +105,20 @@ function RootLayout() {
         nothing at all in a production build, which is why the gate is
         here rather than inside countsFor.
 
-        `import.meta.env.DEV` is replaced by a literal at build time and
-        the dead branch is tree-shaken, so the fixture — every flat's
-        questions and dues — is absent from the production bundle
-        instead of merely unused in it. countsFor with no sources
-        returns an empty map, and an absent figure renders no badge
-        rather than a zero: a zero claims nothing is waiting.
+        A BRANCH DOES NOT REMOVE AN IMPORT, and this gate alone would
+        not keep the fixture out. `import.meta.env.DEV` is replaced by a
+        literal and the dead branch is dropped, but the import is
+        hoisted before that happens, so the module stays in the graph
+        and its strings stay in the chunk. What actually keeps the
+        fixture — every flat's questions and dues — out of a production
+        build is the `resolve.alias` in vite.config.ts, which swaps
+        `./devData.source` for an empty module. The gate here is so the
+        dev path reads fixtures and the production path does not call
+        into them at all; check-fixtures.mjs is what proves the result.
+
+        countsFor with no sources returns an empty map, and an absent
+        figure renders no badge rather than a zero: a zero claims
+        nothing is waiting.
       */}
       <AppShell
         viewer={viewer}
@@ -132,6 +132,7 @@ function RootLayout() {
         <RoleSwitch role={role} onChange={setRole} />
         <Outlet />
       </AppShell>
+      </ViewerFlatContext.Provider>
     </ViewerRoleContext.Provider>
   )
 }

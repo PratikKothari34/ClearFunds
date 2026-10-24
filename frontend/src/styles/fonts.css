@@ -1,6 +1,15 @@
 /*
  * Faces, declared by hand rather than by importing Fontsource's CSS.
  *
+ * WHERE THE FILES COME FROM. The woff2 files in public/fonts/ are
+ * copied verbatim from the `@fontsource/*` packages in package.json and
+ * byte-match them. Those packages are therefore NOT unused
+ * dependencies, which is what they look like: nothing imports them, so
+ * a dependency sweep flags all three. They are the provenance and the
+ * refresh path - to update a face, bump the package and re-copy the
+ * file of the same name. Dropping them would leave five binaries in the
+ * tree with no record of their origin or version.
+ *
  * Fontsource ships one stylesheet per family covering every subset it
  * has. Importing that pulls Cyrillic, Greek and Vietnamese into the
  * default payload for an audience that reads none of them. The design
@@ -69,8 +78,8 @@
  * the same vertical space as the webfont. Without them the amount on
  * the dashboard shifts when the font lands.
  *
- * These families are referenced from the font stacks in index.css, and
- * must come BEFORE the generic family there, not instead of it: an
+ * These families are referenced from the font stacks in tokens.css,
+ * and must come BEFORE the generic family there, not instead of it: an
  * override family with no local face resolves to nothing.
  */
 @font-face {

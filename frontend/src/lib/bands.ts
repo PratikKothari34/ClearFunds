@@ -38,7 +38,7 @@ export interface BandStates {
   readonly failed: (name: BandName) => boolean
   /** Clears this band's failure only. Never the others'. */
   readonly retry: (name: BandName) => void
-  /** Marks one band failed. Used by tests and by the dev harness. */
+  /** Marks one band failed. Used by the dashboard route and by tests. */
   readonly fail: (name: BandName) => void
 }
 

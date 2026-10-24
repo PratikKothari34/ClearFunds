@@ -3,16 +3,20 @@ import type { ReactNode } from 'react'
 /**
  * A dashboard band.
  *
- * Bands are separated by 32px and group internally at 16px, which is
- * what makes the grouping unambiguous without drawing rules between
- * sections. The spacing IS the sectionalization.
+ * Bands are padded 32px and group internally at 16px, and carry a
+ * hairline rule between them — `border-b`, dropped on the last band so
+ * the page does not end on a line. The spacing does the
+ * sectionalization; the rule is what makes the boundary survive a
+ * band whose content is itself spaced out, which spacing alone did
+ * not.
  *
  * Deliberately not a card. A card around a figure implies the figure is
  * a separate object with its own lifecycle, and a balance is not that —
  * it is the current state of one ledger.
  *
- * The heading is the only place Source Serif 4 appears: one signal that
- * a band is a band, with no rules and no tracked-out caps.
+ * The heading uses Source Serif 4, as every section heading in the
+ * product does: one signal that a band is a band, with no tracked-out
+ * caps.
  */
 
 export function Band({

@@ -342,10 +342,10 @@ carrying the **true and fair view** wording, both generated from chained entries
 it is not enough for it to sit in the current year's ledger. That disclosure is
 generated, not typed, so it cannot be left out.
 
-**Still open:** whether an adjusting entry needs specific disclosure in the
-next AGM report, and **how an auditor proves who they are** when they come to
-sign off. A login emailed to a committee-controlled mailbox would give back most
-of what the appointment rules were designed to prevent.
+**Still open: how an auditor proves who they are** when they come to sign
+off. A login emailed to a committee-controlled mailbox would give back most of
+what the appointment rules were designed to prevent. This is an authentication
+question, so it belongs to the backend lane rather than to this document.
 
 **Key custody is settled, and it was settled against the stronger
 cryptography.** Per-action signatures have to work for non-technical volunteers
@@ -357,13 +357,16 @@ login they all use — N-of-M back to one person, while believing it is
 cryptographically secure. **Keys are therefore server-held**, and the published
 chain head above is what bounds the resulting trust in the operator.
 
-**Audit report format may not be a free choice — awaiting a CA.** The annual
-audit is legally mandated, so the governing state Cooperative Societies Act
-likely constrains what the report must contain. **Blocked on professional
-advice, not on design**; confirm before building the report output. Two
-questions are outstanding: what the report must contain, and whether a
-cross-year adjusting entry (a correction to a sealed year, posted in the
-current one) requires specific disclosure in the next AGM report.
+**Audit report format is settled 2026-10-22, confirmed with a practising
+chartered accountant.** The annual audit is legally mandated, so the report's
+contents were not a free choice. Both questions that were outstanding here are
+answered, and the answers are stated in full further up this document: the
+report's body is the **balance sheet and the profit and loss account**, each
+carrying the **true and fair view** wording and each generated server-side from
+chained entries; and a cross-year adjusting entry — a correction to a sealed
+year, posted in the current one — **must be disclosed at the AGM**, in a
+generated section naming the entry, the year it corrects, the amount and the
+reason, so it cannot be left out.
 
 **Money representation is settled 2026-10-22.** Every amount is an **integer
 count of the currency's minor units** (₹1,250.75 is `125075`) stored alongside

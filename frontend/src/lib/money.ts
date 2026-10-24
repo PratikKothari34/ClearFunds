@@ -7,8 +7,10 @@
  * Two rules this module exists to enforce:
  *
  * 1. No floating point, at any layer. `minor` is a JS number but is only
- *    ever an integer; nothing here divides it. Formatting is handed to
- *    Intl, which takes minor units directly.
+ *    ever an integer; nothing here divides it. Intl is handed an exact
+ *    DECIMAL STRING built by shifting the digits (see `exactDecimal`),
+ *    never `minor / 100`: float division loses a digit at the top of the
+ *    safe-integer range, and a society's annual figures get there.
  * 2. Nothing hardcodes a division by 100. The number of decimal places
  *    comes from the currency: INR has 2, JPY has 0, KWD has 3. A
  *    hardcoded 100 silently misreports two of those.
@@ -195,9 +197,11 @@ function normalizeZero(minor: number): number {
  * This is the boundary the project calls out as the place bugs will live:
  * a missing multiply stores Rs 12.50 as Rs 0.125, which is a plausible
  * amount that will not look wrong in a list. So this function does the
- * scaling by string manipulation rather than by multiplying a float —
- * `12.50 * 100` is 1250.0000000000002 in binary floating point, and
- * Math.round would hide that today and not in some other case.
+ * scaling by string manipulation rather than by multiplying a float.
+ * Not every value misbehaves — `12.50 * 100` is exactly 1250 — and that
+ * is the hazard: `1.15 * 100` is 114.99999999999999, so a rounded
+ * multiply is correct on the amount anyone would test with and wrong on
+ * one nobody picked. String scaling has no cases.
  *
  * Returns null for anything it cannot parse exactly. A caller must treat
  * null as "do not submit", never as zero.
@@ -236,7 +240,17 @@ export function parseMoney(input: string, currency: string): Money | null {
   if (frac.length > digits) return null
 
   const scaled = whole + frac.padEnd(digits, '0')
-  // Strip leading zeros so '007' does not become an octal-looking string.
+  /*
+   * No leading-zero handling is needed, and none is here.
+   *
+   * This line used to claim it stripped them, guarding an octal hazard
+   * that does not exist: `Number` is not `parseInt`, so `Number('007')`
+   * is 7 and `Number('08')` is 8. There is no legacy-octal path.
+   *
+   * What actually guards this line is the safe-integer check below. A
+   * long enough string of digits parses to a float that has silently
+   * lost precision, and that is the failure that matters here.
+   */
   const value = Number(scaled === '' ? '0' : scaled)
   if (!Number.isSafeInteger(value)) return null
 

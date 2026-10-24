@@ -1,7 +1,9 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { Amount } from '../components/Amount'
 import { Band } from '../components/Band'
+import { BandFallback } from '../components/BandFallback'
 import { isFromFlat } from '../lib/identity'
+import { useViewerFlat } from '../lib/viewer'
 import { formatDate } from '../lib/dates'
 import { devDues, devFlagLog } from '../lib/devData'
 
@@ -22,12 +24,73 @@ export const Route = createFileRoute('/my-flat')({
  * flat's, not one person's, which is why the copy says "from this flat".
  */
 function MyFlat() {
-  // Standing in for the viewer's own flat until auth exists.
-  const flat = devDues()[1]
+  /*
+   * Looked up BY FLAT NUMBER, never by array index.
+   *
+   * This was `devDues()[1]`, a fixed position in a list, which showed
+   * whichever flat happened to sit second rather than the one the
+   * session belongs to. So the page rendered a neighbour's billed,
+   * paid and outstanding amounts under the heading "Your flat", above
+   * the line "Other residents cannot see this." — the exact disclosure
+   * the page exists to rule out, stated and broken in the same band.
+   *
+   * The flat numbers are deliberately not named here. An earlier
+   * version of this comment named them, the placeholder moved, and the
+   * comment then described a mismatch that no longer existed while
+   * reading as a precise account of one.
+   *
+   * An index also cannot fail honestly: it returns SOMEBODY for any
+   * list long enough, so there is no mismatch to notice. A lookup
+   * returns undefined and falls into the "no flat is linked" band
+   * below, which is the truthful answer when the two do not agree.
+   *
+   * At cutover the constant is replaced by the session's own flat and
+   * this lookup is what the server's row is matched against, so the
+   * shape stays.
+   */
+  const myFlat = useViewerFlat()
+  const dues = devDues()
+  const log = devFlagLog()
+
+  /*
+   * Absent, and it must not collapse into "no flat is linked".
+   *
+   * Both reads are checked, because the band below says the account
+   * has no flat attached to it — an administrative fact a resident
+   * would act on by calling the society office. A failed read saying
+   * it sends them to argue about their own records.
+   */
+  if (dues === null || log === null) {
+    return (
+      <BandFallback
+        heading="Your flat could not be loaded"
+        headingId="cf-myflat-absent"
+        explanation="Your flat’s position did not load. This is not a statement about what you owe, and it does not mean no flat is linked to your account. Nothing has been changed."
+      />
+    )
+  }
+
+  /*
+   * THE SESSION'S FLAT, never a module constant.
+   *
+   * This read `PLACEHOLDER_FLAT` directly, which cannot be wrong about
+   * the ROLE because it never asked - it was wrong about the IDENTITY,
+   * the same class as the `devDues()[1]` bug below. Centralising the
+   * constant fixed the mismatch between two placeholders; it did not
+   * connect this page to the session, so the page had no slot for the
+   * session to go into and whoever did the cutover would have had to
+   * invent one.
+   *
+   * The flat is absent for every non-resident role by
+   * construction, so an auditor or a treasurer typing this URL falls
+   * through to the "no flat is linked" band rather than rendering some
+   * resident's arrears under the heading "Your flat".
+   */
+  const flat = myFlat ? dues.find((r) => r.flat === myFlat) : undefined
   // isFromFlat, not `.includes(flat)`: a substring test matches 'B-40'
   // against 'B-402' and would show this resident another flat's
   // questions, on the page that promises the opposite.
-  const mine = Object.entries(devFlagLog()).flatMap(([entryId, items]) =>
+  const mine = Object.entries(log).flatMap(([entryId, items]) =>
     items
       .filter((item) => isFromFlat(item.authorHandle, flat?.flat))
       .map((item) => ({ ...item, entryId })),

@@ -37,14 +37,39 @@ describe('the development side', () => {
     // If this ever fails the alias has leaked into the dev build and
     // every screen shows a retry, which looks like a broken app rather
     // than a misconfigured one.
-    expect(devLedger().length).toBeGreaterThan(0)
-    expect(devApprovals().length).toBeGreaterThan(0)
-    expect(Object.keys(devFlagLog()).length).toBeGreaterThan(0)
-    expect(devDues().length).toBeGreaterThan(0)
-    expect(devReports().length).toBeGreaterThan(0)
-    expect(devSignoff().length).toBeGreaterThan(0)
-    expect(devAuditYears().length).toBeGreaterThan(0)
-    expect(devAdjusting().length).toBeGreaterThan(0)
+    /*
+     * NOT NULL FIRST, then non-empty. Every accessor returns
+     * `T[] | null`, where null means the data was not fetched and each
+     * route renders a "could not be loaded" band. In development both
+     * failures look identical on screen — a page of retries — so
+     * the two assertions separate "the alias leaked into the dev
+     * build" from "the fixture went empty", which have different
+     * fixes.
+     */
+    const lists = {
+      ledger: devLedger(),
+      approvals: devApprovals(),
+      flagLog: devFlagLog(),
+      dues: devDues(),
+      reports: devReports(),
+      signoff: devSignoff(),
+      auditYears: devAuditYears(),
+      adjusting: devAdjusting(),
+    }
+
+    for (const [name, value] of Object.entries(lists)) {
+      expect(value, `${name} is null: the production alias leaked`).not.toBeNull()
+    }
+
+    expect(Object.keys(lists.flagLog ?? {}).length).toBeGreaterThan(0)
+    for (const [name, value] of Object.entries(lists)) {
+      if (name === 'flagLog') continue
+      expect(
+        (value as readonly unknown[]).length,
+        `${name} is empty`,
+      ).toBeGreaterThan(0)
+    }
+
     expect(devDashboard()).not.toBeNull()
   })
 
@@ -105,14 +130,41 @@ describe('the production side', () => {
     expect(empty.SAMPLE_DASHBOARD).toBeNull()
   })
 
-  it('carries no invented records at all', () => {
-    expect(empty.SAMPLE_LEDGER).toEqual([])
-    expect(empty.SAMPLE_APPROVALS).toEqual([])
-    expect(empty.SAMPLE_FLAG_LOG).toEqual({})
-    expect(empty.SAMPLE_DUES).toEqual([])
-    expect(empty.SAMPLE_REPORTS).toEqual([])
-    expect(empty.SAMPLE_SIGNOFF).toEqual([])
-    expect(empty.SAMPLE_AUDIT_YEARS).toEqual([])
-    expect(empty.SAMPLE_ADJUSTING).toEqual([])
+  it('reports every list as absent, never as empty', () => {
+    /*
+     * NULL, NOT `[]`, and this assertion is the whole point of the
+     * change that introduced it.
+     *
+     * These were all `[]`, and every list route read an empty array as
+     * "there is genuinely nothing" — so a production build stated,
+     * in its own copy, that nothing was waiting for approval, that
+     * every question had been answered, that every month was signed
+     * off and that no closed year had needed a correction. It had
+     * fetched nothing. Each of those is a claim about the committee's
+     * conduct, produced by a build with no data at all, on the product
+     * whose entire purpose is that such claims be checkable.
+     *
+     * Null is unrepresentable as "nothing to do": the type forces each
+     * route to answer "what if this did not load" separately, and
+     * every one of them now renders a band saying so.
+     *
+     * Asserting the RULE, not the literal: a list that is absent must
+     * be null and must not be an empty collection, which is what
+     * `toBeNull` plus the explicit not-equal pins down.
+     */
+    const absent = {
+      SAMPLE_LEDGER: empty.SAMPLE_LEDGER,
+      SAMPLE_APPROVALS: empty.SAMPLE_APPROVALS,
+      SAMPLE_FLAG_LOG: empty.SAMPLE_FLAG_LOG,
+      SAMPLE_DUES: empty.SAMPLE_DUES,
+      SAMPLE_REPORTS: empty.SAMPLE_REPORTS,
+      SAMPLE_SIGNOFF: empty.SAMPLE_SIGNOFF,
+      SAMPLE_AUDIT_YEARS: empty.SAMPLE_AUDIT_YEARS,
+      SAMPLE_ADJUSTING: empty.SAMPLE_ADJUSTING,
+    }
+
+    for (const [name, value] of Object.entries(absent)) {
+      expect(value, `${name} must be null, not an empty collection`).toBeNull()
+    }
   })
 })

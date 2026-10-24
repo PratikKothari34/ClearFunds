@@ -39,8 +39,11 @@ Then:
   conventions, and the definition of done for each lane. Read it before
   opening a PR.
 - **`frontend/README.md`** — how to install, run, test and build the
-  frontend. There is no root `README.md`: each lane documents its own stack,
-  because a root one would go stale on every change to either.
+  frontend. Each lane documents its own stack, so this is the file to read
+  before running anything in `frontend/`. There is **no root `README.md`
+  yet**: by `CONTRIBUTING.md` it is created once both stacks run, and it will
+  hold repository-wide setup and link to the two lane READMEs. Until then its
+  absence is deliberate, not an omission to fix.
 
 **The frontend exists and runs.** `frontend/` holds a React 19 + TypeScript
 SPA on Vite. The backend does not exist yet.
@@ -119,8 +122,9 @@ Settled, and binding on backend work:
    column later would touch hash-chained rows. The unit is *minor units of the
    stated currency*, never a hardcoded ÷100 — JPY has 0 decimal places and KWD
    has 3. The API contract is integer minor units regardless of the database
-   column type. **Rounding policy for computed amounts is still open**; decide
-   it explicitly server-side rather than inheriting a language default.
+   column type. **Rounding is half-up to the minor unit** (settled
+   2026-10-22, and stated again under point 10); apply it explicitly
+   server-side rather than inheriting a language default.
 
 5. **Corrections are new entries; nothing is ever edited or deleted.** A
    correction references the entry it corrects, carries a **mandatory reason**,
@@ -421,10 +425,11 @@ rather than picking a default.
   the common cases, but it is not a safety net you should lean on. **This
   repository is public** — a pushed secret is public permanently, and deleting
   it in a later commit does not remove it from the history.
-- **Money is not a float.** When the schema arrives, amounts are stored as
-  integer minor units or an exact decimal type. This is listed under the open
-  questions because it is unsettled, but no reading of it permits binary
-  floating point in a ledger.
+- **Money is not a float.** Amounts are an integer count of the currency's
+  minor units, beside an explicit ISO 4217 `currency` code. This is settled,
+  not an open question: carry `currency` from the first schema even though it
+  is always `INR` today, because backfilling that column later would touch
+  hash-chained rows. Binary floating point is not permitted at any layer.
 - Some paths in `.gitignore` are intentionally local to a working copy and will
   not be present in your clone. Their absence is not a missing file, and
   nothing you write should depend on one.

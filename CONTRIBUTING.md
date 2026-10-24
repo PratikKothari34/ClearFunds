@@ -179,10 +179,30 @@ Never stack on the other person's branch.
 
 ### 3.4 Protections, and what is actually configured
 
-The rulesets of record are in `.github/rulesets/`. **Only the repository
-admin (Pratik) can apply them.** Until they are applied, the live
-configuration is the existing `main protection` ruleset, and this section
-describes the target state.
+**The table below is a proposal, not what is configured today.** Read the
+live state first, because the two differ on three points that change how you
+merge:
+
+| | Live on `main` today | This section's target |
+|---|---|---|
+| Merge method | **squash or rebase** | merge commit only |
+| Linear history | **enforced** | not enforced |
+| Admin bypass | **the admin can bypass** | nobody can bypass |
+| `dev` branch | **does not exist** | protected |
+
+So, today: **a merge commit cannot land on `main`** — rebase or squash — and
+there is no `dev` branch to target, so open your pull request against `main`.
+One approving review, stale approvals dismissed on a new push, and every
+review thread resolved: those three are the same live as proposed. You have no
+bypass, so your work goes through a pull request either way.
+
+The rulesets of record are in `.github/rulesets/`, with
+`.github/rulesets/README.md` saying which of them is applied; `main.json` is a
+transcription of the live rule, and `dev.json` is unapplied. **Only the
+repository admin (Pratik) can change any of this**, and the `dev` model below
+stays a proposal until that branch exists and the owner decides to adopt it.
+Verify the live state yourself at any time with
+`gh api repos/PratikKothari34/ClearFunds/rulesets`.
 
 | Setting | `dev` | `main` |
 |---|---|---|
@@ -210,7 +230,12 @@ Why each of these is set the way it is:
   later promote would conflict with itself. A merge commit keeps `dev` an
   ancestor of `main`. It also makes `git log --first-parent main` read as a
   list of releases.
-- **The bypass list is empty.** See rule 2 at the top of this file.
+- **The bypass list is empty in the proposal, but not live.** The live
+  `main` rule lets the Admin repository role bypass, which is how the owner
+  pushes to `main` directly; such a push prints
+  `remote: Bypassed rule violations for refs/heads/main` on success. A
+  collaborator has no bypass in either model. See rule 2 at the top of this
+  file for why the proposal removes it.
 
 **Applying it (admin only, once).** Run these after this file merges:
 
@@ -475,8 +500,11 @@ A PR is done when **all** of these hold. Working code alone does not count.
   whatever the backend stack uses in `backend/`) belong to their lane owner.
   On conflict, take `dev`'s copy and regenerate it. Never resolve one by
   hand.
-- **Line endings** are set by `.gitattributes` (LF everywhere; CRLF for
-  `.ps1`, `.cmd` and `.bat`). Do not override it.
+- **Line endings** are set by `.gitattributes`: LF everywhere, CRLF for
+  `.ps1`, `.cmd` and `.bat`, and `binary` for fonts, images and documents so
+  git never rewrites their bytes. Do not override it. If you add a binary
+  file type, declare it there rather than relying on `text=auto` to guess -
+  the guess is per file and a wrong one corrupts the file silently.
 - **Shared files** (`AGENTS.md`, `GOALS.md`, this file) conflict the most,
   so change them in small, separate docs PRs. Do not carry them inside a
   lane PR for a week.
@@ -485,7 +513,15 @@ A PR is done when **all** of these hold. Working code alone does not count.
 
 ## 9. CI, when it lands
 
-Nothing to run yet. When the first stack lands:
+**No workflow exists yet, but there is something to run.** Until `ci-ok`
+exists, the gate is local and you run it yourself before opening a pull
+request: `npm run verify` in `frontend/` typechecks with `tsc -b`, lints,
+runs the test suite, builds, and then runs the repository's own checks for
+shadowed utility classes, sample data leaking into the bundle, the gzip
+bundle budgets and the inline-script CSP hash. A red result is reported, not
+committed around.
+
+When the first workflow lands:
 
 - One workflow, `.github/workflows/ci.yml`, with path-filtered jobs
   `frontend`, `backend` and `contracts`, plus a single aggregator job

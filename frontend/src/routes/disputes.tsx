@@ -1,8 +1,9 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { Band } from '../components/Band'
+import { BandFallback } from '../components/BandFallback'
 import { canSeeFlagAuthor } from '../lib/identity'
 import { useViewerRole } from '../lib/viewer'
-import { formatDate } from '../lib/dates'
+import { byTimestampAsc, formatDate } from '../lib/dates'
 import { devFlagLog, devLedger } from '../lib/devData'
 
 export const Route = createFileRoute('/disputes')({
@@ -31,11 +32,44 @@ function Disputes() {
   // disagree about it.
   const showAuthor = canSeeFlagAuthor(useViewerRole())
 
-  const all = Object.entries(devFlagLog()).flatMap(([entryId, items]) =>
+  const log = devFlagLog()
+
+  /*
+   * Absent, not empty. "Every question has been answered." is a claim
+   * about how the committee treats residents who ask — the one
+   * thing this surface exists to keep honest. A failed read printing
+   * it buries open questions behind a sentence saying there are none.
+   */
+  if (log === null) {
+    return (
+      <BandFallback
+        heading="Questions could not be loaded"
+        headingId="cf-disputes-absent"
+        explanation="The questions raised about entries did not load. This does NOT mean every question has been answered — it means the list was not reached. Nothing has been answered or closed."
+      />
+    )
+  }
+
+  const all = Object.entries(log).flatMap(([entryId, items]) =>
     items.map((item) => ({ ...item, entryId })),
   )
 
-  const open = all.filter((i) => !i.resolvedAt)
+  /*
+   * OLDEST FIRST on the open list, by parsed timestamp.
+   *
+   * The unanswered list is a queue, so the question waiting longest
+   * belongs at the top — the whole point of showing it is that
+   * something has gone unanswered. Unordered, it rendered in whatever
+   * order the log's keys happened to iterate.
+   *
+   * `byTimestampAsc` parses rather than comparing the strings. The
+   * fixture is uniformly +05:30 so a string compare passes every test
+   * today, and breaks the first time the server emits UTC — an
+   * offset difference reorders the queue silently.
+   */
+  const open = all
+    .filter((i) => !i.resolvedAt)
+    .sort((a, b) => byTimestampAsc(a.raisedAt, b.raisedAt))
   const answered = all.filter((i) => i.resolvedAt)
 
   return (
@@ -125,6 +159,8 @@ function Disputes() {
  * rows this device happens to hold.
  */
 function describeEntry(entryId: string): string {
-  const entry = devLedger().find((e) => e.id === entryId)
+  // Null ledger falls through to the reference label, which is the
+  // honest answer: the narration was not fetched, so it is not known.
+  const entry = devLedger()?.find((e) => e.id === entryId)
   return entry ? entry.narration : `Entry ${entryId}`
 }

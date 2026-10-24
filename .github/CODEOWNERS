@@ -19,6 +19,13 @@
 #   2. No `!` negation and no `[a-z]` ranges. Both are ignored without an error.
 #   3. Changing a handle is a change of ownership. Make it its own PR.
 #   4. After editing, open the file in the GitHub UI, which reports syntax errors.
+#   5. Several paths below do not exist yet. Only `/frontend/` does; `/backend/`
+#      and `/contracts/` arrive with the backend lane's first PR, and the two
+#      `/docs/<lane>/` directories when either lane first needs notes of its
+#      own. A rule for a path that does not exist is harmless - it matches
+#      nothing and starts working the moment the directory appears - so these
+#      are deliberate, not leftovers to clean up. Do not delete one because it
+#      currently matches nothing.
 
 # ---- catch-all and shared paths: both ----
 *                       @PratikKothari34 @tadiPro250

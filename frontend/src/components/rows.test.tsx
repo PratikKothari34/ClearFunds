@@ -120,12 +120,53 @@ describe('EntryRow reversals', () => {
     expect(screen.getByText(/Billed twice/)).toBeInTheDocument()
   })
 
-  it('an unresolved-flag line pluralises on the count', () => {
-    const { container, unmount } = render(<EntryRow entry={{ ...base, openFlagCount: 1 }} />)
-    expect(container.textContent).toContain('1 resident has')
+  it('counts questions, never residents', () => {
+    /*
+     * `openFlagCount` is the number of unresolved flags, and one
+     * resident may ask twice. The line said "2 residents have asked",
+     * which is a claim about how many PEOPLE object to this entry,
+     * derived from a number that does not carry it. On a surface where
+     * residents are anonymous to each other, overstating how many of
+     * them objected is the wrong direction to be wrong in.
+     *
+     * Asserted as the rule: the count appears, and the word next to it
+     * is never a word for people. An assertion on the exact sentence
+     * would be "fixed" by editing the expected string.
+     */
+    const { container, unmount } = render(
+      <EntryRow entry={{ ...base, openFlagCount: 1 }} />,
+    )
+    expect(container.textContent).toContain('1 question')
+    expect(container.textContent).not.toMatch(/residents?/i)
     unmount()
+
     const two = render(<EntryRow entry={{ ...base, openFlagCount: 2 }} />)
-    expect(two.container.textContent).toContain('2 residents have')
+    expect(two.container.textContent).toContain('2 questions')
+    expect(two.container.textContent).not.toMatch(/residents?/i)
+  })
+
+  it('pluralises the verb with the count', () => {
+    const { container, unmount } = render(
+      <EntryRow entry={{ ...base, openFlagCount: 1 }} />,
+    )
+    expect(container.textContent).toContain('question has been asked')
+    unmount()
+
+    const two = render(<EntryRow entry={{ ...base, openFlagCount: 2 }} />)
+    expect(two.container.textContent).toContain('questions have been asked')
+  })
+
+  it('says nothing at all when no question is outstanding', () => {
+    /*
+     * Not a zero. "0 questions have been asked about this entry" is a
+     * confident statement built from a count that may simply be the
+     * default, and a resolved question legitimately leaves this count
+     * while staying in the entry's log.
+     */
+    const { container } = render(
+      <EntryRow entry={{ ...base, openFlagCount: 0 }} />,
+    )
+    expect(container.textContent).not.toContain('question')
   })
 })
 

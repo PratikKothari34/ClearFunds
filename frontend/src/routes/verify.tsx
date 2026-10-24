@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { Band } from '../components/Band'
-import { newestEntry } from '../lib/ledger'
+import { comparedAnything, newestEntry } from '../lib/ledger'
 import type { AnchorStatus } from '../lib/types'
 import { formatDateTime } from '../lib/dates'
 import { devAnchor, devLedger } from '../lib/devData'
@@ -38,7 +38,22 @@ function Verify() {
   // this page is the one place where naming the wrong entry as "newest
   // here" misstates what was compared. Same bug class as the sign-off
   // oldest-month read: derive the extreme, never trust the index.
-  const newest = newestEntry(devLedger())
+  const entries = devLedger() ?? []
+  const newest = newestEntry(entries)
+
+  /*
+   * Whether anything was actually compared, passed to the result
+   * alongside the anchor state.
+   *
+   * The anchor status and the ledger are two INDEPENDENT reads, and
+   * nothing but this page couples them. With a `match` anchor and no
+   * entries — which is what a production build holds today — the
+   * page printed "Newest entry here: None" directly above "Nothing in
+   * the history has been changed since it was published." Zero entries
+   * were compared, and the page stated the history matches, on the one
+   * surface carrying the product's central claim.
+   */
+  const compared = comparedAnything(entries)
 
   return (
     <>
@@ -97,7 +112,7 @@ function Verify() {
       </Band>
 
       <Band heading="Result" headingId="cf-verify-result">
-        <Result status={status} />
+        <Result status={status} compared={compared} />
       </Band>
 
       <Band heading="What this does and does not show" headingId="cf-verify-limits">
@@ -127,7 +142,38 @@ function Verify() {
   )
 }
 
-function Result({ status }: { readonly status: AnchorStatus }) {
+function Result({
+  status,
+  compared,
+}: {
+  readonly status: AnchorStatus
+  /**
+   * Whether this device held any entry to compare. False makes every
+   * reassuring sentence below unsayable regardless of the anchor
+   * state, because a comparison over nothing has no result.
+   */
+  readonly compared: boolean
+}) {
+  /*
+   * NOTHING COMPARED OUTRANKS EVERY ANCHOR STATE.
+   *
+   * Checked before the switch, not as a case inside it, because it is
+   * true of all four states at once: a `match` over zero entries is
+   * not a weaker match, it is not a match at all. Styled as
+   * `--ink-quiet` with a plain rule, the same as `first-visit` —
+   * this is neither reassurance nor alarm, it is the absence of a
+   * result, and colouring it green or amber would make it one.
+   */
+  if (!compared) {
+    return (
+      <p className="m-0 max-w-[68ch] pl-(--cf-s2) border-l-2 border-rule text-ink-quiet">
+        There is nothing on this device to compare yet, so this check has no
+        result. Open the history first; the comparison runs against the
+        entries this device holds.
+      </p>
+    )
+  }
+
   switch (status.state) {
     case 'match':
       return (

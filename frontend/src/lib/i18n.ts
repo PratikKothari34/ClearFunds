@@ -13,7 +13,8 @@
  * payload. 'Noto Sans Devanagari' sits permanently in the font stack in
  * tokens.css; only the @font-face rules arrive on demand.
  *
- * The library: i18next and react-i18next are ~50 KB raw together, and
+ * The library: i18next and react-i18next build to a 67 KB raw chunk
+ * together (23 KB gzip; `npm run budget` prints the current figure), and
  * nothing in English needs them. English copy IS the source string in
  * the JSX, so on the default locale the correct text renders with the
  * library absent. It is therefore imported dynamically, inside the
@@ -24,8 +25,9 @@
  * The consequence to keep in mind: a component may only reach
  * translation through a path that tolerates the library being absent.
  * There is no top-level `import i18next`, and adding one silently puts
- * all 50 KB back in the entry chunk — i18n.test.ts asserts against
- * exactly that.
+ * the whole chunk back in the entry — i18n.test.ts asserts against
+ * exactly that. The size is deliberately not restated here: a number
+ * written twice drifts in one place.
  */
 
 export const SUPPORTED_LOCALES = ['en', 'mr', 'hi'] as const

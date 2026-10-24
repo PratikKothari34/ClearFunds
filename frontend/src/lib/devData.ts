@@ -43,16 +43,69 @@
  */
 
 import * as source from './devData.source'
-import type { AnchorStatus, DashboardData } from './types'
+import type {
+  AdjustingEntry,
+  AnchorStatus,
+  AuditYear,
+  DashboardData,
+  DuesRow,
+  Entry,
+  FlagLogItem,
+  PendingApproval,
+  ReportSummary,
+  SignoffPeriod,
+} from './types'
 
-export const devLedger = () => source.SAMPLE_LEDGER
-export const devFlagLog = () => source.SAMPLE_FLAG_LOG
-export const devApprovals = () => source.SAMPLE_APPROVALS
-export const devSignoff = () => source.SAMPLE_SIGNOFF
-export const devDues = () => source.SAMPLE_DUES
-export const devReports = () => source.SAMPLE_REPORTS
-export const devAuditYears = () => source.SAMPLE_AUDIT_YEARS
-export const devAdjusting = () => source.SAMPLE_ADJUSTING
+/*
+ * WHY THE LISTS RETURN null AND NOT AN EMPTY ARRAY
+ *
+ * An empty list is a CLAIM, and on these surfaces it is a claim the
+ * product has no basis to make. "Nothing to sign. Every month up to now
+ * has been signed off." is a statement about the society's compliance.
+ * An empty ledger says no money has ever moved. An empty dues table
+ * says every flat has paid. None of those is what "the request did not
+ * return" means, and every one of them is the kind of false
+ * reassurance this product exists to make impossible.
+ *
+ * The dashboard already settled this for its own payload — `null`, and
+ * the route renders the band's failure state — for the identical
+ * reason, and the eight lists were the half that was missed. A
+ * production build returned `[]` for all of them, so a built app
+ * cheerfully asserted that nothing needs approval, nothing is
+ * disputed, and the books are current, having fetched nothing at all.
+ *
+ * `null` makes that unrepresentable: the type forces every route to
+ * answer "what if this did not load" separately from "what if it is
+ * genuinely empty", which are different sentences on every one of
+ * these pages.
+ */
+/*
+ * EVERY RETURN TYPE IS ANNOTATED, and that is load-bearing.
+ *
+ * `tsc` only ever resolves `./devData.source` — the alias to the empty
+ * module is a Vite resolution, invisible to the typechecker. So typing
+ * `null` in `devData.empty.ts` alone would constrain nothing: the
+ * compiler would infer the fixture's non-null array type, no route
+ * would be asked about the absent case, and the check would be dead
+ * while looking alive. The annotation here is what both halves are
+ * measured against, and it is what makes `devData.empty.ts` compile
+ * only if it returns something a route has been forced to handle.
+ */
+export const devLedger = (): readonly Entry[] | null => source.SAMPLE_LEDGER
+export const devFlagLog = (): Readonly<
+  Record<string, readonly FlagLogItem[]>
+> | null => source.SAMPLE_FLAG_LOG
+export const devApprovals = (): readonly PendingApproval[] | null =>
+  source.SAMPLE_APPROVALS
+export const devSignoff = (): readonly SignoffPeriod[] | null =>
+  source.SAMPLE_SIGNOFF
+export const devDues = (): readonly DuesRow[] | null => source.SAMPLE_DUES
+export const devReports = (): readonly ReportSummary[] | null =>
+  source.SAMPLE_REPORTS
+export const devAuditYears = (): readonly AuditYear[] | null =>
+  source.SAMPLE_AUDIT_YEARS
+export const devAdjusting = (): readonly AdjustingEntry[] | null =>
+  source.SAMPLE_ADJUSTING
 
 /**
  * The published-chain-head comparison.
