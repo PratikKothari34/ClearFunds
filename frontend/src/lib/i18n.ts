@@ -34,6 +34,26 @@ export const SUPPORTED_LOCALES = ['en', 'mr', 'hi'] as const
 export type Locale = (typeof SUPPORTED_LOCALES)[number]
 
 /** Locales written in Devanagari, which need the extra font payload. */
+/**
+ * The translation catalogues, one per supported locale.
+ *
+ * ALL EMPTY TODAY, and that is a stated fact rather than an oversight:
+ * the whole UI is hardcoded English and nothing calls `t()` yet. They
+ * are named here, in one object, because `applyLang` has to be able to
+ * ask whether a locale has any text - the `lang` attribute must follow
+ * what is on screen, not what the resident picked. Keeping the
+ * catalogues inline inside `init` meant there was nothing to ask.
+ *
+ * Keys are English sentences (`keySeparator: false`), so adding a
+ * locale's first string is all that is needed; nothing else has to be
+ * updated for the attribute, the font or the switch to become correct.
+ */
+const CATALOGUES: Record<Locale, Readonly<Record<string, string>>> = {
+  en: {},
+  mr: {},
+  hi: {},
+}
+
 const DEVANAGARI_LOCALES: readonly Locale[] = ['mr', 'hi']
 
 export function isDevanagari(locale: string): boolean {
@@ -138,9 +158,9 @@ function startRuntime(initial: Locale) {
       keySeparator: false,
       nsSeparator: false,
       resources: {
-        en: { translation: {} },
-        mr: { translation: {} },
-        hi: { translation: {} },
+        en: { translation: CATALOGUES.en },
+        mr: { translation: CATALOGUES.mr },
+        hi: { translation: CATALOGUES.hi },
       },
       interpolation: {
         // React escapes already; escaping twice mangles an apostrophe in
@@ -155,13 +175,39 @@ function startRuntime(initial: Locale) {
   return runtime
 }
 
-/** Writes the document language. Separated so both paths agree. */
+/**
+ * Whether a locale has any translated text to announce.
+ *
+ * Derived from the catalogues rather than written down, so shipping the
+ * first Hindi strings is what switches Hindi on - not a flag someone
+ * has to remember to flip in a second place.
+ */
+export function hasCatalogue(locale: Locale): boolean {
+  return Object.keys(CATALOGUES[locale] ?? {}).length > 0
+}
+
+/**
+ * Writes the document language. Separated so both paths agree.
+ *
+ * `lang` DESCRIBES THE TEXT, NOT THE PREFERENCE, and setting it from
+ * the chosen locale was a lie in exactly the direction that hurts the
+ * people the switch is for. Every catalogue is still empty and nothing
+ * calls `t()` yet, so choosing हिंदी left the page in English while
+ * announcing `lang="hi"` - and a screen reader then reads English words
+ * with Hindi phonemes, which is less intelligible than the English
+ * voice it replaced. The sighted Hindi reader gets English either way;
+ * the blind one got English made unreadable.
+ *
+ * So the attribute follows the TEXT: it stays `en` until that locale
+ * actually has strings. The preference is still recorded and the font
+ * still loads, so the moment a catalogue lands the attribute becomes
+ * correct on its own.
+ */
 function applyLang(locale: Locale): void {
   if (typeof document !== 'undefined') {
-    // `lang` is not cosmetic: it picks the hyphenation and line-breaking
-    // rules, and it tells a screen reader which voice to use. A Marathi
-    // page announced in an English voice is unintelligible.
-    document.documentElement.lang = locale
+    // It picks hyphenation and line-breaking rules and tells a screen
+    // reader which voice to use, so it has to match what is on screen.
+    document.documentElement.lang = hasCatalogue(locale) ? locale : 'en'
   }
 }
 

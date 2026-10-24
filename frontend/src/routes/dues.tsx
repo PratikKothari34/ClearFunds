@@ -3,7 +3,7 @@ import { Amount } from '../components/Amount'
 import { Band } from '../components/Band'
 import { BandFallback } from '../components/BandFallback'
 import { devDues } from '../lib/devData'
-import { canSeeAllDues } from '../lib/identity'
+import { canSeeAllDues, duesVisibilitySentence } from '../lib/identity'
 import { useViewerRole } from '../lib/viewer'
 import { Link } from '@tanstack/react-router'
 
@@ -78,9 +78,8 @@ function Dues() {
           Dues by flat are not shown here
         </h2>
         <p className="m-0 text-ink-quiet max-w-[68ch]">
-          What each flat owes is visible only to the treasurer, the secretary
-          and the president, who collect it. Your own flat&rsquo;s position is
-          on{' '}
+          What each flat owes is visible only to {duesVisibilitySentence()},
+          who collect it. Your own flat&rsquo;s position is on{' '}
           <Link to="/my-flat" className="underline">
             your flat page
           </Link>
@@ -105,7 +104,30 @@ function Dues() {
       </Band>
 
       <Band heading="By flat" headingId="cf-dues-table">
-        <div className="overflow-x-auto">
+        {/*
+          A SCROLLABLE REGION A KEYBOARD CANNOT REACH IS A HIDDEN
+          COLUMN. This was a bare `overflow-x-auto` div: on a narrow
+          phone the Outstanding column - the only column a treasurer
+          opens this page for - sits off the right edge, and a div with
+          no tab stop cannot be scrolled by keyboard at all. A mouse
+          user drags it, a touch user swipes it, a keyboard user is
+          simply told less.
+
+          `tabIndex={0}` with `role="region"` and a name, which is the
+          combination that makes it both reachable and announced; a tab
+          stop with no name is an unexplained stop on the way to the
+          table.
+
+          No focus class here: `index.css` already gives every
+          `:focus-visible` a 2px `--cf-anchor` outline, and a second
+          per-element rule is how the two drift apart.
+        */}
+        <div
+          className="overflow-x-auto"
+          tabIndex={0}
+          role="region"
+          aria-labelledby="cf-dues-table"
+        >
           <table className="w-full border-collapse text-left">
             <caption className="cf-sr-only">
               Maintenance billed, paid and outstanding for each flat

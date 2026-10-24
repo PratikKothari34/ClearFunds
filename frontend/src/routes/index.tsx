@@ -6,6 +6,7 @@ import { PeriodBand } from '../components/dashboard/PeriodBand'
 import { RecentBand } from '../components/dashboard/RecentBand'
 import { useBandStates, type BandName } from '../lib/bands'
 import { devAnchor, devDashboard } from '../lib/devData'
+import { inChainOrder } from '../lib/ledger'
 
 export const Route = createFileRoute('/')({
   component: Home,
@@ -77,6 +78,20 @@ function Home() {
    * balance is nil.
    */
   const balance = data?.balance ?? { minor: 0, currency: 'INR' }
+  /*
+   * SORTED HERE TOO, by the same rule as the ledger tabs.
+   *
+   * This was `data?.recent ?? []` passed straight through, which made
+   * the band the one surface that trusted the server's array order.
+   * The reasoning in `inChainOrder` is not specific to the ledger page:
+   * these rows are read top to bottom as a sequence, so array order IS
+   * the claim being made, and nothing in the wire contract promises it.
+   * The fixture's own head is 847, 846, 845, 848 - the newest entry
+   * fourth - so the band was visibly wrong in the current build while
+   * every ledger tab beside it was right.
+   */
+  const recent = inChainOrder(data?.recent ?? [])
+
   const period =
     data?.period ?? {
       label: '',
@@ -95,7 +110,7 @@ function Home() {
       <AttentionBand items={data?.attention ?? []} {...props('attention')} />
       <FingerprintBand status={devAnchor()} {...props('fingerprint')} />
       <PeriodBand period={period} {...props('period')} />
-      <RecentBand entries={data?.recent ?? []} {...props('recent')} />
+      <RecentBand entries={recent} {...props('recent')} />
     </>
   )
 }

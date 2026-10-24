@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, statSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
@@ -61,8 +61,8 @@ describe('the default font payload', () => {
      */
     for (const src of [INDEX, FONTS]) {
       expect(src).not.toMatch(/@import[^;]*@fontsource/)
-      expect(src).not.toMatch(/from\s*['"]@fontsource/)
-      expect(src).not.toMatch(/require\(\s*['"]@fontsource/)
+      expect(src).not.toMatch(/\bfrom\s*['"]@fontsource/)
+      expect(src).not.toMatch(/\brequire\(\s*['"]@fontsource/)
     }
     // No face may be served out of node_modules either, which is the
     // other way a subset arrives: the declared urls are all /fonts/.
@@ -188,5 +188,66 @@ describe('preload hints', () => {
       (m) => m[0],
     )
     for (const tag of tags) expect(tag).toContain('crossorigin')
+  })
+})
+
+describe('the OFL notice is reachable', () => {
+  /*
+   * CLAUSE 2 ASKS THAT THE NOTICE TRAVEL WITH THE FONTS, and a file
+   * nothing links to does not travel. `public/fonts/OFL.txt` shipped
+   * for a while with zero references anywhere - not the HTML, not
+   * either font stylesheet, not a route - so a resident served the
+   * five .woff2 files had no way to reach the licence they were served
+   * under. Nothing failed, because nothing was asserting it.
+   *
+   * Asserted as "some served page links to it", not "verify.tsx links
+   * to it": where the link lives is a design choice and may move, but
+   * it must exist somewhere a reader can get to.
+   */
+  const fontsDir = resolve(process.cwd(), 'public/fonts')
+
+  it('ships a notice naming every font it redistributes', () => {
+    const notice = readFileSync(resolve(fontsDir, 'OFL.txt'), 'utf8')
+
+    // Control: the file was read and is the licence, not a stub.
+    expect(notice.length).toBeGreaterThan(1000)
+    expect(notice).toMatch(/Open Font License/i)
+
+    /*
+     * Every woff2 actually in the directory must be named in it -
+     * derived from the directory, so adding a sixth font without
+     * adding it to the notice fails here rather than shipping a font
+     * with no copyright holder listed.
+     */
+    const woff2 = readdirSync(fontsDir).filter((f) => f.endsWith('.woff2'))
+    expect(woff2.length).toBeGreaterThan(0)
+    for (const file of woff2) {
+      expect(notice, `${file} is redistributed but not named in OFL.txt`).toContain(
+        file,
+      )
+    }
+  })
+
+  it('is linked from a page a resident can open', () => {
+    /*
+     * MATCHES AN href, NOT THE PATH ANYWHERE IN THE FILE.
+     *
+     * A first version of this searched for the bare string
+     * `/fonts/OFL.txt`, and a mutation that deleted the actual anchor
+     * still passed - because the comment ABOVE the anchor, explaining
+     * why the link has to exist, mentions the path too. The test was
+     * satisfied by a file that only talked about linking the notice.
+     * Comments are stripped before the search for the same reason.
+     */
+    const routes = resolve(process.cwd(), 'src/routes')
+    const linked = readdirSync(routes)
+      .filter((f) => f.endsWith('.tsx'))
+      .some((f) => {
+        const code = readFileSync(resolve(routes, f), 'utf8')
+          .replace(/\/\*[\s\S]*?\*\//g, '')
+          .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
+        return /href=["']\/fonts\/OFL\.txt["']/.test(code)
+      })
+    expect(linked, 'no route has an href to /fonts/OFL.txt').toBe(true)
   })
 })

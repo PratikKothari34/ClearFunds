@@ -48,10 +48,12 @@ function Verify() {
    * The anchor status and the ledger are two INDEPENDENT reads, and
    * nothing but this page couples them. With a `match` anchor and no
    * entries — which is what a production build holds today — the
-   * page printed "Newest entry here: None" directly above "Nothing in
-   * the history has been changed since it was published." Zero entries
-   * were compared, and the page stated the history matches, on the one
-   * surface carrying the product's central claim.
+   * page printed "Newest entry here: None" directly above the match
+   * sentence. Zero entries were compared, and the page stated the
+   * history matches, on the one surface carrying the product's central
+   * claim. (The match sentence has since been weakened from "nothing
+   * has been changed" to "no change has been found"; that is a
+   * separate fix and does not make this coupling safe.)
    */
   const compared = comparedAnything(entries)
 
@@ -122,21 +124,68 @@ function Verify() {
          */}
         <ul className="list-disc pl-(--cf-s3) m-0 max-w-[68ch] flex flex-col gap-(--cf-s1)">
           <li>
-            If any past entry had been altered, the references would stop
-            matching. A quiet change to the history is not possible.
+            {/*
+              "WOULD BE VISIBLE", NEVER "IS NOT POSSIBLE".
+              This said "a quiet change to the history is not possible",
+              which is a tamper-PROOF claim. Whoever runs the server can
+              re-sign a whole chain; what they cannot do is make the
+              change agree with a copy published outside their control.
+              The product's claim is that a change cannot be made
+              QUIETLY - that it becomes visible - and the absolute form
+              is the one sentence a reader would be right to call a lie.
+            */}
+            If any past entry were altered, the references would stop matching,
+            and this check would show it. A change to the history cannot be
+            made quietly.
           </li>
           <li>
-            A match does not prove an entry is correct. It proves the entry has
+            A match does not mean an entry is correct. It means the entry has
             not changed since it was recorded. Whether the payment was right is
             what the committee, the questions on each entry and the auditor are
             for.
           </li>
           <li>
+            {/*
+              "SHOWS", NOT "PROVES". The header of this page forbids
+              language that leaves a resident believing the check is
+              proof, and this bullet - the one about the chain's real
+              limit - used the banned word twice.
+            */}
             A match cannot show you an expense that was never entered at all.
-            The record proves nothing was changed; it cannot prove nothing is
-            missing.
+            The record shows that nothing was changed; it cannot show that
+            nothing is missing.
           </li>
         </ul>
+      </Band>
+
+      {/*
+        THE OFL REQUIRES THE NOTICE TO TRAVEL WITH THE FONTS, and a
+        file nothing links to does not travel. `public/fonts/OFL.txt`
+        was shipped with no reference anywhere in the app, the HTML or
+        either font stylesheet, so a resident served the five .woff2
+        files had no way to reach the licence they are served under -
+        which is the one thing clause 2 asks for. A CSS comment does
+        not discharge it; a comment is not served to a reader.
+
+        Placed on this page rather than in a footer on every screen.
+        This is the page about where the record and the app come from,
+        so provenance belongs here, and a footer under the balance
+        would compete with the one figure most of this product's
+        audience opens the app to read.
+
+        A plain anchor, not a Link: the target is a static file in
+        `public/`, not a route, and routing it would 404.
+      */}
+      <Band heading="Licences" headingId="cf-verify-licences">
+        <p className="m-0 max-w-[68ch] text-ink-quiet">
+          ClearFunds is free software under the GNU General Public License,
+          version 3 or later. The typefaces it uses are separate works,
+          redistributed unchanged under the{' '}
+          <a href="/fonts/OFL.txt" className="underline">
+            SIL Open Font License
+          </a>
+          .
+        </p>
       </Band>
     </>
   )
@@ -178,8 +227,16 @@ function Result({
     case 'match':
       return (
         <p className="m-0 max-w-[68ch] pl-(--cf-s2) border-l-2 border-credit">
-          The record on this device matches the published copy. Nothing in the
-          history has been changed since it was published.
+          {/*
+            "NO CHANGE HAS BEEN FOUND", not "nothing has been changed".
+            The check compares this device's copy against the published
+            one; a match is the absence of a found difference, which is
+            not the same as a fact about everything that happened. The
+            unqualified form is the strongest sentence in the product
+            and the one a lawyer or auditor would quote back.
+          */}
+          The record on this device matches the published copy. No change to
+          the history has been found since it was published.
         </p>
       )
 

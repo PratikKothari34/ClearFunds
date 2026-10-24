@@ -52,7 +52,7 @@ export function oldestUnsigned(
  * would sort before every real month and take the sign-off surface with
  * it.
  */
-function isPeriodId(id: unknown): id is string {
+export function isPeriodId(id: unknown): id is string {
   if (typeof id !== 'string') return false
   const m = /^s-(\d{4})-(\d{2})$/.exec(id)
   if (!m) return false
@@ -69,5 +69,49 @@ function isPeriodId(id: unknown): id is string {
  * exists to prevent.
  */
 export function waitingBehind(periods: readonly SignoffPeriod[]): number {
-  return Math.max(0, periods.length - 1)
+  /*
+   * COUNTED OVER THE SAME PERIODS `oldestUnsigned` WOULD OFFER.
+   *
+   * This was `periods.length - 1` over the raw list, which counts
+   * months this module has already decided it cannot identify. A
+   * malformed id is not a month waiting behind the one on screen - it
+   * is a row we cannot place in the calendar, so it would inflate a
+   * figure the president reads as "how far behind am I".
+   */
+  return Math.max(0, signable(periods).length - 1)
+}
+
+/**
+ * The periods this module is willing to act on.
+ *
+ * One definition, because `oldestUnsigned` filtering while
+ * `waitingBehind` did not is how the two disagreed. With all ids
+ * malformed the first returned undefined and the second returned a
+ * positive count, and the route reads them independently: it took the
+ * undefined, rendered "Every month up to now has been signed off." -
+ * the compliance claim its own comment calls the sharpest false
+ * statement in the product - and threw the count away.
+ */
+export function signable(
+  periods: readonly SignoffPeriod[],
+): readonly SignoffPeriod[] {
+  return periods.filter((p) => isPeriodId(p.id))
+}
+
+/**
+ * Whether the list arrived usable at all.
+ *
+ * The distinction the route needs and could not make: EMPTY means
+ * every month has been signed, UNUSABLE means months are listed and
+ * none of them can be placed. Only the first earns the all-clear copy.
+ *
+ * A `null` read was already guarded. This is the case where the read
+ * succeeded and the contents are the problem, which looks identical
+ * from the route - both arrive as "no period to sign" - and resolves
+ * to the opposite message.
+ */
+export function hasUnplaceablePeriods(
+  periods: readonly SignoffPeriod[],
+): boolean {
+  return periods.length > 0 && signable(periods).length === 0
 }

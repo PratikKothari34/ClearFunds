@@ -3,6 +3,7 @@ import { Amount } from '../Amount'
 import { BandFallback } from '../BandFallback'
 import type { Money } from '../../lib/types'
 import { formatDate } from '../../lib/dates'
+import { isShowableCount } from '../../lib/countable'
 
 /**
  * Band 1. Never collapses, never has a label above the figure.
@@ -59,15 +60,48 @@ export function BalanceBand({
        * The figure is a heading, so it is the first thing in the rotor
        * after the society name. Styled by the band rather than by h2's
        * defaults.
+       *
+       * AND IT SAYS WHAT THE NUMBER IS. The heading was the bare
+       * amount, so a screen reader's heading rotor announced
+       * "1,250 rupees 75 paise" with nothing to say whether that was
+       * the society's balance, this month's spending or the dues
+       * outstanding - the three figures this product shows. The
+       * visible design rule is that this band never carries a label
+       * above the figure, which is why the label is visually hidden
+       * rather than dropped.
        */}
       <h2 className="font-sans text-figure font-medium leading-none m-0">
+        <span className="cf-sr-only">Money the society holds: </span>
         <Amount value={balance} />
       </h2>
       <p className="text-meta text-ink-quiet mt-(--cf-s2)">
         as of {formatDate(asOf)}
-        {' · '}
-        <span className="cf-tabular">{entryCount.toLocaleString('en-IN')}</span>{' '}
-        {entryCount === 1 ? 'entry' : 'entries'}
+        {/*
+         * THE COUNT IS DROPPED WHEN IT IS NOT A COUNT, rather than
+         * printed as whatever arrived.
+         *
+         * `NaN.toLocaleString('en-IN')` returns the string "NaN", so an
+         * entry count that arrived as a string the server did not mean
+         * to send, or as a subtraction against a missing field, put
+         * "NaN entries" under the one figure the majority of this
+         * product's audience opens the app to read. Beside a balance,
+         * that reads as a fault in the money rather than in a
+         * subtitle.
+         *
+         * The balance itself still shows: the count is context for
+         * situating it, so losing the context is not a reason to
+         * withhold the figure - and this band's own rule is that it
+         * never collapses.
+         */}
+        {isShowableCount(entryCount) && (
+          <>
+            {' · '}
+            <span className="cf-tabular">
+              {entryCount.toLocaleString('en-IN')}
+            </span>{' '}
+            {entryCount === 1 ? 'entry' : 'entries'}
+          </>
+        )}
       </p>
     </Band>
   )

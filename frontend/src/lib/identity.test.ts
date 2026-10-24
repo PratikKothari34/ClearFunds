@@ -1,8 +1,12 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
   canSeeAllDues,
   canSeeApprovalQueue,
   canSeeFlagAuthor,
+  duesVisibilitySentence,
+  duesVisibleTo,
   isFromFlat,
 } from './identity'
 import type { Role } from './types'
@@ -298,5 +302,89 @@ describe('canSeeApprovalQueue', () => {
      */
     expect(canSeeApprovalQueue).not.toBe(canSeeAllDues)
     expect(canSeeApprovalQueue).not.toBe(canSeeFlagAuthor)
+  })
+})
+
+/*
+ * The dues privacy promise, which the two pages making it had typed by
+ * hand and had already drifted apart on.
+ *
+ * `/dues` named three office-bearers; `/my-flat` said "the society's
+ * committee can", which `canSeeAllDues` refuses. Asserted as agreement
+ * between the sentence and the predicate rather than against an
+ * expected string: pinning "the treasurer, the secretary and the
+ * president" would make the test a second copy of the copy, and
+ * widening the rule would then be "fixed" by pasting the new words in.
+ */
+describe('the dues visibility sentence', () => {
+  it('names exactly the roles the predicate admits', () => {
+    const named = duesVisibleTo()
+    expect(named.length, 'nobody can see dues, which cannot be right').toBeGreaterThan(0)
+    for (const role of ALL_ROLES) {
+      expect(
+        named.includes(role),
+        `${role}: the sentence and canSeeAllDues disagree`,
+      ).toBe(canSeeAllDues(role))
+    }
+  })
+
+  it('names every admitted role in the sentence itself', () => {
+    const sentence = duesVisibilitySentence()
+    /*
+     * WHOLE WORDS. "president" contains "resident", so a substring
+     * check reports the sentence naming residents whenever it names
+     * the president - which is every honest sentence it can produce.
+     */
+    const names = (role: string) =>
+      new RegExp(String.raw`\b` + role + String.raw`\b`).test(sentence)
+    for (const role of duesVisibleTo()) {
+      expect(names(role), `${role} is admitted but not named`).toBe(true)
+    }
+    for (const role of ALL_ROLES.filter((r) => !canSeeAllDues(r))) {
+      expect(
+        names(role),
+        `${role} cannot see dues but the sentence says they can`,
+      ).toBe(false)
+    }
+  })
+
+  it('reads as a list, not as an array', () => {
+    const sentence = duesVisibilitySentence()
+    // Lands mid-sentence, so no capital and no full stop; "and"
+    // because they all can, which "or" would turn into a choice.
+    expect(sentence).not.toMatch(/[.[\]]/)
+    expect(sentence).not.toMatch(/\bor\b/)
+    if (duesVisibleTo().length > 1) {
+      expect(sentence).toMatch(/\band\b/)
+    }
+  })
+
+  it('is not typed out on either page that promises it', () => {
+    /*
+     * The actual regression this prevents. Both pages must call the
+     * function: a hardcoded list is how the two came to disagree, and
+     * the next widening of `canSeeAllDues` would leave one of them
+     * making a promise the code no longer keeps.
+     */
+    for (const route of ['src/routes/dues.tsx', 'src/routes/my-flat.tsx']) {
+      const code = readFileSync(resolve(process.cwd(), route), 'utf8')
+      const served = code
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
+        .replace(/\/\/[^\n]*/g, '')
+      expect(served.length, `${route} was not read`).toBeGreaterThan(500)
+      expect(
+        served,
+        `${route} does not call duesVisibilitySentence`,
+      ).toMatch(/duesVisibilitySentence\(\)/)
+      /*
+       * And no hand-written pair of role names in served text, which
+       * is what a hardcoded list looks like however it is worded.
+       */
+      expect(
+        served,
+        `${route} still spells the role list out`,
+      ).not.toMatch(/treasurer,?\s+(the\s+)?secretary/i)
+    }
   })
 })

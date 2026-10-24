@@ -1,9 +1,15 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { Amount } from '../components/Amount'
 import { Band } from '../components/Band'
+import { PendingAction } from '../components/PendingAction'
 import { BandFallback } from '../components/BandFallback'
 import { formatMoney } from '../lib/money'
-import { oldestUnsigned, waitingBehind } from '../lib/signoff'
+import { isShowableCount, isUnreadableCount } from '../lib/countable'
+import {
+  hasUnplaceablePeriods,
+  oldestUnsigned,
+  waitingBehind,
+} from '../lib/signoff'
 import type { SignoffPeriod } from '../lib/types'
 import { devSignoff } from '../lib/devData'
 
@@ -62,6 +68,31 @@ function SignOff() {
 
   const period = oldestUnsigned(periods)
 
+  /*
+   * UNUSABLE IS NOT EMPTY EITHER, and this is the second half of the
+   * guard above rather than a new rule.
+   *
+   * `oldestUnsigned` rejects a period whose id it cannot place in the
+   * calendar, so a list where every id is malformed arrives here
+   * looking exactly like a list where nothing is waiting - and fell
+   * through to "Every month up to now has been signed off.", the
+   * compliance claim this page exists to keep honest. Months WERE
+   * listed; none of them could be read.
+   *
+   * It is checked before the all-clear and not merged into it, because
+   * the two have opposite meanings for the president: one says their
+   * signature is not needed, the other says we cannot tell.
+   */
+  if (hasUnplaceablePeriods(periods)) {
+    return (
+      <BandFallback
+        heading="Sign-off could not be read"
+        headingId="cf-signoff-unusable"
+        explanation="Months are listed as waiting for sign-off, but none of them could be read. This does NOT mean every month has been signed off. Nothing has been signed."
+      />
+    )
+  }
+
   if (!period) {
     return (
       <Band>
@@ -86,7 +117,26 @@ function PeriodSignoff({
   /** Unsigned months behind this one. Disclosed, never listed as peers. */
   readonly waiting: number
 }) {
-  const blocked = period.openFlagCount > 0 || period.structuring.length > 0
+  /*
+   * AN UNREADABLE QUESTION COUNT BLOCKS, it does not clear.
+   *
+   * This was `period.openFlagCount > 0`, and `NaN > 0` is false - so a
+   * month whose question count arrived malformed told the president
+   * "Your sign-off is recorded in the history" with no mention of
+   * anything outstanding, AND suppressed the "Questions not yet
+   * answered" band that would have contradicted it. They would put
+   * their name to a month believing it clean, on the strength of a
+   * number nobody could read.
+   *
+   * Every other count in this product fails silent, because a display
+   * that cannot show a figure should not invent one. This one is a
+   * decision rather than a display, so it fails loud.
+   */
+  const flagsUnreadable = isUnreadableCount(period.openFlagCount)
+  const blocked =
+    flagsUnreadable ||
+    isShowableCount(period.openFlagCount) ||
+    period.structuring.length > 0
 
   return (
     <>
@@ -136,7 +186,7 @@ function PeriodSignoff({
        * their name to a month; an open question is the single most
        * relevant fact about it.
        */}
-      {period.openFlagCount > 0 && (
+      {(isShowableCount(period.openFlagCount) || flagsUnreadable) && (
         <Band heading="Questions not yet answered" headingId="cf-signoff-flags">
           {/*
             COUNTS QUESTIONS, NOT ENTRIES. `openFlagCount` is the number
@@ -151,10 +201,29 @@ function PeriodSignoff({
             in the payload. So the copy says the thing the number IS.
           */}
           <p className="m-0 max-w-[68ch] pl-(--cf-s2) border-l-2 border-attention">
-            <span className="cf-tabular">{period.openFlagCount}</span>{' '}
-            {period.openFlagCount === 1 ? 'question' : 'questions'} from
-            residents {period.openFlagCount === 1 ? 'has' : 'have'} not been
-            answered yet.{' '}
+            {/*
+              THE FIGURE DEGRADES, THE WARNING DOES NOT. A count nobody
+              can read is not a reason to stop telling the president
+              that questions may be outstanding - it is the reason to
+              tell them, because this is the screen where they put
+              their name to the month. No number is invented: the
+              sentence says the count could not be read, which is the
+              only honest thing it can say.
+            */}
+            {flagsUnreadable ? (
+              <>
+                How many questions residents have asked about this month could
+                not be read. Treat the month as having questions outstanding
+                until you have looked.{' '}
+              </>
+            ) : (
+              <>
+                <span className="cf-tabular">{period.openFlagCount}</span>{' '}
+                {period.openFlagCount === 1 ? 'question' : 'questions'} from
+                residents {period.openFlagCount === 1 ? 'has' : 'have'} not been
+                answered yet.{' '}
+              </>
+            )}
             <Link
               to="/ledger/flagged"
               className="text-anchor underline decoration-1 underline-offset-2"
@@ -206,16 +275,11 @@ function PeriodSignoff({
          * disabled button would move the decision to whoever answers
          * the question, which is not where the bye-laws put it.
          */}
-        <button
-          type="button"
-          className="min-h-11 px-(--cf-s3) border border-rule rounded-sm bg-surface text-ink font-medium"
-        >
-          Sign off {period.label}
-        </button>
+        <PendingAction>Sign off {period.label}</PendingAction>
         <p className="mt-(--cf-s2) mb-0 text-meta text-ink-quiet max-w-[68ch]">
           {blocked
-            ? 'You can sign with a question outstanding. Your sign-off is recorded with the date, and so is the question.'
-            : 'Your sign-off is recorded in the history with the date. It cannot be removed, only corrected by a later entry.'}
+            ? 'When signing works, you will be able to sign with a question outstanding: the sign-off is recorded with the date, and so is the question.'
+            : 'When signing works, your sign-off will be recorded in the history with the date. It cannot be removed, only corrected by a later entry.'}
         </p>
       </Band>
     </>

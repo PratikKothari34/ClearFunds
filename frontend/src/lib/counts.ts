@@ -1,4 +1,5 @@
 import type { FlagLogItem, PendingApproval, Role, SignoffPeriod } from './types'
+import { isUnresolved } from './flags'
 import { canSeeApprovalQueue } from './identity'
 
 /**
@@ -34,22 +35,21 @@ import { canSeeApprovalQueue } from './identity'
 /**
  * Unresolved flags only.
  *
- * `resolvedAt` absent is the whole test, and it is the settled rule: a
- * resolved question leaves the count and stays in the entry's log. The
- * log is the record, the count is a to-do list. Counting every flag
+ * A resolved question leaves the count and stays in the entry's log.
+ * The log is the record, the count is a to-do list. Counting every flag
  * ever raised would make the figure grow forever and mean a committee
  * that answers everything still looks negligent.
  *
- * `== null`, not `=== undefined`: JSON carries no `undefined`, so a
- * backend sending `"resolvedAt": null` for an open question would make
- * it count as ANSWERED and drop it out of the figure residents are
- * shown. The direction of that failure is the problem — it hides
- * unanswered questions rather than over-reporting them.
+ * The test itself is `isUnresolved` and is not restated here. This
+ * comment used to describe a `== null` check written out in this
+ * function, which disagreed with three other spellings of the same
+ * question - see `flags.ts` for which input they split on and what it
+ * did to the figure residents are shown.
  */
 export function unresolvedFlagCount(
   flags: readonly FlagLogItem[],
 ): number {
-  return flags.filter((flag) => flag.resolvedAt == null).length
+  return flags.filter(isUnresolved).length
 }
 
 /**

@@ -68,10 +68,32 @@ export function LedgerList({
 }
 
 function PlainList({ entries }: { readonly entries: readonly Entry[] }) {
+  /*
+   * A LIST, SO A SCREEN READER CAN SAY HOW LONG IT IS.
+   *
+   * Both paths were a bare `div` of rows, which announces neither
+   * "list of 40" nor "item 3 of 40". That matters more here than on an
+   * ordinary list: this is a financial history, and a resident who
+   * cannot tell whether they have reached the end cannot tell a short
+   * ledger from one that stopped loading.
+   *
+   * `role` rather than `<ul>` because `EntryRow` renders an
+   * `<article>`, and an `<li>` wrapper around it would add a node per
+   * row for no gain. The virtual path cannot use `<ul>` at all - its
+   * children are absolutely positioned - so both paths use the role
+   * and stay the same shape.
+   */
   return (
-    <div>
-      {entries.map((entry) => (
-        <EntryRow key={entry.id} entry={entry} />
+    <div role="list" aria-label={`${entries.length} entries, newest first`}>
+      {entries.map((entry, index) => (
+        <div
+          key={entry.id}
+          role="listitem"
+          aria-setsize={entries.length}
+          aria-posinset={index + 1}
+        >
+          <EntryRow entry={entry} />
+        </div>
       ))}
     </div>
   )
@@ -99,6 +121,19 @@ function VirtualList({ entries }: { readonly entries: readonly Entry[] }) {
   return (
     <div
       ref={listRef}
+      role="list"
+      /*
+       * THE TOTAL IS DECLARED, because the rows cannot carry it.
+       *
+       * Only the rows near the viewport are mounted, so the
+       * accessibility tree holds about a dozen of them whatever the
+       * ledger's length - a screen reader counting children would
+       * report "12 items" for 400 entries. `aria-setsize` on each row
+       * states the real total, and `aria-posinset` states where the
+       * mounted row actually sits, which is the documented remedy for
+       * a virtualized list and the only way the two agree.
+       */
+      aria-label={`${entries.length} entries, newest first`}
       style={{ height: virtualizer.getTotalSize(), position: 'relative' }}
     >
       {items.map((item) => {
@@ -107,6 +142,9 @@ function VirtualList({ entries }: { readonly entries: readonly Entry[] }) {
         return (
           <div
             key={entry.id}
+            role="listitem"
+            aria-setsize={entries.length}
+            aria-posinset={item.index + 1}
             // measureElement reads this node's real height and feeds it
             // back, which is what makes a variable-height reversed pair
             // position correctly.

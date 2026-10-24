@@ -1,10 +1,12 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { Amount } from '../components/Amount'
 import { Band } from '../components/Band'
+import { Cancelled } from '../components/Cancelled'
 import { BandFallback } from '../components/BandFallback'
 import { Fingerprint } from '../components/Fingerprint'
 import { FlagHistory } from '../components/FlagHistory'
 import { formatDate, formatDateTime } from '../lib/dates'
+import { cancelledEffect, cancelledNoun } from '../lib/cancelledCopy'
 import { devFlagLog, devLedger } from '../lib/devData'
 
 export const Route = createFileRoute('/ledger/$entryId')({
@@ -69,11 +71,22 @@ function EntryDetail() {
   }
 
   const reversed = entry.state === 'reversed'
-  // `?.` then `?? []`: a null flag log means the questions were not
-  // fetched, which this surface already renders as no questions. The
-  // entry itself is on screen, so a fallback band here would hide the
-  // record to report a missing sidebar.
-  const log = devFlagLog()?.[entry.id] ?? []
+  /*
+   * ABSENT IS NOT EMPTY, and the earlier reasoning here was wrong.
+   *
+   * It said a null log "already renders as no questions" and that a
+   * fallback would hide the record to report a missing sidebar. The
+   * second half is right — the entry must stay on screen — but `?? []`
+   * does not render "no questions", it renders "Nobody has asked about
+   * this entry.", which is a statement ABOUT the entry that a resident
+   * acts on by closing the page. A failed read must never produce it:
+   * an unanswered question about this very payment would sit invisible
+   * while the page said nobody had asked.
+   *
+   * So the distinction is kept and passed down: `null` means not
+   * fetched, `[]` means genuinely nobody.
+   */
+  const log = devFlagLog()?.[entry.id] ?? null
 
   return (
     <>
@@ -94,10 +107,17 @@ function EntryDetail() {
          * rendering glitch.
          */}
         <p className={`m-0 text-figure font-medium ${reversed ? 'text-ink-quiet' : ''}`}>
+          {/*
+           * `Cancelled`, not a hand-rolled pair. The strike and the
+           * visually-hidden word were written out separately at three
+           * call sites, and one of them - this row's amount in
+           * EntryRow - had the strike without the word. One component
+           * is what makes that impossible rather than merely noticed.
+           */}
           {reversed ? (
-            <s>
+            <Cancelled>
               <Amount value={entry.amount} direction={entry.direction} />
-            </s>
+            </Cancelled>
           ) : (
             <Amount value={entry.amount} direction={entry.direction} />
           )}
@@ -107,20 +127,49 @@ function EntryDetail() {
          * Stated in words, immediately under the amount, because this is
          * the sentence the strike-through was standing in for.
          */}
-        {reversed && entry.reversedBy && (
+        {/*
+          GATED ON `reversed` ALONE, and the details degrade inside.
+          This was `reversed && entry.reversedBy`, so an entry whose
+          state says cancelled but which arrived without its reversal
+          reference rendered a struck-through amount and not one word -
+          and the strike is the thing this sentence exists to explain.
+          A resident reads an unexplained strike as a display glitch,
+          which is the opposite of what a cancelled payment should
+          communicate.
+
+          Same bug `EntryRow` already fixed; its comment says to gate on
+          `reversed` alone. The date and the link are what is actually
+          missing, so they are what degrades - never the statement that
+          the money does not count.
+        */}
+        {reversed && (
           <p className="mt-(--cf-s2) mb-0 pl-(--cf-s2) border-l-2 border-break text-break max-w-[68ch]">
-            This payment was cancelled on{' '}
-            {formatDate(entry.reversedBy.postedAt)}. The money does not count
-            towards the society balance.
-            {entry.reversalReason && <> Reason given: {entry.reversalReason}</>}{' '}
-            <Link
-              to="/ledger/$entryId"
-              params={{ entryId: entry.reversedBy.id }}
-              className="underline decoration-1 underline-offset-2"
-            >
-              See the correction
-            </Link>
-            .
+            {entry.reversedBy ? (
+              <>
+                This {cancelledNoun(entry.direction)} was cancelled on{' '}
+                {formatDate(entry.reversedBy.postedAt)}.
+              </>
+            ) : (
+              // No date, so none is invented. "Cancelled" without a
+              // date is the honest subset; a guessed date on a
+              // cancelled entry is a fact nobody can check.
+              <>This {cancelledNoun(entry.direction)} was cancelled.</>
+            )}{' '}
+            {cancelledEffect(entry.direction)}
+            {entry.reversalReason && <> Reason given: {entry.reversalReason}</>}
+            {entry.reversedBy && (
+              <>
+                {' '}
+                <Link
+                  to="/ledger/$entryId"
+                  params={{ entryId: entry.reversedBy.id }}
+                  className="underline decoration-1 underline-offset-2"
+                >
+                  See the correction
+                </Link>
+                .
+              </>
+            )}
           </p>
         )}
 

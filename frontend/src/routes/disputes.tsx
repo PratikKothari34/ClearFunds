@@ -5,6 +5,7 @@ import { canSeeFlagAuthor } from '../lib/identity'
 import { useViewerRole } from '../lib/viewer'
 import { byTimestampAsc, formatDate } from '../lib/dates'
 import { devFlagLog, devLedger } from '../lib/devData'
+import { isUnresolved, resolvedOn } from '../lib/flags'
 
 export const Route = createFileRoute('/disputes')({
   component: Disputes,
@@ -68,9 +69,15 @@ function Disputes() {
    * offset difference reorders the queue silently.
    */
   const open = all
-    .filter((i) => !i.resolvedAt)
+    .filter(isUnresolved)
     .sort((a, b) => byTimestampAsc(a.raisedAt, b.raisedAt))
-  const answered = all.filter((i) => i.resolvedAt)
+  /*
+   * The complement of the SAME predicate, not a second spelling of it.
+   * `!i.resolvedAt` here and `== null` in counts.ts disagreed on the
+   * empty string, so one question could be counted open in the badge
+   * and listed answered on this page at the same time.
+   */
+  const answered = all.filter((i) => !isUnresolved(i))
 
   return (
     <>
@@ -124,7 +131,13 @@ function Disputes() {
           </p>
         ) : (
           <ul className="list-none m-0 p-0 flex flex-col gap-(--cf-s3)">
-            {answered.map((item) => (
+            {answered.map((item) => {
+              // One call, like the other two surfaces. The list is
+              // already filtered by the same predicate, so this can
+              // only be non-null - but reading the raw field again is
+              // how the spellings diverged, so it is not read again.
+              const answeredOn = resolvedOn(item)
+              return (
               <li key={item.id} className="pl-(--cf-s2) border-l-2 border-rule">
                 <p className="m-0 max-w-[68ch]">{item.question}</p>
                 {item.answer && (
@@ -133,7 +146,16 @@ function Disputes() {
                   </p>
                 )}
                 <p className="m-0 text-meta text-ink-quiet">
-                  Answered {item.resolvedAt ? formatDate(item.resolvedAt) : ''}
+                  {/*
+                   * No `: ''` fallback. "Answered" with nothing after
+                   * it is a sentence saying a question was dealt with
+                   * on no date; if the timestamp is unusable the
+                   * question is not answered, which is what the
+                   * predicate above already decided.
+                   */}
+                  {answeredOn !== null
+                    ? `Answered ${formatDate(answeredOn)}`
+                    : 'Answered'}
                   {' · '}
                   <Link
                     to="/ledger/$entryId"
@@ -144,7 +166,8 @@ function Disputes() {
                   </Link>
                 </p>
               </li>
-            ))}
+              )
+            })}
           </ul>
         )}
       </Band>

@@ -10,7 +10,7 @@ vi.mock('@tanstack/react-router', () => ({
 }))
 
 import { EntryRow } from './EntryRow'
-import { LedgerList } from './LedgerList'
+import { LedgerList, VIRTUALIZE_THRESHOLD } from './LedgerList'
 import { LedgerSummary } from './LedgerSummary'
 import { NavBadge } from './NavBadge'
 
@@ -137,12 +137,12 @@ describe('EntryRow reversals', () => {
       <EntryRow entry={{ ...base, openFlagCount: 1 }} />,
     )
     expect(container.textContent).toContain('1 question')
-    expect(container.textContent).not.toMatch(/residents?/i)
+    expect(container.textContent).not.toMatch(/residents?\b/i)
     unmount()
 
     const two = render(<EntryRow entry={{ ...base, openFlagCount: 2 }} />)
     expect(two.container.textContent).toContain('2 questions')
-    expect(two.container.textContent).not.toMatch(/residents?/i)
+    expect(two.container.textContent).not.toMatch(/residents?\b/i)
   })
 
   it('pluralises the verb with the count', () => {
@@ -227,4 +227,93 @@ describe('LedgerList', () => {
     const { container } = render(<LedgerList entries={[rev, orig]} />)
     expect(container.querySelectorAll('article')).toHaveLength(2)
   })
+})
+
+/*
+ * List semantics on both paths.
+ *
+ * Both were a bare `div` of rows, so a screen reader announced neither
+ * the ledger's length nor a row's position in it. The virtual path is
+ * the one that cannot be fixed by markup alone: only the rows near the
+ * viewport are mounted, so the accessibility tree holds a dozen of
+ * them whatever the real total, and `aria-setsize` is the only thing
+ * that can state it.
+ *
+ * Asserted on BOTH sides of VIRTUALIZE_THRESHOLD, derived from the
+ * exported constant rather than a literal - the two paths are
+ * different code and a change to one has twice left the other behind.
+ */
+describe('the ledger announces its length and each row position', () => {
+  const entriesOfLength = (n: number): Entry[] =>
+    Array.from({ length: n }, (_, i) => ({
+      ...base,
+      id: `e-${i}`,
+      sequence: i + 1,
+    }))
+
+  for (const [label, count] of [
+    ['the plain path', VIRTUALIZE_THRESHOLD - 1],
+    ['the virtual path', VIRTUALIZE_THRESHOLD + 5],
+  ] as const) {
+    it(`${label} is a list that states its real total`, () => {
+      const entries = entriesOfLength(count)
+      const { container, unmount } = render(<LedgerList entries={entries} />)
+
+      const list = container.querySelector('[role="list"]')
+      expect(list, `${label}: no list role, so nothing announces a list`).not.toBeNull()
+
+      /*
+       * THE TOTAL IS ON THE CONTAINER, which is why it is asserted
+       * there and not only on the rows.
+       *
+       * jsdom gives the window no measurable height, so the
+       * virtualizer mounts zero rows here - `getVirtualItems()` is
+       * empty and there is nothing to carry `aria-setsize`. That is
+       * exactly the production condition this fix exists for, in its
+       * extreme form: if the length lived only on the rows, a
+       * resident on the virtual path would be told the ledger is as
+       * long as whatever happens to be mounted. The container's label
+       * states it regardless.
+       */
+      expect(
+        list?.getAttribute('aria-label') ?? '',
+        `${label}: the list does not state how many entries it holds`,
+      ).toMatch(new RegExp(String.raw`\b` + count + String.raw`\b`))
+
+      const items = container.querySelectorAll('[role="listitem"]')
+      if (items.length === 0) {
+        // Virtual path under jsdom. The container assertion above is
+        // the whole guarantee here, and it has been made.
+        unmount()
+        return
+      }
+
+      for (const item of items) {
+        /*
+         * THE REAL TOTAL, not the number mounted. On the virtual path
+         * these differ, and reporting the mounted count would tell a
+         * resident the society has twelve entries.
+         */
+        expect(
+          item.getAttribute('aria-setsize'),
+          `${label}: a row reports a total that is not the ledger's length`,
+        ).toBe(String(count))
+
+        const pos = Number(item.getAttribute('aria-posinset'))
+        expect(Number.isInteger(pos), `${label}: position is not a number`).toBe(true)
+        expect(pos, `${label}: position is out of range`).toBeGreaterThanOrEqual(1)
+        expect(pos, `${label}: position exceeds the total`).toBeLessThanOrEqual(count)
+      }
+
+      // Every mounted row has its own position: duplicates would make
+      // two rows the same item.
+      const positions = [...items].map((i) => i.getAttribute('aria-posinset'))
+      expect(
+        new Set(positions).size,
+        `${label}: two rows claim the same position`,
+      ).toBe(positions.length)
+
+      unmount()
+    })
+  }
 })

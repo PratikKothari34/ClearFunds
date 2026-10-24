@@ -1,7 +1,9 @@
 import { Link } from '@tanstack/react-router'
 import { Amount } from './Amount'
+import { Cancelled } from './Cancelled'
 import type { Entry } from '../lib/types'
 import { formatDate } from '../lib/dates'
+import { isShowableCount } from '../lib/countable'
 
 /**
  * One ledger row — and, when an entry has been reversed, ONE row
@@ -56,10 +58,7 @@ export function EntryRow({ entry }: { readonly entry: Entry }) {
             className={`m-0 ${reversed ? 'text-ink-quiet' : ''}`}
           >
             {reversed ? (
-              <>
-                <s>{entry.narration}</s>
-                <span className="cf-sr-only"> (cancelled)</span>
-              </>
+              <Cancelled>{entry.narration}</Cancelled>
             ) : (
               entry.narration
             )}
@@ -78,10 +77,21 @@ export function EntryRow({ entry }: { readonly entry: Entry }) {
         </div>
 
         <div className={reversed ? 'text-ink-quiet' : ''}>
+          {/*
+           * The amount carries the word too, not just the narration.
+           *
+           * This site had the `<s>` and NOT the visually-hidden word,
+           * while the header above said the amount carries both. A
+           * screen reader therefore announced "cancelled" once, for the
+           * narration, and then read the figure as a live one - the
+           * exact failure the header calls the worst available here.
+           * Sharing `Cancelled` is what stops the two halves drifting
+           * apart again.
+           */}
           {reversed ? (
-            <s>
+            <Cancelled>
               <Amount value={entry.amount} direction={entry.direction} />
-            </s>
+            </Cancelled>
           ) : (
             <Amount value={entry.amount} direction={entry.direction} />
           )}
@@ -153,7 +163,7 @@ export function EntryRow({ entry }: { readonly entry: Entry }) {
        * other, overstating how many of them objected is the wrong
        * direction to be wrong in.
        */}
-      {entry.openFlagCount > 0 && (
+      {isShowableCount(entry.openFlagCount) && (
         <p className="m-0 text-meta text-ink-quiet">
           <span className="cf-tabular">{entry.openFlagCount}</span>{' '}
           {entry.openFlagCount === 1 ? 'question has' : 'questions have'} been

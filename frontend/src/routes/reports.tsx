@@ -1,5 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { Band } from '../components/Band'
+import { PendingAction } from '../components/PendingAction'
 import { BandFallback } from '../components/BandFallback'
 import type { ReportSummary } from '../lib/types'
 import { formatDate } from '../lib/dates'
@@ -98,12 +99,24 @@ function ReportRow({ report }: { readonly report: ReportSummary }) {
         </p>
       </div>
 
-      <button
-        type="button"
+      {/*
+        THE ROW'S NAME IS PART OF THE BUTTON, not only beside it.
+        Every row's button said "Download", so a screen reader moving
+        through the button list heard "Download, Download, Download" and
+        a voice-control user had no way to name the one they wanted.
+        Reading the labels requires leaving the button list, which is
+        the thing a button list exists to avoid.
+
+        Visually hidden rather than a longer visible label: the
+        qualifier would wrap the button on a phone, and the sighted
+        reader already has the label on the same line.
+      */}
+      <PendingAction
+        srSuffix={`${report.label}, ${report.periodLabel}`}
         className="min-h-11 px-(--cf-s3) border border-rule rounded-sm bg-surface text-ink font-medium whitespace-nowrap"
       >
         Download
-      </button>
+      </PendingAction>
     </li>
   )
 }

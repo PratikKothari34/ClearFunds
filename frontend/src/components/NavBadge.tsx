@@ -14,30 +14,39 @@
  * the 3 counts.
  */
 
+import { isShowableCount } from '../lib/countable'
+
 export const BADGE_CAP = 40
 
 export function NavBadge({
   count,
   label,
 }: {
-  readonly count: number
+  /*
+   * `unknown`, not `number`, and not `number | undefined`.
+   *
+   * Every call site looked up a count in a per-route map and wrote
+   * `?? 0` to satisfy a `number` prop. That default is a claim this
+   * component exists to refuse: zero means "nothing is waiting", and an
+   * absent key means "not known yet". The two render identically here,
+   * so the harm was not on screen - it was that the type pushed three
+   * call sites into asserting a figure none of them had, and the one
+   * place NaN would then be caught was downstream of where it entered.
+   *
+   * The guard below is total, so a wider type costs nothing and the
+   * `?? 0` disappears from every caller.
+   */
+  readonly count: unknown
   readonly label: string
 }) {
   /*
-   * `count <= 0` alone is not enough, because EVERY comparison against
-   * NaN is false. A NaN count — a figure arriving as a string the server
-   * did not mean to send, a subtraction against a missing field, a
-   * JSON null coerced with +— sailed straight past that guard and
-   * rendered "NaN" in the badge and "NaNNaN items need you in
-   * Approvals" to a screen reader.
-   *
-   * It must also be an integer: 2.5 items need nobody, and a
-   * fractional badge means the figure was computed from something it
-   * should not have been. Refusing to render is right either way — a
-   * missing badge says "nothing is known to be waiting", which is
-   * honest, where a wrong one is not.
+   * The rule lives in `lib/countable.ts`, because four other surfaces
+   * asked this question in four weaker ways and this was the only one
+   * that got it right.
    */
-  if (!Number.isInteger(count) || count <= 0) return null
+  // The predicate is a type guard, so `count` is a positive integer
+  // from here down and the arithmetic below needs no further checks.
+  if (!isShowableCount(count)) return null
 
   const shown = count > BADGE_CAP ? `${BADGE_CAP}+` : String(count)
 

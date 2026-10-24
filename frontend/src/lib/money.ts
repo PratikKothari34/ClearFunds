@@ -194,6 +194,16 @@ function normalizeZero(minor: number): number {
 /**
  * Parses a typed major-unit string into minor units.
  *
+ * NOT YET CALLED BY ANY SURFACE, and kept deliberately. There is no
+ * entry form yet - creating an entry needs the server contract, which
+ * is the other lane's - so the only caller today is its own test. It is
+ * not dead code waiting to be swept: this is the ×100 boundary the
+ * project names as the place its worst bug will live, and the whole
+ * reason it exists is to be in place BEFORE the form that needs it, so
+ * nobody writing that form reaches for `Number(input) * 100`. Deleting
+ * it would mean the form is built against a float multiply and the bug
+ * ships at the moment the lane connects.
+ *
  * This is the boundary the project calls out as the place bugs will live:
  * a missing multiply stores Rs 12.50 as Rs 0.125, which is a plausible
  * amount that will not look wrong in a list. So this function does the
@@ -270,7 +280,16 @@ export function parseMoney(input: string, currency: string): Money | null {
   return { minor: signed, currency }
 }
 
-/** Splits a formatted amount so a row can align on the decimal separator. */
+/**
+ * Splits a formatted amount so a row can align on the decimal separator.
+ *
+ * Also called only by its test today: the ledger's rows align on
+ * `cf-tabular` figures rather than on split parts. Kept for the same
+ * reason as `parseMoney` - the degradation path when `Intl` has no
+ * formatter is worked out here and tested, and re-deriving it inside a
+ * component later is how a row ends up showing a bare minor-unit
+ * integer.
+ */
 export function formatParts(
   m: Money,
   locale = 'en-IN',

@@ -1,5 +1,8 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { MOBILE_TAB_MAX, navFor, splitForMobile } from './nav'
+import { LEDGER_TABS, MOBILE_TAB_MAX, navFor, splitForMobile } from './nav'
+import { canSeeAllDues, canSeeApprovalQueue } from './identity'
 import type { NavItem } from './nav'
 import type { Role } from './types'
 
@@ -50,6 +53,59 @@ describe('navFor', () => {
   it('does not give the auditor an approval surface', () => {
     // The auditor gives reasonable assurance; he does not move money.
     expect(navFor('auditor').map((i) => i.to)).not.toContain('/approvals')
+  })
+})
+
+/*
+ * THE NAV AND THE PERMISSIONS MUST NOT DISAGREE.
+ *
+ * This file's own header says role filtering here is cosmetic, which is
+ * true of the direction that matters for security: a hidden item is not
+ * a permission check, and the server must refuse the surface anyway.
+ *
+ * The OTHER direction is not cosmetic at all, and had nothing watching
+ * it. The president's items omitted Dues while `canSeeAllDues` already
+ * granted it to them, and omitted Ledger entirely - so the one role
+ * asked to put their name on a month's figures had no link to the
+ * history behind them. Every existing test here passed before and after
+ * that fix, because each asserted a property of the lists rather than
+ * their agreement with the predicates.
+ */
+describe('the nav offers what the role is entitled to', () => {
+  it('links Dues for every role that may see all of it', () => {
+    for (const r of ROLES) {
+      const tos = navFor(r).map((i) => i.to)
+      expect(tos.includes('/dues'), `${r}`).toBe(canSeeAllDues(r))
+    }
+  })
+
+  it('links Approvals exactly for the roles with business there', () => {
+    for (const r of ROLES) {
+      const tos = navFor(r).map((i) => i.to)
+      expect(tos.includes('/approvals'), `${r}`).toBe(canSeeApprovalQueue(r))
+    }
+  })
+
+  it('gives the ledger to every role that approves or signs', () => {
+    /*
+     * Derived from the two predicates rather than listed, so a role
+     * added later cannot be given an approval power and no history to
+     * exercise it against. Signing or approving a figure without being
+     * able to open the entries behind it is the gap this catches.
+     */
+    for (const r of ROLES) {
+      if (!canSeeApprovalQueue(r)) continue
+      expect(navFor(r).map((i) => i.to), `${r}`).toContain('/ledger')
+    }
+  })
+
+  it('gives My flat only to the role that has one', () => {
+    // A treasurer or auditor has no flat in this product's model, so
+    // the item would open a page that tells them no flat is linked.
+    for (const r of ROLES) {
+      const tos = navFor(r).map((i) => i.to)
+      expect(tos.includes('/my-flat'), `${r}`).toBe(r === 'resident')
+    }
   })
 })
 
@@ -134,5 +190,82 @@ describe('splitForMobile', () => {
         items.map((i) => i.to).sort(),
       )
     }
+  })
+})
+
+describe('the navigation speaks the pages’ vocabulary', () => {
+  /*
+   * ONE WORD PER CONCEPT, ACROSS NAV AND PAGE.
+   *
+   * The nav said `Disputes` and `Flagged` while every page under both
+   * said "question", and the ledger tab said `Reversed` over rows that
+   * render the word "cancelled". Three vocabularies for two concepts,
+   * for an audience that has never used an accounting product. Nothing
+   * failed, because nothing was comparing the two halves - the nav
+   * tests asserted ordering and counts, never words.
+   *
+   * These read the real route sources, so the nav cannot drift from
+   * the copy without going red.
+   */
+  const routeSource = (file: string) =>
+    readFileSync(resolve('src/routes', file), 'utf8')
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
+      .replace(/\/\/[^\n]*/g, '')
+
+  const labels = () => [
+    ...navFor('resident').map((i) => i.label),
+    ...navFor('treasurer').map((i) => i.label),
+    ...LEDGER_TABS.map((t) => t.label),
+  ]
+
+  it('never calls a resident’s question a dispute', () => {
+    /*
+     * Not register, substance: a flag has no financial effect.
+     * "Dispute" tells the resident, and the committee reading the
+     * badge, that something has been escalated - which discourages
+     * the asking the ledger exists to invite.
+     */
+    for (const label of labels()) {
+      expect(label.toLowerCase()).not.toContain('dispute')
+      expect(label.toLowerCase()).not.toContain('flag')
+    }
+  })
+
+  it('uses the word the questions page itself uses', () => {
+    const page = routeSource('disputes.tsx')
+    expect(page).toMatch(/question/i)
+    const all = labels().map((l) => l.toLowerCase())
+    expect(all).toContain('questions')
+  })
+
+  it('labels the cancelled tab the way the rows label themselves', () => {
+    /*
+     * EntryRow renders `Cancelled` - in <s> and again visually hidden
+     * - so a tab reading `Reversed` over those rows leaves a resident
+     * checking whether they are in the right list.
+     */
+    const row = readFileSync(resolve('src/components/Cancelled.tsx'), 'utf8')
+    expect(row.toLowerCase()).toContain('cancelled')
+    const tab = LEDGER_TABS.find((t) => t.to === '/ledger/reversed')
+    expect(tab?.label.toLowerCase()).toBe('cancelled')
+    for (const t of LEDGER_TABS) {
+      expect(t.label.toLowerCase()).not.toContain('reversed')
+    }
+  })
+
+  it('keeps the paths unchanged, because a path is a shared link', () => {
+    /*
+     * A resident pastes /ledger/reversed into the society's WhatsApp
+     * group, and TanStack file routing makes the filename the route -
+     * so renaming the path breaks every link already sent. Relabelling
+     * must not become renaming.
+     */
+    expect(LEDGER_TABS.map((t) => t.to)).toEqual([
+      '/ledger',
+      '/ledger/reversed',
+      '/ledger/flagged',
+    ])
+    expect(navFor('resident').map((i) => i.to)).toContain('/disputes')
   })
 })

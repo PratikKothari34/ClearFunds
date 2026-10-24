@@ -2,10 +2,11 @@ import { Link, createFileRoute } from '@tanstack/react-router'
 import { Amount } from '../components/Amount'
 import { Band } from '../components/Band'
 import { BandFallback } from '../components/BandFallback'
-import { isFromFlat } from '../lib/identity'
+import { duesVisibilitySentence, isFromFlat } from '../lib/identity'
 import { useViewerFlat } from '../lib/viewer'
 import { formatDate } from '../lib/dates'
 import { devDues, devFlagLog } from '../lib/devData'
+import { resolvedOn } from '../lib/flags'
 
 export const Route = createFileRoute('/my-flat')({
   component: MyFlat,
@@ -141,15 +142,23 @@ function MyFlat() {
         </dl>
 
         {/*
-          Names the committee roles rather than two of them. The
-          president is an admin in the approval system, so "only the
-          treasurer and secretary" was a promise the product does not
-          keep — and a privacy claim that turns out to be narrower than
-          stated costs more trust than saying it plainly here.
+          GENERATED FROM THE PREDICATE, not typed beside it.
+
+          This said "the society's committee can", which is wider than
+          the code allows: `committee` is its own role and
+          `canSeeAllDues` refuses it, so the page told a resident that
+          thirteen committee members read their arrears when three
+          office-bearers do. Overstating who sees this figure is the
+          costly direction — what a flat owes is the most socially
+          loaded number in the product, and a resident who believes the
+          whole committee reads it behaves as though they do.
+
+          `/dues` makes the same promise from the same function, so the
+          two pages cannot drift apart again.
         */}
-        <p className="mt-(--cf-s2) mb-0 text-meta text-ink-quiet">
-          As of {formatDate(flat.asOf)}. Other residents cannot see this. The
-          society&rsquo;s committee can.
+        <p className="mt-(--cf-s2) mb-0 text-meta text-ink-quiet max-w-[68ch]">
+          As of {formatDate(flat.asOf)}. Other residents cannot see this. Of
+          the society&rsquo;s office-bearers, {duesVisibilitySentence()} can.
         </p>
       </Band>
 
@@ -161,11 +170,15 @@ function MyFlat() {
           </p>
         ) : (
           <ul className="list-none m-0 p-0 flex flex-col gap-(--cf-s3)">
-            {mine.map((item) => (
+            {mine.map((item) => {
+              // Resolved once into a local: see FlagHistory for why a
+              // second call plus a cast is the thing to avoid.
+              const answeredOn = resolvedOn(item)
+              return (
               <li
                 key={item.id}
                 className={`pl-(--cf-s2) border-l-2 ${
-                  item.resolvedAt ? 'border-rule' : 'border-attention'
+                  answeredOn === null ? 'border-attention' : 'border-rule'
                 }`}
               >
                 <p className="m-0 max-w-[68ch]">{item.question}</p>
@@ -175,8 +188,8 @@ function MyFlat() {
                   </p>
                 )}
                 <p className="m-0 text-meta text-ink-quiet">
-                  {item.resolvedAt
-                    ? `Answered ${formatDate(item.resolvedAt)}`
+                  {answeredOn !== null
+                    ? `Answered ${formatDate(answeredOn)}`
                     : 'Not answered yet'}
                   {' · '}
                   <Link
@@ -188,7 +201,8 @@ function MyFlat() {
                   </Link>
                 </p>
               </li>
-            ))}
+              )
+            })}
           </ul>
         )}
       </Band>

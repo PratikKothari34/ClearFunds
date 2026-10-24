@@ -24,7 +24,27 @@ export interface NavItem {
 
 const HOME: NavItem = { to: '/', label: 'Home', pinned: true }
 const LEDGER: NavItem = { to: '/ledger', label: 'Ledger' }
-const DISPUTES: NavItem = { to: '/disputes', label: 'Disputes', countable: true }
+/*
+ * LABELLED IN THE WORDS THE PAGES USE.
+ *
+ * This item was `Disputes` and the ledger tab beside it was `Flagged`,
+ * while every page under both says "question" - "Every question raised
+ * so far has been answered", "questions not yet answered". That is
+ * three vocabularies for one thing, and the audience is a resident who
+ * has never used an accounting product.
+ *
+ * `Disputes` is also wrong in substance, not only in register: a flag
+ * has no financial effect. A resident asking why a bill was 8,000
+ * rupees is asking a question; calling it a dispute tells them, and
+ * tells the committee reading the badge, that they have escalated
+ * something. That discourages exactly the behaviour the ledger exists
+ * to invite.
+ */
+const DISPUTES: NavItem = {
+  to: '/disputes',
+  label: 'Questions',
+  countable: true,
+}
 const APPROVALS: NavItem = {
   to: '/approvals',
   label: 'Approvals',
@@ -48,8 +68,22 @@ const BY_ROLE: Record<Role, readonly NavItem[]> = {
   treasurer: [HOME, LEDGER, APPROVALS, DISPUTES, DUES, REPORTS],
   secretary: [HOME, LEDGER, APPROVALS, DISPUTES, DUES, REPORTS],
   committee: [HOME, LEDGER, APPROVALS, DISPUTES, REPORTS],
-  // Sign-off is the president's job and is never demoted.
-  president: [HOME, SIGNOFF, APPROVALS, DISPUTES, REPORTS],
+  /*
+   * Sign-off is the president's job and is never demoted.
+   *
+   * LEDGER AND DUES WERE BOTH MISSING. The president is the one role
+   * asked to put their name on a month's figures, and had no way to
+   * reach the history those figures come from - they could sign the
+   * sheet and not open the entries behind it. Dues was absent while
+   * `canSeeAllDues` already granted it to them, so the permission and
+   * the navigation disagreed: a surface they are entitled to, with no
+   * link to it anywhere.
+   *
+   * Six items, so one is demoted to `More` on mobile. Sign-off is
+   * pinned and Approvals and Disputes carry counts, so the demoted one
+   * is Ledger, Dues or Reports - none of which is time-critical.
+   */
+  president: [HOME, SIGNOFF, LEDGER, APPROVALS, DISPUTES, DUES, REPORTS],
   auditor: [HOME, LEDGER, YEAR_END, DISPUTES],
 }
 
@@ -97,9 +131,25 @@ export function splitForMobile(
   }
 }
 
-/** Second-level tabs within the ledger. Never a nested menu. */
+/**
+ * Second-level tabs within the ledger. Never a nested menu.
+ *
+ * `Cancelled` and `Questions`, not `Reversed` and `Flagged`, for the
+ * same reason as the item above: the rows these tabs filter to render
+ * the word "cancelled", in `<s>` and again for a screen reader, and
+ * the pages say "question". A tab named `Reversed` over rows that say
+ * `Cancelled` leaves a resident checking whether they are looking at
+ * the right list.
+ *
+ * The URLs are deliberately NOT renamed to match. A path is a shared
+ * link - a resident pastes /ledger/reversed into the society's
+ * WhatsApp group - and TanStack file routing makes the filename the
+ * route, so renaming one is a URL change that breaks every link
+ * already sent. The label is what a human reads; the path is an
+ * address.
+ */
 export const LEDGER_TABS = [
   { to: '/ledger', label: 'All' },
-  { to: '/ledger/reversed', label: 'Reversed' },
-  { to: '/ledger/flagged', label: 'Flagged' },
+  { to: '/ledger/reversed', label: 'Cancelled' },
+  { to: '/ledger/flagged', label: 'Questions' },
 ] as const

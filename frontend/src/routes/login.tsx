@@ -1,4 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
+import { PendingAction } from '../components/PendingAction'
 
 export const Route = createFileRoute('/login')({
   component: Login,
@@ -116,12 +117,9 @@ function Login() {
           />
         </div>
 
-        <button
-          type="submit"
-          className="min-h-11 px-(--cf-s3) border border-rule rounded-sm bg-ink text-surface font-medium"
-        >
+        <PendingAction className="min-h-11 px-(--cf-s3) border border-rule rounded-sm bg-ink text-surface font-medium">
           Send me a sign-in code
-        </button>
+        </PendingAction>
       </form>
 
       <p className="m-0 text-meta text-ink-quiet text-center max-w-[40ch]">

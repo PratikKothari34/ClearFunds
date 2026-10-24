@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Outlet, createRootRoute, useRouterState } from '@tanstack/react-router'
 import { AppShell } from '../components/AppShell'
 import { Hero } from '../components/Hero'
 import { RoleSwitch } from '../components/RoleSwitch'
 import { countsFor } from '../lib/counts'
 import { devCounts } from '../lib/devCounts'
+import { titleFor } from '../lib/titles'
 import { useBoot } from '../lib/useBoot'
 import { ViewerFlatContext, ViewerRoleContext } from '../lib/viewer'
 import {
@@ -33,6 +34,29 @@ function RootLayout() {
   const pathname = useRouterState({ select: (s) => s.location.pathname })
   const [role, setRole] = useState<Role>(PLACEHOLDER_ROLE)
   const viewer = placeholderViewer(role)
+
+  /*
+   * THE TITLE IS THE ONLY ANNOUNCEMENT OF A NAVIGATION.
+   *
+   * In a single-page app nothing tells a screen reader that the page
+   * changed - the URL moves and the DOM is swapped, but no document
+   * load happens. Every route shared `index.html`'s one
+   * `<title>ClearFunds</title>`, so a resident moving from the ledger
+   * to their own flat heard nothing and had to go hunting for the
+   * heading to find out whether the tap had worked. It is also every
+   * browser tab and every bookmark, all of them identical.
+   *
+   * Set here rather than in each route's `head`, and read from a table
+   * in `lib/`, so the whole set can be tested for the gaps that matter:
+   * a route with no title, two routes sharing one. Fifteen separate
+   * declarations have no place where they are all visible.
+   *
+   * Runs for bare routes too, which is why it sits above that branch -
+   * `/login` needs a title as much as any other screen.
+   */
+  useEffect(() => {
+    document.title = titleFor(pathname)
+  }, [pathname])
 
   /*
    * The hero holds the first paint only until the shell and the ledger

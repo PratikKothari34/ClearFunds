@@ -1,6 +1,10 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { LedgerList } from '../components/LedgerList'
 import { BandFallback } from '../components/BandFallback'
+import {
+  LEDGER_UNREACHED_EXPLANATION,
+  LEDGER_UNREACHED_HEADING,
+} from '../lib/ledgerFallback'
 import { LedgerSummary } from '../components/LedgerSummary'
 import { devLedger } from '../lib/devData'
 import { inChainOrder } from '../lib/ledger'
@@ -37,9 +41,9 @@ function LedgerAll() {
   if (loaded === null) {
     return (
       <BandFallback
-        heading="The history could not be loaded"
+        heading={LEDGER_UNREACHED_HEADING}
         headingId="cf-ledger-absent"
-        explanation="The ledger did not load, so nothing is listed below. This is not a statement that the society has no entries — it means the record was not reached. Nothing has been changed."
+        explanation={LEDGER_UNREACHED_EXPLANATION}
       />
     )
   }

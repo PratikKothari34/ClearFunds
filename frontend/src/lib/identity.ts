@@ -107,3 +107,49 @@ export function isFromFlat(
   const token = trimmed.slice(trimmed.lastIndexOf(' ') + 1)
   return token === flat
 }
+
+/**
+ * The roles that may see every flat's dues, in reading order.
+ *
+ * DERIVED FROM THE PREDICATE, never written out beside it. Two pages
+ * make a privacy promise about this figure - `/dues` and `/my-flat` -
+ * and both had the sentence typed by hand. They disagreed: `/dues`
+ * said "the treasurer, the secretary and the president", while
+ * `/my-flat` told a resident "the society's committee can", which is
+ * wider than the code allows, because `committee` is its own role and
+ * `canSeeAllDues` refuses it.
+ *
+ * Overstating who can see a resident's arrears is the costly
+ * direction. What a flat owes is the most socially loaded figure in
+ * the product, and a resident who believes thirteen committee members
+ * read it behaves as though they do.
+ *
+ * So the sentence is generated from the predicate. Adding a role to
+ * `canSeeAllDues` rewrites both pages; it cannot leave a stale promise
+ * behind.
+ */
+export function duesVisibleTo(): readonly Role[] {
+  const ordered: readonly Role[] = [
+    'treasurer',
+    'secretary',
+    'president',
+    'committee',
+    'auditor',
+    'resident',
+  ]
+  return ordered.filter((role) => canSeeAllDues(role))
+}
+
+/**
+ * "the treasurer, the secretary and the president" - the roles above,
+ * as a list a resident reads.
+ *
+ * Oxford-comma-free and lower case, because it lands mid-sentence.
+ * "and" rather than "or": they all can, it is not a choice.
+ */
+export function duesVisibilitySentence(): string {
+  const names = duesVisibleTo().map((role) => `the ${role}`)
+  if (names.length === 0) return 'nobody'
+  if (names.length === 1) return names[0] as string
+  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
+}

@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import type { Role } from '../lib/types'
 import { navFor, splitForMobile } from '../lib/nav'
 import { NavBadge } from './NavBadge'
+import { addableCount } from '../lib/countable'
 
 /**
  * The bottom tab bar, under 768px only.
@@ -27,10 +28,28 @@ export function MobileTabBar({
   const [open, setOpen] = useState(false)
   const { tabs, more } = splitForMobile(navFor(role), counts)
 
+  /*
+   * A STABLE IDENTITY, because the sheet's focus effect depends on it.
+   *
+   * This was an inline `() => setOpen(false)`, a new function on every
+   * render. `MoreSheet`'s effect lists `onClose` in its dependencies -
+   * correctly, since it registers a key handler that calls it - so the
+   * effect tore down and re-ran on each render of this component, and
+   * its first act is to move focus to the sheet's first link. A
+   * resident who had tabbed to the third item was pulled back to the
+   * first by any unrelated re-render, which on a keyboard is being
+   * silently interrupted.
+   *
+   * Fixed here rather than by dropping the dependency: an effect that
+   * closes over a stale `onClose` is the same bug waiting for the
+   * handler to change.
+   */
+  const close = useCallback(() => setOpen(false), [])
+
   return (
     <>
       {open && more.length > 0 && (
-        <MoreSheet items={more} counts={counts} onClose={() => setOpen(false)} />
+        <MoreSheet items={more} counts={counts} onClose={close} />
       )}
 
       {/*
@@ -54,7 +73,7 @@ export function MobileTabBar({
           >
             <span className="flex items-center gap-1">
               {item.label}
-              <NavBadge count={counts[item.to] ?? 0} label={item.label} />
+              <NavBadge count={counts[item.to]} label={item.label} />
             </span>
           </Link>
         ))}
@@ -76,7 +95,7 @@ export function MobileTabBar({
                * item is invisible until the sheet is opened.
                */}
               <NavBadge
-                count={more.reduce((n, i) => n + (counts[i.to] ?? 0), 0)}
+                count={more.reduce((n, i) => n + addableCount(counts[i.to]), 0)}
                 label="More"
               />
             </span>
@@ -186,7 +205,7 @@ function MoreSheet({
                 className="flex items-center justify-between min-h-11 px-(--cf-gutter) py-(--cf-s2) aria-[current=page]:font-medium"
               >
                 <span>{item.label}</span>
-                <NavBadge count={counts[item.to] ?? 0} label={item.label} />
+                <NavBadge count={counts[item.to]} label={item.label} />
               </Link>
             </li>
           ))}

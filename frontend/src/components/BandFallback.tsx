@@ -46,11 +46,26 @@ export function BandFallback({
   return (
     <Band heading={heading} headingId={headingId}>
       {/*
-        aria-live polite: a band that fills in after a retry should be
-        announced, but a failure is a status change and not an
-        interruption.
+        role="alert", NOT aria-live="polite" ON A FRESHLY MOUNTED NODE.
+        A live region announces CHANGES to content inside a region the
+        screen reader was already watching. This div and its text mount
+        in the same commit - the region does not exist before the text
+        does - so the polite region announced nothing at all, on every
+        band failure, since it was written. Nothing failed, because a
+        live region that never fires looks identical in the DOM to one
+        that works.
+
+        `role="alert"` carries an implicit assertive live region AND is
+        announced when the node is inserted, which is exactly this
+        case: the band failed, the message appeared, and the resident
+        needs to hear it rather than discover a silently empty band
+        where the balance was.
+
+        Assertive is right here despite interrupting. The band this
+        most often is, is the balance - and a resident who is told
+        nothing reads an empty slot as a society with no money.
       */}
-      <div aria-live="polite">
+      <div role="alert">
         <p className="text-ink-quiet max-w-[68ch] mb-(--cf-s2)">{explanation}</p>
         {onRetry && (
           <button

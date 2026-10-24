@@ -2,6 +2,7 @@ import { Band } from './Band'
 import { canSeeFlagAuthor } from '../lib/identity'
 import { useViewerRole } from '../lib/viewer'
 import type { FlagLogItem } from '../lib/types'
+import { resolvedOn } from '../lib/flags'
 import { formatDate } from '../lib/dates'
 
 /**
@@ -27,9 +28,30 @@ import { formatDate } from '../lib/dates'
 export function FlagHistory({
   entries,
 }: {
-  readonly entries: readonly FlagLogItem[]
+  /**
+   * `null` means the log was not fetched; `[]` means nobody has asked.
+   *
+   * These must stay distinguishable all the way to the screen. Collapsed
+   * to one empty array — which this component used to receive — a failed
+   * read renders "Nobody has asked about this entry.", and an open
+   * question about this payment sits invisible behind a sentence saying
+   * none exists.
+   */
+  readonly entries: readonly FlagLogItem[] | null
 }) {
   const showAuthor = canSeeFlagAuthor(useViewerRole())
+
+  if (entries === null) {
+    return (
+      <Band heading="Questions raised" headingId="cf-entry-flags">
+        <p className="m-0 text-break max-w-[68ch]">
+          The questions on this entry could not be loaded, so they are not
+          shown. This does NOT mean nobody has asked about it. The entry above
+          is unaffected — nothing has been changed.
+        </p>
+      </Band>
+    )
+  }
 
   return (
     <Band heading="Questions raised" headingId="cf-entry-flags">
@@ -39,11 +61,20 @@ export function FlagHistory({
         </p>
       ) : (
         <ol className="list-none m-0 p-0 flex flex-col gap-(--cf-s3)">
-          {entries.map((item) => (
+          {entries.map((item) => {
+            /*
+             * Resolved ONCE, into a local. Calling `resolvedOn(item)`
+             * twice - in the test and again in the body - needed a cast
+             * to convince the compiler the second call was non-null,
+             * and a cast is exactly the reach back to the raw value
+             * that let `resolvedAt: ""` through in the first place.
+             */
+            const answeredOn = resolvedOn(item)
+            return (
             <li
               key={item.id}
               className={`pl-(--cf-s2) border-l-2 ${
-                item.resolvedAt ? 'border-rule' : 'border-attention'
+                answeredOn === null ? 'border-attention' : 'border-rule'
               }`}
             >
               <p className="m-0 max-w-[68ch]">{item.question}</p>
@@ -67,8 +98,15 @@ export function FlagHistory({
                   : ''}
                 {formatDate(item.raisedAt)}
                 {' · '}
-                {item.resolvedAt ? (
-                  <span>Answered {formatDate(item.resolvedAt)}</span>
+                {/*
+                 * `resolvedOn`, not `item.resolvedAt`, and not a
+                 * truthiness test: a flag carrying `resolvedAt: ""` is
+                 * truthy, so this printed "Answered " with nothing
+                 * after it while the badge counted the same question
+                 * as open.
+                 */}
+                {answeredOn !== null ? (
+                  <span>Answered {formatDate(answeredOn)}</span>
                 ) : (
                   // --attention, not --break: an open question is
                   // something to do, not something broken.
@@ -82,7 +120,8 @@ export function FlagHistory({
                 </p>
               )}
             </li>
-          ))}
+            )
+          })}
         </ol>
       )}
     </Band>

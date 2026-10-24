@@ -74,7 +74,15 @@ export function LanguageSwitch() {
            * tokens. appearance-none drops the native arrow, which would
            * sit oddly next to the globe; the chevron below replaces it.
            */
-          className="appearance-none bg-transparent text-ink-quiet hover:text-ink text-meta pr-4 py-0 border-0 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 rounded-sm"
+          /*
+           * min-h-11 is 44px, the tap-target floor the tab bar already
+           * states as its design case: a volunteer standing in a
+           * stairwell, not a careful tap. `py-0` left this control
+           * about 20px tall - the one control a resident on a Hindi or
+           * Marathi phone must hit before the app is readable to them
+           * at all.
+           */
+          className="appearance-none bg-transparent text-ink-quiet hover:text-ink text-meta min-h-11 pr-4 py-0 border-0 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 rounded-sm"
         >
           {SUPPORTED_LOCALES.map((code) => (
             <option key={code} value={code} lang={code}>

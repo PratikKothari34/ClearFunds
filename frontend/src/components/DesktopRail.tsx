@@ -40,7 +40,7 @@ export function DesktopRail({
               className="flex items-center justify-between gap-(--cf-s2) min-h-11 px-(--cf-s2) rounded-sm text-ink-quiet aria-[current=page]:text-ink aria-[current=page]:font-medium aria-[current=page]:bg-ink/5"
             >
               <span>{item.label}</span>
-              <NavBadge count={counts[item.to] ?? 0} label={item.label} />
+              <NavBadge count={counts[item.to]} label={item.label} />
             </Link>
           </li>
         ))}
