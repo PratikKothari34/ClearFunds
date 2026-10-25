@@ -864,7 +864,8 @@ begin
   else
     perform cf.err('unknown note');
   end if;
-  if not cf.text_ok(coalesce(p_text, case when p_note in ('resolved', 'raised_in_error') then p_note end), 1000) then
+  if not cf.text_ok(coalesce(nullif(btrim(p_text), ''),
+                             case when p_note in ('resolved', 'raised_in_error') then p_note end), 1000) then
     perform cf.err('write a short note');
   end if;
   return (cf.append(p_society, 'flag_note', actor, jsonb_build_object(

@@ -207,7 +207,7 @@ create table public.societies (
   fy_start_month int not null default 4 check (fy_start_month between 1 and 12),
   structuring_window_days int not null default 30 check (structuring_window_days > 0),
   -- A society may raise the committee threshold above ceil(2M/3), never lower
-  -- it: cf.required_for enforces the floor whatever this says.
+  -- it: cf.required_committee enforces the floor whatever this says.
   committee_threshold int check (committee_threshold >= 2),
   created_at timestamptz not null default now()
 );

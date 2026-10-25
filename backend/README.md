@@ -57,6 +57,13 @@ supabase secrets set CLEARFUNDS_SIGNING_SECRET=<openssl rand -hex 32> CLEARFUNDS
 supabase functions deploy api --no-verify-jwt   # the function authenticates the caller itself
 ```
 
+**If `db push` times out**, the network is blocking outbound Postgres
+(5432/6543), which some office and campus networks do. Apply each migration
+over HTTPS instead (dashboard SQL editor, or the Management API), inside one
+transaction with its row in `supabase_migrations.schema_migrations` using the
+file's version, so a later `db push` from an open network sees it as applied.
+The production project was deployed this way on 2026-10-26.
+
 The signing secret derives every admin key. Losing it means new keys (old
 signatures still check against the keys already in the chain); leaking it
 lets the holder sign as any admin, which the published chain head is what
