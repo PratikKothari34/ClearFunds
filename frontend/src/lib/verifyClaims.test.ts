@@ -120,3 +120,103 @@ describe('the verification claim stays inside what the chain supports', () => {
     expect(text).not.toMatch(/cannot (?:forge|fake|fabricate)/i)
   })
 })
+
+/*
+ * THE SAME RULE, APPLIED TO THREE QUIETER CLAIMS.
+ *
+ * `/verify` overstates loudly - tamper-proof is a word anyone would
+ * challenge. These three overstate by OMISSION, which is harder to see
+ * and lands on the reader as reassurance:
+ *
+ *   - the flagged tab said "Every question raised so far has been
+ *     answered" while entries it could not read were silently dropped;
+ *   - the year-end page printed "Closed <date>." and then nothing when
+ *     no audit opinion was recorded, and a resident reads that silence
+ *     as a clean year;
+ *   - the sign-off card printed a raw entry count, so an unreadable
+ *     figure rendered as junk beside real ones.
+ *
+ * Each is asserted over the SERVED TEXT with a control, the same shape
+ * as the claim above, and each asserts the RULE - that the surface has
+ * a branch for the unreadable case and names it - never a sample
+ * number or a pinned sentence.
+ */
+describe('a surface that cannot read its data never claims the all-clear', () => {
+  it('the flagged tab does not claim every question is answered when it could not check', () => {
+    const file = 'src/routes/ledger.flagged.tsx'
+    const text = servedText(file)
+
+    // Controls: read, and still the surface that makes the claim.
+    expect(text.length, `${file} stripped to nothing`).toBeGreaterThan(200)
+    expect(text, `${file} no longer reads the flag count`).toMatch(
+      /openFlagCount/,
+    )
+
+    /*
+     * The reassuring sentence must be REACHABLE ONLY when nothing was
+     * unreadable. Asserted as "the empty message is conditional on the
+     * unreadable tally", because that is the rule; the wording of
+     * either branch stays free to improve.
+     */
+    expect(
+      text,
+      `${file} never tallies the entries it could not check`,
+    ).toMatch(/isUnreadableCount/)
+    expect(
+      text,
+      `${file} states the all-clear unconditionally`,
+    ).toMatch(/unreadable\.length\s*>\s*0\s*$|unreadable\.length\s*>\s*0/m)
+    expect(
+      text,
+      `${file} has no wording for the case where it could not check`,
+    ).toMatch(/not a statement/i)
+  })
+
+  it('the year-end page never lets a missing opinion read as a clean year', () => {
+    const file = 'src/routes/year-end.tsx'
+    const text = servedText(file)
+
+    expect(text.length, `${file} stripped to nothing`).toBeGreaterThan(200)
+    expect(text, `${file} no longer renders the close`).toMatch(/closedAt/)
+
+    /*
+     * `isClosed` tests `closedAt` alone - correct for blocking a
+     * reversal, insufficient to claim a verdict exists. So the page
+     * must branch on the OPINION's absence separately, and say what
+     * the silence does not mean.
+     */
+    expect(
+      text,
+      `${file} does not branch on a missing opinion`,
+    ).toMatch(/opinion\s*===\s*undefined/)
+    expect(
+      text,
+      `${file} lets a missing opinion pass without saying what it is not`,
+    ).toMatch(/not a statement/i)
+  })
+
+  it('the sign-off card never prints an entry count it could not read', () => {
+    const file = 'src/routes/sign-off.tsx'
+    const text = servedText(file)
+
+    expect(text.length, `${file} stripped to nothing`).toBeGreaterThan(200)
+    expect(text, `${file} no longer shows an entry count`).toMatch(
+      /entryCount/,
+    )
+
+    /*
+     * Guarded with `isUnreadableCount` and NOT `isShowableCount`: zero
+     * entries in a month is a legitimate answer here, and
+     * `isShowableCount` is false for zero, so the showable guard would
+     * suppress a true figure. The distinction is the whole finding.
+     */
+    expect(
+      text,
+      `${file} prints entryCount with no guard against an unreadable one`,
+    ).toMatch(/isUnreadableCount[\s\S]{0,200}entryCount|entryCount[\s\S]{0,200}isUnreadableCount/)
+    expect(
+      text,
+      `${file} guards a count whose zero is legitimate with the showable guard`,
+    ).not.toMatch(/isShowableCount\(\s*period\.entryCount/)
+  })
+})

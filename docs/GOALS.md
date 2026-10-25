@@ -3,8 +3,8 @@
 ClearFunds is a web app that keeps an **append-only, tamper-evident expense
 ledger for housing-society funds.**
 
-Multiple admins — treasurer, secretary, committee members — log in and approve
-entries. **No single admin can alter an entry on their own.** Residents get
+Multiple admins — treasurer, secretary, president, committee members — log in and
+approve entries. **No single admin can alter an entry on their own.** Residents get
 read-only access to the full transaction history with a running balance.
 
 *Transparent expenses, stronger communities.*

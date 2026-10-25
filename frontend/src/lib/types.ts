@@ -1,3 +1,4 @@
+import type { FileRouteTypes } from '../routeTree.gen'
 import type { Money } from './money'
 
 /*
@@ -275,7 +276,87 @@ export interface AttentionItem {
   /** Plain-language line, already written for this viewer. */
   readonly label: string
   readonly amount?: Money
-  readonly href: string
+  /**
+   * AN INTERNAL PATH, AND THAT IS ENFORCED, not assumed.
+   *
+   * This is the one server-supplied value in the product that is fed
+   * straight into a navigation target. `string` let the server send
+   * anything: an absolute `https://` URL would render the band's most
+   * tapped control as a link off the site, on the one screen whose job
+   * is routing an approver to the right internal page. TanStack's Link
+   * happens to reject `javascript:` and `data:` today, which is a
+   * guarantee from the installed version rather than one this product
+   * makes.
+   *
+   * So the type says what is allowed, `isInternalPath` checks it at the
+   * band's edge, and an item that fails is dropped rather than
+   * rendered.
+   */
+  readonly href: InternalPath
+}
+
+/**
+ * A route this app actually has.
+ *
+ * Taken from the GENERATED route tree, not written out here, so it
+ * cannot drift: adding or removing a route changes this union in the
+ * same build that changes the routes. A hand-written `/${string}` was
+ * the first attempt and the compiler rejected it against TanStack's
+ * `Link`, which is stronger again - it wants a known route, and a
+ * server naming a path this build does not have is just as broken as
+ * one naming another origin.
+ */
+export type InternalPath = Exclude<FileRouteTypes['to'], `${string}$${string}`>
+
+/**
+ * Every static route, as values, so the check is a real membership test.
+ *
+ * WRITTEN OUT, AND GUARDED BY A TEST THAT COMPARES IT TO THE GENERATED
+ * TREE. A type cannot be iterated at runtime, so a validator that
+ * claims `value is InternalPath` from a string-shape check alone is
+ * lying: `/nope` has the right shape and is not a route. The list is
+ * therefore literal, and `types.routes.test.ts` fails if the route
+ * tree gains or loses a static route without this list following -
+ * which is the only way a hand-maintained list stays honest.
+ *
+ * Param routes are excluded on purpose: `/ledger/$entryId` is a
+ * pattern, and navigating to it needs a `params` object that
+ * `AttentionItem` does not carry. An item that wants to point at one
+ * entry is a change to the contract, not a string this list should
+ * accept.
+ */
+export const INTERNAL_PATHS: readonly InternalPath[] = [
+  '/',
+  '/approvals',
+  '/disputes',
+  '/dues',
+  '/login',
+  '/my-flat',
+  '/reports',
+  '/sign-off',
+  '/verify',
+  '/year-end',
+  '/ledger/flagged',
+  '/ledger/reversed',
+  '/ledger',
+]
+
+/**
+ * Whether a server-supplied href is a route this app may navigate to.
+ *
+ * A MEMBERSHIP TEST, NOT A SHAPE TEST. The first version checked for a
+ * leading slash and no backslash, which rejects `javascript:` and
+ * `//evil.example` but accepts `/nope` - and `Link` then throws or
+ * navigates nowhere. Since the only legitimate values are a known
+ * route, the check is against the list of them, which rejects every
+ * scheme and every other origin as a side effect rather than as a rule
+ * that has to anticipate them.
+ */
+export function isInternalPath(value: unknown): value is InternalPath {
+  return (
+    typeof value === 'string' &&
+    (INTERNAL_PATHS as readonly string[]).includes(value)
+  )
 }
 
 export interface DashboardData {

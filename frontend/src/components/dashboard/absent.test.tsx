@@ -4,6 +4,7 @@ import { BalanceBand } from './BalanceBand'
 import { PeriodBand } from './PeriodBand'
 import { RecentBand } from './RecentBand'
 import { AttentionBand } from './AttentionBand'
+import { formatMoney } from '../../lib/money'
 
 /*
  * What the dashboard does when there is no data.
@@ -25,6 +26,21 @@ import { AttentionBand } from './AttentionBand'
 
 const ZERO = { minor: 0, currency: 'INR' }
 
+/*
+ * THE NEEDLE IS COMPUTED, NOT TYPED. It was the literal '0.00', which
+ * is an assertion on a formatted sample value - the shape this project
+ * forbids, because the formatting depends on the currency and the
+ * currency is carried from the first schema precisely so it can change.
+ * A zero renders '0.00' in INR but 'JP¥0' in JPY and '0.000' in
+ * KWD, so under a non-two-decimal currency the needle is absent from
+ * the output whatever the band does, and deleting the band's `failed`
+ * branch would leak a zero balance with this test still green.
+ *
+ * Derived through the same formatter the band uses, so the test cannot
+ * disagree with it.
+ */
+const ZERO_RENDERED = formatMoney(ZERO)
+
 describe('a band with no data', () => {
   it('never renders a zero balance', () => {
     const { container } = render(
@@ -36,7 +52,7 @@ describe('a band with no data', () => {
      * a wrong figure that looks like a right one, which is the failure
      * mode this project names as its worst.
      */
-    expect(container.textContent).not.toContain('0.00')
+    expect(container.textContent).not.toContain(ZERO_RENDERED)
     expect(container.textContent).toContain("Couldn't load the balance")
   })
 
@@ -54,7 +70,7 @@ describe('a band with no data', () => {
         failed
       />,
     )
-    expect(container.textContent).not.toContain('0.00')
+    expect(container.textContent).not.toContain(ZERO_RENDERED)
   })
 
   it('does not claim the history is empty when it failed to load', () => {

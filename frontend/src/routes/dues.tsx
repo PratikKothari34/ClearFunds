@@ -5,6 +5,7 @@ import { BandFallback } from '../components/BandFallback'
 import { devDues } from '../lib/devData'
 import { canSeeAllDues, duesVisibilitySentence } from '../lib/identity'
 import { useViewerRole } from '../lib/viewer'
+import { isOutstanding, isUnreadableAmount } from '../lib/countable'
 import { Link } from '@tanstack/react-router'
 
 export const Route = createFileRoute('/dues')({
@@ -62,7 +63,25 @@ function Dues() {
     )
   }
 
-  const owing = rows.filter((r) => r.outstanding.minor > 0)
+  /*
+   * PARTITIONED THREE WAYS, because `minor > 0` has two false answers
+   * and only one of them is "has paid".
+   *
+   * `NaN > 0` is false, so a flat whose outstanding figure arrived
+   * unreadable fell into the same bucket as a flat that has paid, and
+   * the sentence below then stated a LOWER arrears count than the
+   * truth. This file's own fallback comment above names that harm for
+   * the whole-table case - "a failed read showing it would have the
+   * treasurer stop chasing" - and the per-row case is the same harm at
+   * a smaller scale, which is worse for being plausible: 4 of 96 reads
+   * like a well-run society.
+   *
+   * So the unreadable rows are counted separately and disclosed. The
+   * figures that ARE readable still show: losing one flat's figure is
+   * not a reason to withhold the other ninety-five.
+   */
+  const owing = rows.filter((r) => isOutstanding(r.outstanding))
+  const unreadable = rows.filter((r) => isUnreadableAmount(r.outstanding))
 
   /*
    * Checked before any row is read, so a resident never reaches the
@@ -101,6 +120,23 @@ function Dues() {
           {rows.length === 1 ? 'flat has' : 'flats have'} something
           outstanding. Residents see only their own flat.
         </p>
+        {/*
+         * THE GAP IS NAMED, not folded into either side of the count.
+         *
+         * Without this the sentence above is a claim the data does not
+         * support. Said plainly and without a number dressed up as a
+         * total, so a treasurer knows the figure is a floor rather
+         * than the answer.
+         */}
+        {unreadable.length > 0 && (
+          <p className="mt-(--cf-s2) mb-0 text-meta text-break max-w-[68ch]">
+            <span className="cf-tabular">{unreadable.length}</span>{' '}
+            {unreadable.length === 1 ? 'flat' : 'flats'} could not be read, so
+            the count above is the least it could be, not the whole picture.
+            Those {unreadable.length === 1 ? 'row is' : 'rows are'} marked
+            below.
+          </p>
+        )}
       </Band>
 
       <Band heading="By flat" headingId="cf-dues-table">
@@ -174,7 +210,16 @@ function Dues() {
                     <Amount value={row.paid} />
                   </td>
                   <td className="py-(--cf-s2) text-right">
-                    {row.outstanding.minor > 0 ? (
+                    {isUnreadableAmount(row.outstanding) ? (
+                      /*
+                       * --break, not --attention: this row is a fault
+                       * in the record, not a flat that is behind. The
+                       * amount is NOT rendered - `Amount` on a NaN
+                       * minor prints junk beside real figures, and a
+                       * resident cannot tell which of the two it is.
+                       */
+                      <span className="text-break">Could not be read</span>
+                    ) : isOutstanding(row.outstanding) ? (
                       // --attention, not --break. Being behind on
                       // maintenance is something to chase, not a fault
                       // in the record.

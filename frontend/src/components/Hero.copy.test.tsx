@@ -1,6 +1,7 @@
 import { act, render } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { Hero, HERO_FLOOR_MS, type HeroPhase } from './Hero'
+import { Hero } from './Hero'
+import { HERO_FLOOR_MS, type HeroPhase } from '../lib/hero'
 
 /*
  * The hero's COPY, asserted per phase.

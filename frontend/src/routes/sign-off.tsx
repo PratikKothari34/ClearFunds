@@ -158,7 +158,25 @@ function PeriodSignoff({
           </dd>
 
           <dt className="text-ink-quiet">Entries</dt>
-          <dd className="m-0 cf-tabular">{period.entryCount}</dd>
+          {/*
+           * GUARDED WITH `isUnreadableCount`, NOT `isShowableCount`.
+           *
+           * Printed bare, this rendered the literal "NaN" beside the
+           * sign-off action while every figure around it was guarded -
+           * on the one screen where a president commits to a month.
+           *
+           * The guard has to be the unreadable one: zero entries in a
+           * month is legitimate here (a quiet month is still a month
+           * to sign), so `isShowableCount` - which is false for zero -
+           * would hide a true figure.
+           */}
+          <dd className="m-0 cf-tabular">
+            {isUnreadableCount(period.entryCount) ? (
+              <span className="text-break">Could not be read</span>
+            ) : (
+              period.entryCount
+            )}
+          </dd>
         </dl>
 
         {/*

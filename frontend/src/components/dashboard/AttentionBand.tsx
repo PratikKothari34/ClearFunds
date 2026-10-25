@@ -2,6 +2,7 @@ import { Link } from '@tanstack/react-router'
 import { Band } from '../Band'
 import { Amount } from '../Amount'
 import { BandFallback } from '../BandFallback'
+import { isInternalPath } from '../../lib/types'
 import type { AttentionItem } from '../../lib/types'
 
 /**
@@ -43,7 +44,23 @@ export function AttentionBand({
   readonly failed?: boolean
   readonly onRetry?: () => void
 }) {
-  const count = items.length
+  /*
+   * THE HREF IS CHECKED BEFORE THE ROW EXISTS, and the count is taken
+   * from what survives.
+   *
+   * `href` is the one server-supplied value in the product that
+   * becomes a navigation target. An item whose href is not an internal
+   * path is dropped: rendering it would put a link off the site into
+   * the most tapped control on an approver's screen, and rendering it
+   * without a link would be an amber row that does nothing.
+   *
+   * COUNTED AFTER THE FILTER, NOT BEFORE. Reading `items.length` here
+   * would print "2 things need you" above one row - the heading and the
+   * list disagreeing, which on this band reads as a row having been
+   * silently approved.
+   */
+  const shown = items.filter((item) => isInternalPath(item.href))
+  const count = shown.length
 
   if (failed) {
     return (
@@ -75,7 +92,7 @@ export function AttentionBand({
           </p>
         ) : (
           <ul className="flex flex-col gap-(--cf-s2)">
-            {items.map((item) => (
+            {shown.map((item) => (
               <li key={item.id}>
                 <Link
                   to={item.href}

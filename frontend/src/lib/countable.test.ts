@@ -1,7 +1,13 @@
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { readdirSync, readFileSync } from 'node:fs'
+import { join, resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { addableCount, isShowableCount, isUnreadableCount } from './countable'
+import {
+  addableCount,
+  isOutstanding,
+  isShowableCount,
+  isUnreadableAmount,
+  isUnreadableCount,
+} from './countable'
 
 /*
  * NaN IS THE WHOLE POINT, and the reason the predicate exists rather
@@ -276,5 +282,263 @@ describe('the sign-off decision fails loud, not silent', () => {
       src,
       'nothing on the page tells the president the count could not be read',
     ).toMatch(/could not be read/)
+  })
+})
+
+/** Comments are the reasoning, not the served copy. */
+function servedRoute(route: string): string {
+  return readFileSync(resolve(process.cwd(), 'src', 'routes', route), 'utf8')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
+    .replace(/\/\/[^\n]*/g, '')
+}
+
+describe('isUnreadableAmount', () => {
+  it('is true for everything an amount cannot be', () => {
+    for (const value of [
+      { minor: NaN, currency: 'INR' },
+      { minor: 0 - Number(undefined), currency: 'INR' },
+      { minor: Infinity, currency: 'INR' },
+      { minor: -Infinity, currency: 'INR' },
+      { minor: -1, currency: 'INR' },
+      // Fractional minor units: `0002` makes minor units an integer
+      // count, so a fraction means something divided that should not
+      // have - the arithmetic this frontend is forbidden to do.
+      { minor: 1250.5, currency: 'INR' },
+      { minor: '125075', currency: 'INR' },
+      { minor: null, currency: 'INR' },
+      { minor: undefined, currency: 'INR' },
+      {},
+      undefined,
+      null,
+      42,
+      'INR',
+    ]) {
+      expect(isUnreadableAmount(value), JSON.stringify(value)).toBe(true)
+    }
+  })
+
+  it('is false for a readable amount, zero included', () => {
+    /*
+     * ZERO IS READABLE, and on this surface it is the commonest
+     * answer: "this flat has paid". Treating it as a gap would
+     * disclose a fault against every flat that is up to date.
+     */
+    for (const minor of [0, 1, 125075, 999999999]) {
+      expect(
+        isUnreadableAmount({ minor, currency: 'INR' }),
+        String(minor),
+      ).toBe(false)
+    }
+  })
+})
+
+describe('isOutstanding', () => {
+  it('is true only for a readable, positive amount', () => {
+    expect(isOutstanding({ minor: 125075, currency: 'INR' })).toBe(true)
+    expect(isOutstanding({ minor: 1, currency: 'INR' })).toBe(true)
+  })
+
+  it('is false for zero, which is a paid flat and not a gap', () => {
+    expect(isOutstanding({ minor: 0, currency: 'INR' })).toBe(false)
+  })
+
+  it('is false for an unreadable amount rather than passing it through', () => {
+    /*
+     * THE WHOLE POINT. `minor > 0` is false for NaN, so an unreadable
+     * figure took the same branch as a paid flat and the arrears count
+     * came out LOW. This asserts the rule, not a number: an unreadable
+     * amount is never counted as outstanding and never counted as
+     * paid - the two predicates disagree about it on purpose.
+     */
+    const junk = { minor: NaN, currency: 'INR' }
+    expect(isOutstanding(junk)).toBe(false)
+    expect(isUnreadableAmount(junk)).toBe(true)
+  })
+
+  it('splits any set of amounts three ways with nothing lost', () => {
+    /*
+     * Asserted as a PARTITION rather than against expected counts, so
+     * adding a case to the list cannot be "fixed" by editing a number.
+     * Every amount must land in exactly one of the three buckets.
+     */
+    const amounts: readonly unknown[] = [
+      { minor: 125075, currency: 'INR' },
+      { minor: 0, currency: 'INR' },
+      { minor: NaN, currency: 'INR' },
+      { minor: -5, currency: 'INR' },
+      { minor: 2.5, currency: 'INR' },
+      { minor: 1, currency: 'INR' },
+    ]
+    const owing = amounts.filter((a) => isOutstanding(a))
+    const unreadable = amounts.filter((a) => isUnreadableAmount(a))
+    const paid = amounts.filter(
+      (a) => !isOutstanding(a) && !isUnreadableAmount(a),
+    )
+
+    expect(owing.length + unreadable.length + paid.length).toBe(amounts.length)
+    for (const a of amounts) {
+      const buckets = [
+        isOutstanding(a),
+        isUnreadableAmount(a),
+        !isOutstanding(a) && !isUnreadableAmount(a),
+      ].filter(Boolean).length
+      expect(buckets, JSON.stringify(a)).toBe(1)
+    }
+    // Control: the list really does exercise all three, so a
+    // partition over one bucket cannot pass this vacuously.
+    expect(owing.length).toBeGreaterThan(0)
+    expect(unreadable.length).toBeGreaterThan(0)
+    expect(paid.length).toBeGreaterThan(0)
+  })
+})
+
+describe('no surface compares money with a bare operator', () => {
+  /*
+   * THE SWEEP THE COUNT GUARDS ALREADY HAD, EXTENDED TO MONEY.
+   *
+   * `countable.ts`'s discipline was applied rigorously to counts and
+   * not at all to amounts: every money decision in the product was a
+   * bare `.minor > 0`, which is FALSE for NaN, so a flat whose
+   * outstanding figure arrived unreadable took the same branch as a
+   * flat that had paid and the arrears count came out LOW. A count
+   * that is too low tells a treasurer to stop chasing a debt that may
+   * exist - the one direction this product must never fail in.
+   *
+   * SWEPT OVER EVERY SOURCE FILE, DISCOVERED NOT LISTED. A hand-typed
+   * file list cannot see the file nobody added to it, which is the
+   * same blind spot that let `devData.test.ts` mirror an export list
+   * and miss the fixture it existed to catch. The sweep walks the
+   * tree, so a new route that reintroduces the spelling fails here
+   * instead of shipping.
+   *
+   * `lib/` IS EXEMPT BY DESIGN, not by oversight: `countable.ts` and
+   * `money.ts` are where a raw `.minor` is read, once, behind a name
+   * that says what the answer means. That is the whole point of
+   * having them.
+   */
+  function walk(dir: string): string[] {
+    const out: string[] = []
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name)
+      if (entry.isDirectory()) out.push(...walk(full))
+      else if (/\.tsx?$/.test(entry.name) && !/\.test\.tsx?$/.test(entry.name))
+        out.push(full)
+    }
+    return out
+  }
+
+  const root = resolve(process.cwd(), 'src')
+  const files = walk(root).filter((f) => !f.includes(join('src', 'lib')))
+
+  it('finds the sources, which is the control', () => {
+    // Without this, a bad root makes the sweep below walk an empty
+    // list and assert nothing at all - a green test over no files.
+    expect(files.length).toBeGreaterThan(10)
+    expect(files.some((f) => f.endsWith('dues.tsx'))).toBe(true)
+    expect(files.some((f) => f.endsWith('my-flat.tsx'))).toBe(true)
+  })
+
+  it('never decides from a raw .minor comparison', () => {
+    const offenders: string[] = []
+    for (const file of files) {
+      const code = readFileSync(file, 'utf8')
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
+        .replace(/\/\/[^\n]*/g, '')
+
+      for (const m of code.matchAll(
+        /\.minor\s*(===|!==|==|!=|>=|<=|>|<)\s*\S/g,
+      )) {
+        offenders.push(`${file.slice(root.length + 1)}: ${m[0]}`)
+      }
+    }
+
+    expect(
+      offenders,
+      'a raw amount decided a branch; every comparison against NaN is false, so use isOutstanding / isUnreadableAmount',
+    ).toEqual([])
+  })
+
+  it('the arrears surfaces disclose an unreadable amount', () => {
+    /*
+     * The sweep above proves no surface DECIDES from a raw amount. It
+     * cannot prove the surface SAYS SO when it cannot read one -
+     * silently dropping a flat from the arrears list passes the sweep
+     * and still understates the debt. These two pages print the figure
+     * a treasurer and a resident act on, so each must name the gap.
+     *
+     * SCOPED TO THE TRUE ARM, AND MEASURED IN WORDS. Three mutations
+     * escaped a looser version of this test: blanking the cell's text,
+     * flipping the two arms, and deleting the wording outright. The
+     * reason each escaped is the same - the old assertions were
+     * satisfied by text ELSEWHERE in the file. A check that scans past
+     * the thing it is checking is not a check.
+     *
+     * So the arm is CUT OUT at its `:` and measured on its own, and
+     * what is required of it is PROSE - several words a reader could
+     * act on - not the presence of a tag and not a pinned sentence.
+     * The wording stays free to improve; the obligation to say
+     * something does not.
+     */
+    for (const route of ['dues.tsx', 'my-flat.tsx']) {
+      const text = servedRoute(route)
+
+      expect(text.length, `${route} stripped to nothing`).toBeGreaterThan(200)
+      expect(text, `${route} no longer renders an amount`).toMatch(/Amount/)
+      expect(text, `${route} never tests for an unreadable amount`).toMatch(
+        /isUnreadableAmount/,
+      )
+
+      /*
+       * WHAT THIS TEST CANNOT SEE, stated so nobody reads it as more
+       * than it is: NEGATING the condition. Flipping
+       * `isUnreadableAmount(x) ?` to `!isUnreadableAmount(x) ?` leaves
+       * prose in the true arm and no `<Amount>` in it, so every
+       * assertion here still holds while the page shows the wording to
+       * every readable flat and the figure to the unreadable one. That
+       * is behaviour, not spelling, and a source sweep is the wrong
+       * instrument for it. `isOutstanding`'s own behaviour tests above
+       * are what bound that case - a negated guard sends an unreadable
+       * amount down the `isOutstanding` arm, where the unit tests
+       * already pin what that function answers.
+       */
+      // The conditional that decides how an unreadable figure renders.
+      const at = text.search(/isUnreadableAmount\([^)]*\)\s*\?/)
+      expect(at, `${route} has no unreadable branch on a rendered amount`)
+        .toBeGreaterThan(-1)
+
+      /*
+       * The true arm only: from the `?` to the `:` that begins the
+       * readable case. Everything after that colon is the normal
+       * figure and must not be allowed to satisfy this test.
+       */
+      const after = text.slice(at)
+      const q = after.indexOf('?')
+      const colon = after.indexOf(' : ')
+      expect(colon, `${route} unreadable branch has no readable arm`)
+        .toBeGreaterThan(q)
+      const arm = after.slice(q + 1, colon)
+
+      /*
+       * `Amount` on a NaN minor prints junk beside real figures, so
+       * the unreadable arm must not be one.
+       */
+      expect(arm, `${route} renders Amount for a figure it could not read`)
+        .not.toMatch(/<Amount\b/)
+
+      /*
+       * And it must say words. Counted rather than matched, because a
+       * single stray letter is not a disclosure and a blank cell reads
+       * as "nothing outstanding" - the exact wrong answer.
+       */
+      const words = (arm.match(/>([^<>{}]+)</g) ?? [])
+        .join(' ')
+        .match(/[A-Za-z]{2,}/g) ?? []
+      expect(
+        words.length,
+        `${route} shows an unreadable figure with no words: a blank cell reads as nothing outstanding`,
+      ).toBeGreaterThan(2)
+    }
   })
 })

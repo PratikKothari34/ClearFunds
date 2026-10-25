@@ -70,3 +70,49 @@ export function addableCount(count: unknown): number {
 export function isUnreadableCount(count: unknown): boolean {
   return !Number.isInteger(count) || (count as number) < 0
 }
+
+/**
+ * Whether an amount is unusable - absent, NaN, fractional, negative.
+ *
+ * THE SAME DISCIPLINE AS `isUnreadableCount`, APPLIED TO MONEY, which
+ * had none. Every money comparison in the product was a bare
+ * `amount.minor > 0`, and `NaN > 0` is false, so a flat whose
+ * outstanding figure arrived unreadable dropped out of the arrears
+ * list and the dues page then stated "4 of 96 flats have something
+ * outstanding" - a count that is too LOW. Under-reporting arrears
+ * tells a treasurer to stop chasing a debt that may exist, which is
+ * the direction this product must never fail in.
+ *
+ * A fractional `minor` is unusable too, not merely odd: minor units
+ * are an integer count by decision `0002`, so 1250.5 paise means the
+ * figure was computed by something that divided when it should not
+ * have - the exact arithmetic the frontend is forbidden to do.
+ *
+ * Negative is unusable rather than "money owed the other way": this
+ * product's outstanding figures are magnitudes, and direction is a
+ * separate field. A negative arrears figure is a wire error.
+ *
+ * ZERO IS NOT UNREADABLE. Zero outstanding is the answer "this flat
+ * has paid", which is a fact and the commonest one. That is why this
+ * is not `!isPayable(...)`.
+ */
+export function isUnreadableAmount(amount: unknown): boolean {
+  if (typeof amount !== 'object' || amount === null) return true
+  const minor = (amount as { minor?: unknown }).minor
+  return !Number.isInteger(minor) || (minor as number) < 0
+}
+
+/**
+ * Whether an amount is a figure we can state as outstanding.
+ *
+ * The display-side counterpart: strictly positive AND readable. A
+ * surface that colours a row amber, or counts it as owing, asks this;
+ * a surface deciding whether to warn asks `isUnreadableAmount` and
+ * speaks up. Both are needed, because the two questions have
+ * different right answers for junk - silence for a display, a warning
+ * for a decision.
+ */
+export function isOutstanding(amount: unknown): boolean {
+  if (isUnreadableAmount(amount)) return false
+  return ((amount as { minor: number }).minor) > 0
+}

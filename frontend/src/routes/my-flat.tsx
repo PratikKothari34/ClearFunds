@@ -1,5 +1,6 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { Amount } from '../components/Amount'
+import { isOutstanding, isUnreadableAmount } from '../lib/countable'
 import { Band } from '../components/Band'
 import { BandFallback } from '../components/BandFallback'
 import { duesVisibilitySentence, isFromFlat } from '../lib/identity'
@@ -131,7 +132,20 @@ function MyFlat() {
 
           <dt className="text-ink-quiet">Outstanding</dt>
           <dd className="m-0">
-            {flat.outstanding.minor > 0 ? (
+            {/*
+             * THREE WAYS, and the unreadable case shows no figure.
+             *
+             * Both branches used to render `Amount`, so an unreadable
+             * `minor` printed junk where this resident's own arrears
+             * belong - the single figure on this page they came to
+             * read, and one they may act on by paying. A wrong amount
+             * here is worse than no amount.
+             */}
+            {isUnreadableAmount(flat.outstanding) ? (
+              <span className="text-break">
+                Could not be read. Ask the treasurer before paying.
+              </span>
+            ) : isOutstanding(flat.outstanding) ? (
               <span className="text-attention">
                 <Amount value={flat.outstanding} />
               </span>

@@ -12,6 +12,7 @@ import {
   devSignoff,
 } from './devData'
 import * as empty from './devData.empty'
+import * as live from './devData.source'
 
 /*
  * The fixture gate is a security boundary, so it gets asserted rather
@@ -81,30 +82,37 @@ describe('the development side', () => {
 })
 
 describe('the production side', () => {
-  it('exports every name the development side does', () => {
+  it('exports exactly the names the development side does', () => {
     /*
      * The two modules are swapped by a resolver alias, so nothing
      * typechecks the substitution: a name added to the fixture and not
      * to the empty module becomes `undefined` at runtime, in production
      * only, on whichever screen reads it.
+     *
+     * DERIVED FROM BOTH MODULES, NOT WRITTEN DOWN. This was a
+     * hand-maintained array of ten names, which is a duplicate of
+     * `devData.source.ts`'s export list - so the one mistake it
+     * existed to catch was the one it could not see. Adding a fixture
+     * to `sample.ts` and `devData.source.ts` while forgetting
+     * `devData.empty.ts` left the list unchanged, the test green, and
+     * production reading `undefined` where it should read an honest
+     * `null`.
+     *
+     * Compared BOTH WAYS. A name in the empty module that the live one
+     * dropped is also a defect - dead production surface area, and a
+     * sign the two files have drifted - and a one-directional check
+     * cannot see it.
      */
-    const live = [
-      'SAMPLE_ADJUSTING',
-      'SAMPLE_ANCHOR',
-      'SAMPLE_APPROVALS',
-      'SAMPLE_AUDIT_YEARS',
-      'SAMPLE_DASHBOARD',
-      'SAMPLE_DUES',
-      'SAMPLE_FLAG_LOG',
-      'SAMPLE_LEDGER',
-      'SAMPLE_REPORTS',
-      'SAMPLE_SIGNOFF',
-    ]
-    for (const name of live) {
-      expect(Object.hasOwn(empty, name), `missing from devData.empty: ${name}`).toBe(
-        true,
-      )
-    }
+    const liveNames = Object.keys(live).sort()
+    const emptyNames = Object.keys(empty).sort()
+
+    // Control: both namespaces actually resolved. Comparing two empty
+    // arrays passes, and an import that silently yielded nothing would
+    // make every assertion below vacuous.
+    expect(liveNames.length).toBeGreaterThan(5)
+    expect(liveNames).toContain('SAMPLE_LEDGER')
+
+    expect(emptyNames).toEqual(liveNames)
   })
 
   it('never claims the published chain head agrees', () => {

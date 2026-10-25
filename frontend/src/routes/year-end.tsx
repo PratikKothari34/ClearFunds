@@ -173,17 +173,43 @@ function YearRow({ year }: { readonly year: AuditYear }) {
             page could not read. The second branch says which of the two
             it is.
           */}
-          {year.opinion &&
-            (isKnownOpinion(year.opinion) ? (
-              <p className="mt-(--cf-s1) mb-0 max-w-[68ch]">
-                The auditor gave {opinionWords(year.opinion)}.
-              </p>
-            ) : (
-              <p className="mt-(--cf-s1) mb-0 pl-(--cf-s2) border-l-2 border-attention max-w-[68ch]">
-                An opinion is recorded for this year, but it is not one this
-                page can describe. Ask the society for the signed report.
-              </p>
-            ))}
+          {/*
+            A CLOSE WITH NO OPINION IS DISCLOSED, NOT PASSED OVER.
+
+            This was `year.opinion && (...)`, so a year carrying
+            `closedAt` with no `opinion` rendered "Closed 31 March
+            2026." and then nothing - and a resident reads that silence
+            as a clean year, because a problem would surely have been
+            mentioned. It is the quietest possible rendering of the
+            most important missing field on the page.
+
+            Closed means an auditor signed off, so the two fields are
+            not independent: a close with no opinion is contradictory
+            data, and this file already discloses its OTHER gap - an
+            opinion off the enum, below - in exactly these terms. The
+            inconsistency was the defect, not the missing field.
+
+            `isClosed` tests `closedAt` alone, which is correct for
+            deciding whether reversals are blocked. It is not enough to
+            claim a verdict exists.
+          */}
+          {year.opinion === undefined ? (
+            <p className="mt-(--cf-s1) mb-0 pl-(--cf-s2) border-l-2 border-attention max-w-[68ch]">
+              No audit opinion is recorded against this year, so what the
+              auditor concluded is not shown here. This is not a statement
+              that the year was found clean. Ask the society for the signed
+              report.
+            </p>
+          ) : isKnownOpinion(year.opinion) ? (
+            <p className="mt-(--cf-s1) mb-0 max-w-[68ch]">
+              The auditor gave {opinionWords(year.opinion)}.
+            </p>
+          ) : (
+            <p className="mt-(--cf-s1) mb-0 pl-(--cf-s2) border-l-2 border-attention max-w-[68ch]">
+              An opinion is recorded for this year, but it is not one this
+              page can describe. Ask the society for the signed report.
+            </p>
+          )}
           {year.opinionNote && (
             <p className="mt-(--cf-s1) mb-0 pl-(--cf-s2) border-l-2 border-rule text-ink-quiet max-w-[68ch]">
               {year.opinionNote}

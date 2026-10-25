@@ -4,7 +4,7 @@ import {
   HERO_HOLD_PERCENT,
   HERO_SLOW_MS,
   strokePercent,
-} from './Hero'
+} from './hero'
 
 /*
  * The hero's honesty is arithmetic, so it is tested as arithmetic.
