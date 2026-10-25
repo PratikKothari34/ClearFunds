@@ -1,14 +1,86 @@
 // From vitest/config, not vite: Vite 8's own defineConfig does not accept
 // the `test` block and rejects it at typecheck time.
+import { randomBytes } from 'node:crypto'
 import { defineConfig } from 'vitest/config'
+import type { PluginOption } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { tanstackRouter } from '@tanstack/router-plugin/vite'
+
+/*
+ * THE DEV-SERVER CSP NONCE.
+ *
+ * The shipped CSP is `script-src 'self' 'sha256-...'; style-src 'self'`:
+ * no `'unsafe-inline'` anywhere. A production build earns that. It emits
+ * a real .css file loaded by a <link>, and the one inline script is
+ * allowed by its SHA-256.
+ *
+ * The dev server cannot satisfy it. It serves every stylesheet as a JS
+ * module that injects a <style> tag at runtime, and it adds inline
+ * scripts of its own for react-refresh. Under the production policy the
+ * browser refuses all of them, so the app renders fully functional and
+ * completely unstyled - no build error, nothing in the terminal, only
+ * "Refused to apply inline style" in the browser console.
+ *
+ * `'unsafe-inline'` in dev would fix the symptom and is the wrong fix:
+ * it makes dev and production run under DIFFERENT policies, so a real
+ * CSP violation introduced in a component passes locally and fails for
+ * a resident. A nonce keeps one policy shape in both modes - inline
+ * content is allowed only when it carries a secret this process
+ * generated, which is what a nonce is for.
+ *
+ * `html.cspNonce` is Vite's own support for this. It injects
+ * <meta property="csp-nonce"> for the HMR client to read, and stamps
+ * the nonce onto every script, style and stylesheet link in the HTML.
+ *
+ * Two consequences that are easy to get wrong:
+ *
+ * 1. It stamps the INLINE THEME SCRIPT too, changing its bytes and so
+ *    its SHA-256. That is fine only because the CSP below also trusts
+ *    the nonce, and a nonce match satisfies script-src on its own. The
+ *    hash stays in the header, unchanged, for production.
+ *
+ * 2. The value must be fresh per server start. A nonce committed to a
+ *    config file is a constant, and a constant nonce is `'unsafe-inline'`
+ *    with extra steps.
+ *
+ * `apply: 'serve'` keeps the header rewrite out of `build`, so `preview`
+ * and production serve the strict hash-only policy with no nonce in it.
+ * `npm run csp-hash` reads dist/index.html, never this path, so the
+ * value handed to the backend lane is unaffected.
+ */
+const DEV_CSP_NONCE = randomBytes(16).toString('base64')
+
+function devCspNonce(): PluginOption {
+  return {
+    name: 'cf-dev-csp-nonce',
+    apply: 'serve',
+    transformIndexHtml: {
+      // After Vite's own nonce stamping and tag injection, so the header
+      // this writes describes the HTML that is actually served.
+      order: 'post',
+      handler(html) {
+        const nonce = `'nonce-${DEV_CSP_NONCE}'`
+        return html.replace(
+          /content="(default-src[^"]*)"/,
+          (_full, policy: string) =>
+            `content="${policy
+              .replace(/script-src ([^;]*)/, `script-src $1 ${nonce}`)
+              .replace(/style-src ([^;]*)/, `style-src $1 ${nonce}`)}"`,
+        )
+      },
+    },
+  }
+}
 
 // Route-level splitting is a standing budget, not a later optimization:
 // the resident read path (hero, dashboard, ledger) must not pull in
 // approvals, reports, dues, sign-off or committee management.
 export default defineConfig(({ mode }) => ({
+  // Serve only. A production build must carry no nonce at all:
+  // the inline script is allowed by hash, and a nonce in the built
+  // HTML without one in the header would be dead weight.
+  html: mode === 'production' ? {} : { cspNonce: DEV_CSP_NONCE },
   /*
    * The fixture gate. `lib/devData.ts` imports `./devData.source`, which
    * resolves to the sample data in development and to an empty module in
@@ -31,6 +103,7 @@ export default defineConfig(({ mode }) => ({
     tanstackRouter({ target: 'react', autoCodeSplitting: true }),
     react(),
     tailwindcss(),
+    devCspNonce(),
   ],
   build: {
     // Measured floor with no application code: react and react-dom

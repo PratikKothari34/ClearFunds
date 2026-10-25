@@ -27,6 +27,18 @@ import { describe, expect, it } from 'vitest'
  */
 
 const HTML = readFileSync(resolvePath('index.html'), 'utf8')
+const VITE_CONFIG_RAW = readFileSync(resolvePath('vite.config.ts'), 'utf8')
+
+/*
+ * CODE ONLY. The config EXPLAINS in a comment why the keyword is not
+ * used, so matching the raw file for that word finds the explanation
+ * and fails. Caught by this test's first run. Comments are stripped so
+ * the assertions below read what runs, not what it says about itself.
+ */
+const VITE_CONFIG = VITE_CONFIG_RAW.replace(
+  /\/\*[\s\S]*?\*\/|\/\/[^\n]*/g,
+  '',
+)
 
 function metaCsp(html: string): string {
   const tags = [...html.matchAll(/<meta\b[^>]*>/gi)].map((m) => m[0])
@@ -158,6 +170,70 @@ describe('the content security policy', () => {
         `${directive} names an external host`,
       ).toEqual([])
     }
+  })
+
+  it('is the policy the DEV SERVER relaxes by nonce, never by keyword', () => {
+    /*
+     * The dev server cannot satisfy the policy above. It injects every
+     * stylesheet as a <style> tag from JS, so under `style-src 'self'`
+     * the browser refuses the entire stylesheet: the app renders fully
+     * functional and completely unstyled, with no build error and
+     * nothing in the terminal. The only signal is a console message.
+     *
+     * The fix must be a nonce, not `'unsafe-inline'`. A keyword makes
+     * dev and production run under different policies, so a genuine CSP
+     * violation added to a component passes locally and fails for a
+     * resident - the dev server stops being a test of the policy at
+     * all. These assert the shape of that fix, since nothing else does:
+     * the config typechecks and the build passes either way.
+     */
+    expect(
+      VITE_CONFIG,
+      "vite.config.ts must not relax the policy with a keyword",
+    ).not.toMatch(/unsafe-inline|unsafe-eval/)
+
+    expect(
+      VITE_CONFIG,
+      'the dev relaxation must be a nonce',
+    ).toMatch(/nonce-\$\{/)
+  })
+
+  it('generates the dev nonce fresh per server start', () => {
+    /*
+     * A nonce written as a literal in the config is a constant, and a
+     * constant nonce is `'unsafe-inline'` with extra steps: it is in a
+     * committed, world-readable file, so anything injected into the page
+     * can read it and carry it. Asserted as "derives from a random
+     * source", not against a value, because the value must differ every
+     * run and a test naming one would have to be wrong.
+     */
+    expect(VITE_CONFIG).toMatch(/randomBytes\(/)
+    expect(
+      VITE_CONFIG,
+      'the nonce must come from randomBytes, not a literal',
+    ).toMatch(/DEV_CSP_NONCE\s*=\s*randomBytes\(/)
+  })
+
+  it('keeps the nonce out of a production build', () => {
+    /*
+     * Two halves, and only the pair is the boundary. The header rewrite
+     * must be `apply: 'serve'` so `build` never sees it, and Vite's
+     * `html.cspNonce` must be off in production - it stamps a nonce
+     * attribute onto every script, style and stylesheet link, including
+     * the inline theme script, which changes the bytes the SHA-256 in
+     * the shipped header is computed over.
+     *
+     * With both in place the built HTML carries no nonce anywhere and
+     * the inline script is allowed by hash alone, which is what
+     * `npm run csp-hash` hands to the backend lane.
+     */
+    expect(VITE_CONFIG, 'the header rewrite must not run on build').toMatch(
+      /apply:\s*'serve'/,
+    )
+    expect(
+      VITE_CONFIG,
+      "html.cspNonce must be disabled when mode is production",
+    ).toMatch(/mode === 'production'\s*\?\s*\{\}\s*:\s*\{\s*cspNonce/)
   })
 
   it('restricts where the app may connect, and says where', () => {

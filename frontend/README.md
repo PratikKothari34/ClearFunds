@@ -21,7 +21,7 @@ review and was still wrong:
 | `npm run utilities` | A CSS theme token that shadows a built-in Tailwind utility, or a class used in markup that no rule defines |
 | `npm run fixtures` | Development sample data reaching the production bundle |
 | `npm run budget` | A chunk over its gzip ceiling, measured against mid-range Android on patchy 4G |
-| `npm run csp-hash` | Prints the SHA-256 of the inline theme script for the CSP — see below |
+| `npm run csp-hash` | Prints the SHA-256 of the inline theme script for the CSP, read from the built output — see below |
 
 ## Response headers the server must send
 
@@ -87,6 +87,58 @@ So: whenever that script changes, run `npm run csp-hash` and hand the new
 value over in the same change. The script reads the built `dist/index.html`
 rather than the source, because a build that rewrote the block would
 otherwise produce a valid-looking hash for a page that gets blocked.
+
+### The dev server cannot satisfy that policy on its own
+
+The policy above is strict on purpose: no `'unsafe-inline'` in
+`script-src` or `style-src`. A production build earns that. It emits a
+real `.css` file loaded by a `<link>`, and the one inline script is
+allowed by its SHA-256.
+
+The dev server does none of that. It serves every stylesheet as a JS
+module that injects a `<style>` tag at runtime, and it adds inline
+scripts of its own for react-refresh. Under the production policy the
+browser refuses all of them, and the failure is quiet in the worst way:
+**the app renders completely, with live data, and completely unstyled** —
+browser-default serif, blue underlined links, bulleted navigation, and
+visually-hidden text showing because `sr-only` never applied. There is no
+build error and nothing in the terminal. The only signal is `Refused to
+apply inline style` in the browser console.
+
+So `vite.config.ts` adds a **nonce** for the dev server, not a keyword:
+
+- `html.cspNonce` is Vite's own support. It injects
+  `<meta property="csp-nonce">` for the HMR client to read, and stamps the
+  nonce onto every script, style and stylesheet link in the served HTML.
+- A dev-only plugin adds that same `'nonce-...'` to `script-src` and
+  `style-src` in the **served** HTML. `apply: 'serve'` keeps it out of
+  `build`, so `preview` and production serve the hash-only policy with no
+  nonce in it, and `npm run csp-hash` is unaffected.
+
+**`'unsafe-inline'` in dev would be the wrong fix**, which is why it is
+not there. It makes dev and production run under different policies, so a
+genuine CSP violation introduced in a component passes locally and fails
+for a resident — the dev server stops being a test of the policy at all. A
+nonce keeps one policy shape in both modes: inline content is allowed only
+when it carries a secret the dev process generated.
+
+Two things about it are load-bearing, and `src/lib/csp.test.ts` asserts
+all of it, because the config typechecks and the build passes either way:
+
+- **The nonce is generated fresh per server start.** A nonce written as a
+  literal in the config is a constant sitting in a committed,
+  world-readable file, which anything injected into the page could read
+  and carry — `'unsafe-inline'` with extra steps.
+- **Vite stamps the nonce onto the inline theme script too**, changing its
+  bytes and so its SHA-256. That is safe only because a nonce match
+  satisfies `script-src` on its own. The hash stays in the header,
+  unchanged, for production, and the source `index.html` is never edited —
+  editing it would change the value handed to the backend lane.
+
+A note on `npm run preview`: it serves the strict hash-only policy
+correctly, but it is also the fixture-free build, so every band shows its
+retry state there. That is expected. `npm run dev` is the only mode that
+shows sample data.
 
 ## Two strings that must never be renamed
 
