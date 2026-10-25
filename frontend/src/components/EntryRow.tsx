@@ -43,10 +43,10 @@ export function EntryRow({ entry }: { readonly entry: Entry }) {
       // Not a <tr>: the pair is one item of variable height, and a
       // table row cannot contain a second row's worth of content
       // without becoming two rows.
-      className="flex flex-col gap-(--cf-s1) py-(--cf-s2) border-b border-rule"
+      className="flex flex-col gap-space-sm py-space-md border-b border-outline-variant"
       aria-labelledby={`cf-entry-${entry.id}-narration`}
     >
-      <div className="flex items-baseline justify-between gap-(--cf-s2)">
+      <div className="flex items-baseline justify-between gap-space-md">
         {/*
          * min-w-0 lets the payee wrap. Without it the flex child
          * refuses to shrink and the amount is pushed off a 320px
@@ -55,7 +55,7 @@ export function EntryRow({ entry }: { readonly entry: Entry }) {
         <div className="min-w-0">
           <p
             id={`cf-entry-${entry.id}-narration`}
-            className={`m-0 ${reversed ? 'text-ink-quiet' : ''}`}
+            className={`m-0 ${reversed ? 'text-on-surface-variant' : ''}`}
           >
             {reversed ? (
               <Cancelled>{entry.narration}</Cancelled>
@@ -63,20 +63,33 @@ export function EntryRow({ entry }: { readonly entry: Entry }) {
               entry.narration
             )}
           </p>
-          <p className="m-0 text-meta text-ink-quiet">
+          <p className="m-0 font-label-code-sm text-label-code-sm text-on-surface-variant">
             {/*
              * Payee wraps; the date does not. A wrapped date reads as
              * two separate values.
              */}
             <span className="break-words">{entry.payee}</span>
-            {' · '}
+            {/*
+             * A rule, not a middle dot. Payee and date are two facts,
+             * and `A - B` joined with a dot reads as one string; the
+             * register separates columns with a line.
+             *
+             * The rule is aria-hidden, so it carries no word boundary
+             * and the visually-hidden comma supplies one - without it
+             * the payee ran straight into the date.
+             */}
+            <span className="cf-sr-only">, </span>
+            <span
+              aria-hidden="true"
+              className="inline-block mx-space-md border-l border-outline-variant h-[1em] align-[-0.15em]"
+            />
             <span className="whitespace-nowrap">
               {formatDate(entry.postedAt)}
             </span>
           </p>
         </div>
 
-        <div className={reversed ? 'text-ink-quiet' : ''}>
+        <div className={reversed ? 'text-on-surface-variant' : ''}>
           {/*
            * The amount carries the word too, not just the narration.
            *
@@ -111,7 +124,7 @@ export function EntryRow({ entry }: { readonly entry: Entry }) {
        * reason is not.
        */}
       {reversed && (
-        <p className="m-0 pl-(--cf-s2) border-l-2 border-break text-meta text-break max-w-[68ch]">
+        <p className="m-0 pl-space-md border-l-2 border-error-container font-label-code-sm text-label-code-sm text-on-error-container max-w-[68ch]">
           {entry.reversedBy
             ? `Cancelled on ${formatDate(entry.reversedBy.postedAt)}`
             : 'Cancelled'}
@@ -137,7 +150,7 @@ export function EntryRow({ entry }: { readonly entry: Entry }) {
        * nothing is ever edited or deleted.
        */}
       {entry.state === 'reversal' && entry.reverses && (
-        <p className="m-0 pl-(--cf-s2) border-l-2 border-rule text-meta text-ink-quiet max-w-[68ch]">
+        <p className="m-0 pl-space-md border-l-2 border-outline-variant font-label-code-sm text-label-code-sm text-on-surface-variant max-w-[68ch]">
           Corrects an entry from {formatDate(entry.reverses.postedAt)}
           {entry.reversalReason && <>: {entry.reversalReason}</>}
           {' '}
@@ -164,7 +177,7 @@ export function EntryRow({ entry }: { readonly entry: Entry }) {
        * direction to be wrong in.
        */}
       {isShowableCount(entry.openFlagCount) && (
-        <p className="m-0 text-meta text-ink-quiet">
+        <p className="m-0 font-label-code-sm text-label-code-sm text-on-surface-variant">
           <span className="cf-tabular">{entry.openFlagCount}</span>{' '}
           {entry.openFlagCount === 1 ? 'question has' : 'questions have'} been
           asked about this entry

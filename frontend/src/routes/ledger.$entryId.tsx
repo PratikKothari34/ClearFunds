@@ -55,16 +55,16 @@ function EntryDetail() {
   if (!entry) {
     return (
       <Band heading="Entry not found" headingId="cf-entry-missing">
-        <p className="text-ink-quiet max-w-[68ch]">
+        <p className="text-on-surface-variant max-w-[68ch]">
           There is no entry with that reference. It may have been a link from
           an older report.{' '}
           <Link
             to="/ledger"
-            className="text-anchor underline decoration-1 underline-offset-2"
+            className="text-on-primary-fixed-variant underline decoration-1 underline-offset-2"
           >
             Go back to the history
           </Link>
-          .
+          {'.'}
         </p>
       </Band>
     )
@@ -91,12 +91,12 @@ function EntryDetail() {
   return (
     <>
       <Band>
-        <p className="m-0 text-meta text-ink-quiet">
+        <p className="m-0 font-label-code-sm text-label-code-sm text-on-surface-variant">
           Entry <span className="cf-tabular">#{entry.sequence}</span> ·{' '}
           {formatDateTime(entry.postedAt)}
         </p>
 
-        <h2 className="font-serif text-head font-normal mt-(--cf-s1) mb-(--cf-s2) max-w-[48ch]">
+        <h2 className="font-headline-md font-headline-md text-headline-md font-normal mt-space-sm mb-space-md max-w-[48ch]">
           {entry.narration}
         </h2>
 
@@ -106,7 +106,7 @@ function EntryDetail() {
          * how a resident concludes the strike-through on the list was a
          * rendering glitch.
          */}
-        <p className={`m-0 text-figure font-medium ${reversed ? 'text-ink-quiet' : ''}`}>
+        <p className={`m-0 font-tabular-currency-lg text-tabular-currency-lg font-medium ${reversed ? 'text-on-surface-variant' : ''}`}>
           {/*
            * `Cancelled`, not a hand-rolled pair. The strike and the
            * visually-hidden word were written out separately at three
@@ -143,7 +143,7 @@ function EntryDetail() {
           the money does not count.
         */}
         {reversed && (
-          <p className="mt-(--cf-s2) mb-0 pl-(--cf-s2) border-l-2 border-break text-break max-w-[68ch]">
+          <p className="mt-space-md mb-0 pl-space-md border-l-2 border-error-container text-on-error-container max-w-[68ch]">
             {entry.reversedBy ? (
               <>
                 This {cancelledNoun(entry.direction)} was cancelled on{' '}
@@ -167,14 +167,14 @@ function EntryDetail() {
                 >
                   See the correction
                 </Link>
-                .
+                {'.'}
               </>
             )}
           </p>
         )}
 
         {entry.state === 'reversal' && entry.reverses && (
-          <p className="mt-(--cf-s2) mb-0 pl-(--cf-s2) border-l-2 border-rule text-ink-quiet max-w-[68ch]">
+          <p className="mt-space-md mb-0 pl-space-md border-l-2 border-outline-variant text-on-surface-variant max-w-[68ch]">
             This entry is a correction. It cancels an entry from{' '}
             {formatDate(entry.reverses.postedAt)}, which stays in the history
             marked cancelled.
@@ -186,20 +186,20 @@ function EntryDetail() {
             >
               See the original
             </Link>
-            .
+            {'.'}
           </p>
         )}
       </Band>
 
       <Band heading="Details" headingId="cf-entry-details">
-        <dl className="grid grid-cols-[auto_1fr] gap-x-(--cf-s3) gap-y-(--cf-s1) m-0">
-          <dt className="text-ink-quiet">Paid to</dt>
+        <dl className="grid grid-cols-[auto_1fr] gap-x-space-lg gap-y-space-sm m-0">
+          <dt className="text-on-surface-variant">Paid to</dt>
           <dd className="m-0 break-words">{entry.payee}</dd>
 
-          <dt className="text-ink-quiet">Posted</dt>
+          <dt className="text-on-surface-variant">Posted</dt>
           <dd className="m-0">{formatDateTime(entry.postedAt)}</dd>
 
-          <dt className="text-ink-quiet">Balance after</dt>
+          <dt className="text-on-surface-variant">Balance after</dt>
           {/*
            * The server's figure, never re-derived here. A balance
            * recomputed from the rows this device happens to hold is

@@ -152,7 +152,14 @@ on phones.
 
 - Simple interface
 - Mobile-first
-- Multiple languages
+- Multiple languages — **future scope. English only ships today**
+  (2026-10-25). The translation library is wired in and loaded lazily, so a
+  second language costs a catalogue rather than a retrofit; the reason for
+  wiring it before it was needed is that a retrofit misses the rare strings
+  — error states, the published-record mismatch warning, reversal copy —
+  and those are the ones a resident most needs in their own language. Until
+  a catalogue lands, no reach or accessibility claim may assume a resident
+  can read the ledger in anything but English
 - Onboarding and training for committee members
 - WhatsApp integration — **future scope, not a current delivery channel.**
   Nothing in the product reaches a resident through WhatsApp today, so no

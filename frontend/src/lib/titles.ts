@@ -47,6 +47,7 @@ const TITLES: readonly (readonly [string, string])[] = [
   ['/my-flat', 'Your flat'],
   ['/disputes', 'Questions about entries'],
   ['/approvals', 'Waiting for approval'],
+  ['/committee', 'The committee'],
   ['/dues', 'Maintenance dues'],
   ['/reports', 'Reports'],
   ['/sign-off', 'Monthly sign-off'],

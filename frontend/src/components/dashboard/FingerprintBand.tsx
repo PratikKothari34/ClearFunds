@@ -25,6 +25,24 @@ import { formatDate } from '../../lib/dates'
  *     this band with the activity band into one "all good" indicator
  *     would let a quiet to-do list mask a broken chain.
  *
+ * WHERE THIS BAND'S BODY NOW ALSO RENDERS (2026-10-25). The provenance
+ * lines appear inside the balance block too, via the exported
+ * `AnchorBody`, because a resident arrives with ONE question - how much
+ * money is there, and can I trust the number - and the design answered
+ * it in two sections a scroll apart. The fingerprint was a band you
+ * could skip past; attached to the figure it is part of reading the
+ * figure.
+ *
+ * That is NOT the merge the fourth bullet forbids. The forbidden one
+ * folds the chain check into a to-do list, where an empty list reads as
+ * an all-clear and masks a break. A balance is not a status and makes
+ * no claim about the chain, so there is nothing for it to mask.
+ *
+ * The pairing has its own hazard, and the caller handles it: `mismatch`
+ * copy says "do not rely on the figures above", so in the balance block
+ * the warning is hoisted ABOVE the figure. A warning printed below the
+ * number it invalidates is read second, or not at all.
+ *
  * It also never blocks the dashboard. The hero ends when the shell and
  * ledger head are ready; this band carries its own pending state,
  * because blocking the whole app on a cross-origin fetch is the wrong
@@ -58,10 +76,50 @@ export function FingerprintBand({
   readonly failed?: boolean
   readonly onRetry?: () => void
 }) {
-  // A fetch failure IS unreachable. The last successful comparison is
-  // carried across when we have it, because "last matched 18 Oct" is
-  // the most useful thing this band can say when today's check failed.
-  const shown: AnchorStatus | undefined = failed
+  const shown = resolveShown(status, failed)
+
+  return (
+    <Band heading="The published record" headingId="cf-band-fingerprint">
+      <div aria-live="polite">
+        {!failed && (pending || !status) ? (
+          <p className="text-on-surface-variant max-w-[68ch]">
+            Checking against the published record…
+          </p>
+        ) : shown ? (
+          <>
+            <AnchorBody status={shown} />
+            {failed && onRetry && (
+              <p className="mt-space-md">
+                <button
+                  type="button"
+                  onClick={onRetry}
+                  className="min-h-11 px-space-md border border-outline-variant rounded-sm text-on-surface"
+                >
+                  Check again
+                </button>
+              </p>
+            )}
+          </>
+        ) : null}
+      </div>
+    </Band>
+  )
+}
+
+/**
+ * A fetch failure IS unreachable. The last successful comparison is
+ * carried across when we have it, because "last matched 18 Oct" is the
+ * most useful thing this band can say when today's check failed.
+ *
+ * Exported so the balance block resolves identically. A second copy of
+ * this logic is how one surface ends up treating a failed fetch as a
+ * pass.
+ */
+export function resolveShown(
+  status: AnchorStatus | undefined,
+  failed: boolean,
+): AnchorStatus | undefined {
+  return failed
     ? {
         state: 'unreachable',
         // Carried only when we actually have them. AnchorUnreachable
@@ -76,36 +134,26 @@ export function FingerprintBand({
           : {}),
       }
     : status
-
-  return (
-    <Band heading="The published record" headingId="cf-band-fingerprint">
-      <div aria-live="polite">
-        {!failed && (pending || !status) ? (
-          <p className="text-ink-quiet max-w-[68ch]">
-            Checking against the published record…
-          </p>
-        ) : shown ? (
-          <>
-            <Body status={shown} />
-            {failed && onRetry && (
-              <p className="mt-(--cf-s2)">
-                <button
-                  type="button"
-                  onClick={onRetry}
-                  className="min-h-11 px-(--cf-s2) border border-rule rounded-sm text-ink"
-                >
-                  Check again
-                </button>
-              </p>
-            )}
-          </>
-        ) : null}
-      </div>
-    </Band>
-  )
 }
 
-function Body({ status }: { readonly status: AnchorStatus }) {
+/**
+ * The provenance sentences, rendered both in the band above and inside
+ * the balance block. ONE copy of this switch, deliberately: two would
+ * let one of them drift into saying "verified", the one claim this
+ * product may never make.
+ *
+ * `hideMismatch` is for the balance block, which renders the mismatch
+ * warning itself, above the figure. The remaining detail line still
+ * prints here so the dates and the "show this to your auditor"
+ * instruction are not lost.
+ */
+export function AnchorBody({
+  status,
+  hideMismatch = false,
+}: {
+  readonly status: AnchorStatus
+  readonly hideMismatch?: boolean
+}) {
   switch (status.state) {
     case 'match':
       return (
@@ -116,9 +164,16 @@ function Body({ status }: { readonly status: AnchorStatus }) {
             {status.lastComparedAt && (
               <> — checked on this device {formatDate(status.lastComparedAt)}</>
             )}
-            .
+            {/*
+             * The full stop is glued to the date with no whitespace
+             * between the expressions. On its own line JSX collapsed
+             * the newline into a space and the sentence rendered
+             * "...21 Oct 2026 ." - an orphaned stop on the line every
+             * resident with a healthy ledger reads.
+             */}
+            {'.'}
           </p>
-          <p className="text-meta text-ink-quiet max-w-[68ch] mt-(--cf-s1)">
+          <p className="font-label-code-sm text-label-code-sm text-on-surface-variant max-w-[68ch] mt-space-sm">
             The history you are reading matches the record published outside
             the committee&rsquo;s control. {VERIFY_HINT}
           </p>
@@ -141,7 +196,7 @@ function Body({ status }: { readonly status: AnchorStatus }) {
            * one. Saying "no problems found" here would be the single
            * most misleading sentence available in this product.
            */}
-          <p className="text-meta text-ink-quiet max-w-[68ch] mt-(--cf-s1)">
+          <p className="font-label-code-sm text-label-code-sm text-on-surface-variant max-w-[68ch] mt-space-sm">
             This is the first time this device has checked, so there is nothing
             earlier to compare against yet. From your next visit, this will
             show whether anything you had already seen has changed.
@@ -161,7 +216,7 @@ function Body({ status }: { readonly status: AnchorStatus }) {
            * --break: colouring an unreachable fetch as a mismatch
            * teaches a resident to ignore the colour that matters.
            */}
-          <p className="text-meta text-ink-quiet max-w-[68ch] mt-(--cf-s1)">
+          <p className="font-label-code-sm text-label-code-sm text-on-surface-variant max-w-[68ch] mt-space-sm">
             This does not mean anything is wrong with the ledger, and it does
             not mean it is fine either — the check simply did not run.
             {status.lastComparedAt && (
@@ -179,11 +234,18 @@ function Body({ status }: { readonly status: AnchorStatus }) {
     case 'mismatch':
       return (
         <>
-          <p className="text-break max-w-[68ch]">
-            <span aria-hidden="true">⚠ </span>
-            What this app is showing does not match the published record.
-          </p>
-          <p className="text-meta text-ink-quiet max-w-[68ch] mt-(--cf-s1)">
+          {/*
+           * Suppressed only when the CALLER has already rendered this
+           * sentence somewhere more useful - above the figure it tells
+           * the resident not to rely on. It is never simply dropped.
+           */}
+          {!hideMismatch && (
+            <p className="text-on-error-container max-w-[68ch]">
+              <span aria-hidden="true">⚠ </span>
+              What this app is showing does not match the published record.
+            </p>
+          )}
+          <p className="font-label-code-sm text-label-code-sm text-on-surface-variant max-w-[68ch] mt-space-sm">
             Published {formatDate(status.publishedAt)} on{' '}
             {status.publishedSource}
             {status.lastComparedAt && (
@@ -210,10 +272,10 @@ const VERIFY_HINT = 'You can check this yourself.'
  */
 function VerifyLink() {
   return (
-    <p className="mt-(--cf-s2)">
+    <p className="mt-space-md">
       <Link
         to="/verify"
-        className="text-anchor underline decoration-1 underline-offset-2 inline-flex items-center min-h-11"
+        className="text-on-primary-fixed-variant underline decoration-1 underline-offset-2 inline-flex items-center min-h-11"
       >
         How to check this yourself
       </Link>

@@ -29,7 +29,7 @@ export function LedgerSummary({
 
   return (
     <p
-      className="text-meta text-ink-quiet py-(--cf-s2) m-0"
+      className="font-label-code-sm text-label-code-sm text-on-surface-variant py-space-md m-0"
       aria-live="polite"
     >
       {filterLabel === undefined ? (

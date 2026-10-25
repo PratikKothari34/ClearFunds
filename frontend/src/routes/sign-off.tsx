@@ -96,10 +96,10 @@ function SignOff() {
   if (!period) {
     return (
       <Band>
-        <h2 className="font-serif text-head font-normal mt-0 mb-(--cf-s1)">
+        <h2 className="font-headline-md font-headline-md text-headline-md font-normal mt-0 mb-space-sm">
           Nothing to sign
         </h2>
-        <p className="m-0 text-ink-quiet max-w-[68ch]">
+        <p className="m-0 text-on-surface-variant max-w-[68ch]">
           Every month up to now has been signed off.
         </p>
       </Band>
@@ -141,23 +141,23 @@ function PeriodSignoff({
   return (
     <>
       <Band>
-        <p className="m-0 text-meta text-ink-quiet">Oldest month not signed</p>
-        <h2 className="font-serif text-head font-normal mt-(--cf-s1) mb-(--cf-s2)">
+        <p className="m-0 font-label-code-sm text-label-code-sm text-on-surface-variant">Oldest month not signed</p>
+        <h2 className="font-headline-md font-headline-md text-headline-md font-normal mt-space-sm mb-space-md">
           {period.label}
         </h2>
 
-        <dl className="grid grid-cols-[auto_1fr] gap-x-(--cf-s3) gap-y-(--cf-s1) m-0">
-          <dt className="text-ink-quiet">Money in</dt>
+        <dl className="grid grid-cols-[auto_1fr] gap-x-space-lg gap-y-space-sm m-0">
+          <dt className="text-on-surface-variant">Money in</dt>
           <dd className="m-0">
             <Amount value={period.inflow} direction="in" />
           </dd>
 
-          <dt className="text-ink-quiet">Money out</dt>
+          <dt className="text-on-surface-variant">Money out</dt>
           <dd className="m-0">
             <Amount value={period.outflow} direction="out" />
           </dd>
 
-          <dt className="text-ink-quiet">Entries</dt>
+          <dt className="text-on-surface-variant">Entries</dt>
           {/*
            * GUARDED WITH `isUnreadableCount`, NOT `isShowableCount`.
            *
@@ -172,7 +172,7 @@ function PeriodSignoff({
            */}
           <dd className="m-0 cf-tabular">
             {isUnreadableCount(period.entryCount) ? (
-              <span className="text-break">Could not be read</span>
+              <span className="text-on-error-container">Could not be read</span>
             ) : (
               period.entryCount
             )}
@@ -191,7 +191,7 @@ function PeriodSignoff({
          * signed.
          */}
         {waiting > 0 && (
-          <p className="mt-(--cf-s3) mb-0 text-meta text-ink-quiet max-w-[68ch]">
+          <p className="mt-space-lg mb-0 font-label-code-sm text-label-code-sm text-on-surface-variant max-w-[68ch]">
             <span className="cf-tabular">{waiting}</span> later{' '}
             {waiting === 1 ? 'month is' : 'months are'} also waiting. They
             become available in order, oldest first, as you sign.
@@ -218,7 +218,7 @@ function PeriodSignoff({
             needs a distinct-entry figure from the server, which is not
             in the payload. So the copy says the thing the number IS.
           */}
-          <p className="m-0 max-w-[68ch] pl-(--cf-s2) border-l-2 border-attention">
+          <p className="m-0 max-w-[68ch] pl-space-md border-l-2 border-tertiary-fixed">
             {/*
               THE FIGURE DEGRADES, THE WARNING DOES NOT. A count nobody
               can read is not a reason to stop telling the president
@@ -244,11 +244,11 @@ function PeriodSignoff({
             )}
             <Link
               to="/ledger/flagged"
-              className="text-anchor underline decoration-1 underline-offset-2"
+              className="text-on-primary-fixed-variant underline decoration-1 underline-offset-2"
             >
               Read them
             </Link>
-            .
+            {'.'}
           </p>
         </Band>
       )}
@@ -258,24 +258,24 @@ function PeriodSignoff({
           heading="Payments worth looking at together"
           headingId="cf-signoff-structuring"
         >
-          <p className="m-0 mb-(--cf-s2) text-ink-quiet max-w-[68ch]">
+          <p className="m-0 mb-space-md text-on-surface-variant max-w-[68ch]">
             These were each small enough to be approved by the treasurer and
             secretary, but together they come to more than the
             society&rsquo;s limit. That is not wrong by itself — it is worth
             reading before you sign.
           </p>
-          <ul className="list-none m-0 p-0 flex flex-col gap-(--cf-s2)">
+          <ul className="list-none m-0 p-0 flex flex-col gap-space-md">
             {period.structuring.map((group) => (
               <li
                 key={group.payee}
-                className="pl-(--cf-s2) border-l-2 border-attention"
+                className="pl-space-md border-l-2 border-tertiary-fixed"
               >
                 <p className="m-0">
                   {group.payee} — {formatMoney(group.total)} across{' '}
                   <span className="cf-tabular">{group.entryIds.length}</span>{' '}
                   payments
                 </p>
-                <p className="m-0 text-meta text-ink-quiet">
+                <p className="m-0 font-label-code-sm text-label-code-sm text-on-surface-variant">
                   Within <span className="cf-tabular">{group.windowDays}</span>{' '}
                   days
                 </p>
@@ -294,7 +294,7 @@ function PeriodSignoff({
          * the question, which is not where the bye-laws put it.
          */}
         <PendingAction>Sign off {period.label}</PendingAction>
-        <p className="mt-(--cf-s2) mb-0 text-meta text-ink-quiet max-w-[68ch]">
+        <p className="mt-space-md mb-0 font-label-code-sm text-label-code-sm text-on-surface-variant max-w-[68ch]">
           {blocked
             ? 'When signing works, you will be able to sign with a question outstanding: the sign-off is recorded with the date, and so is the question.'
             : 'When signing works, your sign-off will be recorded in the history with the date. It cannot be removed, only corrected by a later entry.'}

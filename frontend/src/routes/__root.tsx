@@ -119,7 +119,7 @@ function RootLayout() {
       */}
       <a
         href="#cf-main"
-        className="cf-sr-only focus:static focus:w-auto focus:h-auto focus:m-0 focus:overflow-visible focus:[clip-path:none] focus:inline-block focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:bg-surface focus:px-4 focus:py-2 focus:text-ink focus:border focus:border-rule"
+        className="cf-sr-only focus:static focus:w-auto focus:h-auto focus:m-0 focus:overflow-visible focus:[clip-path:none] focus:inline-block focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:bg-surface focus:px-4 focus:py-2 focus:text-on-surface focus:border focus:border-outline-variant"
       >
         Skip to content
       </a>

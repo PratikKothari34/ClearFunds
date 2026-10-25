@@ -80,7 +80,7 @@ function LedgerFlagged() {
        * absence of rows is interpreted.
        */}
       {unreadable.length > 0 && (
-        <p className="mt-0 mb-(--cf-s3) text-meta text-break max-w-[68ch]">
+        <p className="mt-0 mb-space-lg font-label-code-sm text-label-code-sm text-on-error-container max-w-[68ch]">
           <span className="cf-tabular">{unreadable.length}</span>{' '}
           {unreadable.length === 1 ? 'entry' : 'entries'} could not be checked
           for open questions, so this list may be incomplete.

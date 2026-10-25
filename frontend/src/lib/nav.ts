@@ -1,4 +1,5 @@
 import type { Role } from './types'
+import type { IconName } from '../components/Icon'
 
 /**
  * Navigation, derived from the role.
@@ -16,14 +17,20 @@ import type { Role } from './types'
 export interface NavItem {
   readonly to: string
   readonly label: string
+  /**
+   * The rail glyph. Required, not optional: an item added without one
+   * would render a label hanging in a column of icons, and an optional
+   * field would let that through silently.
+   */
+  readonly icon: IconName
   /** Items carrying a live count are promoted out of `More` on mobile. */
   readonly countable?: boolean
   /** Never demoted to `More`, whatever the count. */
   readonly pinned?: boolean
 }
 
-const HOME: NavItem = { to: '/', label: 'Home', pinned: true }
-const LEDGER: NavItem = { to: '/ledger', label: 'Ledger' }
+const HOME: NavItem = { to: '/', label: 'Home', icon: 'home', pinned: true }
+const LEDGER: NavItem = { to: '/ledger', label: 'Ledger', icon: 'account_balance' }
 /*
  * LABELLED IN THE WORDS THE PAGES USE.
  *
@@ -43,23 +50,26 @@ const LEDGER: NavItem = { to: '/ledger', label: 'Ledger' }
 const DISPUTES: NavItem = {
   to: '/disputes',
   label: 'Questions',
+  icon: 'flag',
   countable: true,
 }
 const APPROVALS: NavItem = {
   to: '/approvals',
   label: 'Approvals',
+  icon: 'check_circle',
   countable: true,
 }
-const REPORTS: NavItem = { to: '/reports', label: 'Reports' }
-const DUES: NavItem = { to: '/dues', label: 'Dues' }
-const MY_FLAT: NavItem = { to: '/my-flat', label: 'My flat' }
+const REPORTS: NavItem = { to: '/reports', label: 'Reports', icon: 'description' }
+const DUES: NavItem = { to: '/dues', label: 'Dues', icon: 'grid_view' }
+const MY_FLAT: NavItem = { to: '/my-flat', label: 'My flat', icon: 'home' }
 const SIGNOFF: NavItem = {
   to: '/sign-off',
   label: 'Sign-off',
+  icon: 'gavel',
   countable: true,
   pinned: true,
 }
-const YEAR_END: NavItem = { to: '/year-end', label: 'Year-end' }
+const YEAR_END: NavItem = { to: '/year-end', label: 'Year-end', icon: 'schedule' }
 
 const BY_ROLE: Record<Role, readonly NavItem[]> = {
   // The resident keeps four items, so the surface this audience uses most
@@ -153,3 +163,52 @@ export const LEDGER_TABS = [
   { to: '/ledger/reversed', label: 'Cancelled' },
   { to: '/ledger/flagged', label: 'Questions' },
 ] as const
+
+/**
+ * The rail's two labelled groups.
+ *
+ * The Stitch export groups its sidebar under "Statutory Register" and
+ * "Fiduciary Governance" - the register you read, and the governance
+ * that controls it. That split is kept because it is a real
+ * distinction in this product and not a visual device: the first group
+ * is the record, the second is who may change it and who signed it
+ * off.
+ *
+ * THE LABELS ARE NOT THE EXPORT'S. "Statutory Register" and "Fiduciary
+ * Governance" are the words of someone who already knows co-operative
+ * accounting. The audience here is a resident who has never used an
+ * accounting product, and every other label in this product was
+ * rewritten into plain English for exactly that reason - `Disputes`
+ * became `Questions` because a flag has no financial effect. A heading
+ * a reader must decode is a heading that teaches them the product is
+ * not for them.
+ *
+ * Derived from `navFor`, never a second hardcoded list: a list that
+ * restates the items drifts from the role filtering the moment one
+ * changes, and the failure is an item appearing for a role that cannot
+ * use it.
+ */
+export interface NavGroup {
+  readonly label: string
+  readonly items: readonly NavItem[]
+}
+
+/** Governance surfaces: who approves, who signs, what gets published. */
+const GOVERNANCE = new Set(['/approvals', '/sign-off', '/year-end', '/reports'])
+
+export function navGroupsFor(role: Role): readonly NavGroup[] {
+  const items = navFor(role)
+  const record = items.filter((i) => !GOVERNANCE.has(i.to))
+  const governance = items.filter((i) => GOVERNANCE.has(i.to))
+
+  /*
+   * An EMPTY GROUP IS DROPPED, not rendered as a heading over nothing.
+   * A resident has no governance items at all, and a lone
+   * "Approvals and sign-off" heading with no links under it reads as
+   * something broken rather than something absent.
+   */
+  return [
+    { label: 'The ledger', items: record },
+    { label: 'Approvals and sign-off', items: governance },
+  ].filter((g) => g.items.length > 0)
+}

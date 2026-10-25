@@ -86,19 +86,19 @@ export function AttentionBand({
        */}
       <div aria-live="polite">
         {count === 0 ? (
-          <p className="text-ink-quiet max-w-[68ch]">
+          <p className="text-on-surface-variant max-w-[68ch]">
             Nothing needs you right now. Anything waiting on you will appear
             here.
           </p>
         ) : (
-          <ul className="flex flex-col gap-(--cf-s2)">
+          <ul className="flex flex-col gap-space-md">
             {shown.map((item) => (
               <li key={item.id}>
                 <Link
                   to={item.href}
                   // min-h-11: this is the most-tapped control on the
                   // screen for an approver, often one-handed.
-                  className="flex items-baseline justify-between gap-(--cf-s2) min-h-11 text-attention underline decoration-1 underline-offset-2"
+                  className="flex items-baseline justify-between gap-space-md min-h-11 text-on-tertiary-fixed-variant underline decoration-1 underline-offset-2"
                 >
                   <span className="max-w-[68ch]">{item.label}</span>
                   {item.amount && <Amount value={item.amount} />}

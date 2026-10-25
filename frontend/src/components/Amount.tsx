@@ -31,9 +31,9 @@ export function Amount({
 
   const tone =
     direction === 'in'
-      ? 'text-credit'
+      ? 'text-secondary'
       : direction === 'out'
-        ? 'text-debit'
+        ? 'text-error'
         : ''
 
   return (

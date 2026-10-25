@@ -21,12 +21,11 @@ export function ThemeToggle() {
       // way it will go.
       aria-label={`Switch to ${goingTo} mode`}
       title={`Switch to ${goingTo} mode`}
-      className="inline-flex h-11 w-11 items-center justify-center rounded-md text-ink-quiet hover:text-ink"
+      className="inline-flex h-11 w-11 items-center justify-center rounded-md text-on-surface-variant hover:text-on-surface"
     >
       {/*
         Icons are inline SVG with currentColor, not an icon font and not a
-        sprite request: two glyphs do not justify a network round trip on
-        a patchy connection.
+        sprite request: two glyphs do not justify a network round trip.
 
         aria-hidden because the button already carries the label; a
         screen reader announcing the path as well would read it twice.

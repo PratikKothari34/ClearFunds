@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { resolve as resolvePath } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   SUPPORTED_LOCALES,
   hasCatalogue,
@@ -14,7 +14,11 @@ import {
  * Renaming 'cf-locale' silently resets every resident to English. There
  * is no error and nothing fails: the old value sits in their browser
  * forever while the app reads a key nobody ever wrote, so the first
- * symptom is a Marathi reader quietly getting English months later.
+ * symptom is a resident quietly losing their stored preference months
+ * later. The product ships English only today, which makes this guard
+ * MORE fragile rather than less: every wrong answer is also `en`, so
+ * nothing about the return value can tell a working read from a
+ * deleted one. See the access test below.
  *
  * Unlike the theme key, this string is written in ONE file, so there is
  * no second copy to drift out of agreement — which is exactly why the
@@ -66,11 +70,69 @@ describe('preferredLocale', () => {
     localStorage.clear()
   })
 
-  it('reads back a choice stored under that key', () => {
-    // The round trip, written against the key as a resident's browser
-    // holds it rather than against the constant.
-    localStorage.setItem('cf-locale', 'mr')
-    expect(preferredLocale()).toBe('mr')
+  it('reads the key, and reads it by that exact name', () => {
+    /*
+     * THE ROUND TRIP CANNOT BE ASSERTED BY ITS RETURN VALUE ANY MORE,
+     * and quietly leaving it that way would have been the worse bug.
+     *
+     * This test used to store `mr` and expect `mr` back. With only
+     * `en` shipping there is no supported value except `en` - and `en`
+     * is ALSO what the function returns when storage is empty, when
+     * storage throws, and when it never looks. Every value-based
+     * version of this assertion now passes on a build that deleted the
+     * localStorage read entirely, so the guard on the hard-constrained
+     * key would have gone silent without going red.
+     *
+     * So this asserts the ACCESS instead of the answer: the getter is
+     * observed, and the name it was asked for is the name residents
+     * already have in their browsers. That survives the locale set
+     * shrinking to one, and it is the thing the constraint is actually
+     * about.
+     */
+    /*
+     * SPIED ON `Storage.prototype`, NOT ON `window.localStorage`.
+     * In jsdom `getItem` lives on the prototype and the instance only
+     * inherits it, so `vi.spyOn(window.localStorage, ...)` installs a
+     * spy that the real call never reaches - it reports zero calls on
+     * a module that is reading storage correctly, which would have
+     * sent someone hunting a bug that was in the test.
+     */
+    const spy = vi.spyOn(Storage.prototype, 'getItem')
+    try {
+      preferredLocale()
+      expect(
+        spy,
+        'preferredLocale no longer consults localStorage at all, so the stored key is dead',
+      ).toHaveBeenCalled()
+      expect(spy.mock.calls.map((c) => c[0])).toContain('cf-locale')
+    } finally {
+      spy.mockRestore()
+    }
+  })
+
+  it('honours a stored value the app still supports', () => {
+    /*
+     * The complement: the read is not just performed, its result is
+     * used. Pinned on `en` because it is the only supported locale, so
+     * this half is deliberately weak on its own - it is the access
+     * test above that gives it teeth, and the rejection test below
+     * that proves an unsupported value does not pass through.
+     */
+    localStorage.setItem('cf-locale', 'en')
+    expect(preferredLocale()).toBe('en')
+  })
+
+  it('rejects a locale the app used to ship', () => {
+    /*
+     * NOT A HISTORICAL CASE. The app shipped `mr` and `hi`, so these
+     * values are sitting in real residents' browsers right now. They
+     * must resolve to honest English rather than selecting a language
+     * with no catalogue and no font.
+     */
+    for (const gone of ['mr', 'hi']) {
+      localStorage.setItem('cf-locale', gone)
+      expect(preferredLocale(), gone).toBe('en')
+    }
   })
 
   it('ignores a stored value that is not a locale we have', () => {
@@ -120,7 +182,10 @@ describe('preferredLocale', () => {
  * about what a screen reader is told, and a source check would be
  * satisfied by any expression that happens to mention `hasCatalogue`.
  * `applyLang` is private, so the only honest way in is the public
- * `setLocale` - which is also the only path a resident takes.
+ * `setLocale`. There is no language control in the UI, so a resident
+ * never calls it; the locale comes from the browser on first visit.
+ * The rule is asserted anyway - the moment a control or a deep link
+ * returns, this is the behaviour it must already have.
  *
  * Both halves are needed. Asserting only that `hi` yields `en` would
  * pass for a module that hardcoded `lang = 'en'` and never changed it

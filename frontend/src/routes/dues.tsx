@@ -93,16 +93,16 @@ function Dues() {
   if (!canSeeAllDues(role)) {
     return (
       <Band>
-        <h2 className="font-serif text-head font-normal mt-0 mb-(--cf-s1)">
+        <h2 className="font-headline-md font-headline-md text-headline-md font-normal mt-0 mb-space-sm">
           Dues by flat are not shown here
         </h2>
-        <p className="m-0 text-ink-quiet max-w-[68ch]">
+        <p className="m-0 text-on-surface-variant max-w-[68ch]">
           What each flat owes is visible only to {duesVisibilitySentence()},
           who collect it. Your own flat&rsquo;s position is on{' '}
           <Link to="/my-flat" className="underline">
             your flat page
           </Link>
-          .
+          {'.'}
         </p>
       </Band>
     )
@@ -111,10 +111,10 @@ function Dues() {
   return (
     <>
       <Band>
-        <h2 className="font-serif text-head font-normal mt-0 mb-(--cf-s1)">
+        <h2 className="font-headline-md font-headline-md text-headline-md font-normal mt-0 mb-space-sm">
           Maintenance dues
         </h2>
-        <p className="m-0 text-ink-quiet max-w-[68ch]">
+        <p className="m-0 text-on-surface-variant max-w-[68ch]">
           <span className="cf-tabular">{owing.length}</span> of{' '}
           <span className="cf-tabular">{rows.length}</span>{' '}
           {rows.length === 1 ? 'flat has' : 'flats have'} something
@@ -129,7 +129,7 @@ function Dues() {
          * than the answer.
          */}
         {unreadable.length > 0 && (
-          <p className="mt-(--cf-s2) mb-0 text-meta text-break max-w-[68ch]">
+          <p className="mt-space-md mb-0 font-label-code-sm text-label-code-sm text-on-error-container max-w-[68ch]">
             <span className="cf-tabular">{unreadable.length}</span>{' '}
             {unreadable.length === 1 ? 'flat' : 'flats'} could not be read, so
             the count above is the least it could be, not the whole picture.
@@ -169,25 +169,25 @@ function Dues() {
               Maintenance billed, paid and outstanding for each flat
             </caption>
             <thead>
-              <tr className="border-b border-rule">
-                <th scope="col" className="py-(--cf-s1) pr-(--cf-s3) font-medium">
+              <tr className="border-b border-outline-variant">
+                <th scope="col" className="py-space-sm pr-space-lg font-medium">
                   Flat
                 </th>
                 <th
                   scope="col"
-                  className="py-(--cf-s1) pr-(--cf-s3) font-medium text-right"
+                  className="py-space-sm pr-space-lg font-medium text-right"
                 >
                   Billed
                 </th>
                 <th
                   scope="col"
-                  className="py-(--cf-s1) pr-(--cf-s3) font-medium text-right"
+                  className="py-space-sm pr-space-lg font-medium text-right"
                 >
                   Paid
                 </th>
                 <th
                   scope="col"
-                  className="py-(--cf-s1) font-medium text-right"
+                  className="py-space-sm font-medium text-right"
                 >
                   Outstanding
                 </th>
@@ -195,21 +195,21 @@ function Dues() {
             </thead>
             <tbody>
               {rows.map((row) => (
-                <tr key={row.flat} className="border-b border-rule last:border-b-0">
+                <tr key={row.flat} className="border-b border-outline-variant last:border-b-0">
                   {/* scope=row: the flat is what identifies the line. */}
                   <th
                     scope="row"
-                    className="py-(--cf-s2) pr-(--cf-s3) font-normal cf-tabular whitespace-nowrap"
+                    className="py-space-md pr-space-lg font-normal cf-tabular whitespace-nowrap"
                   >
                     {row.flat}
                   </th>
-                  <td className="py-(--cf-s2) pr-(--cf-s3) text-right">
+                  <td className="py-space-md pr-space-lg text-right">
                     <Amount value={row.billed} />
                   </td>
-                  <td className="py-(--cf-s2) pr-(--cf-s3) text-right">
+                  <td className="py-space-md pr-space-lg text-right">
                     <Amount value={row.paid} />
                   </td>
-                  <td className="py-(--cf-s2) text-right">
+                  <td className="py-space-md text-right">
                     {isUnreadableAmount(row.outstanding) ? (
                       /*
                        * --break, not --attention: this row is a fault
@@ -218,16 +218,16 @@ function Dues() {
                        * minor prints junk beside real figures, and a
                        * resident cannot tell which of the two it is.
                        */
-                      <span className="text-break">Could not be read</span>
+                      <span className="text-on-error-container">Could not be read</span>
                     ) : isOutstanding(row.outstanding) ? (
                       // --attention, not --break. Being behind on
                       // maintenance is something to chase, not a fault
                       // in the record.
-                      <span className="text-attention">
+                      <span className="text-on-tertiary-fixed-variant">
                         <Amount value={row.outstanding} />
                       </span>
                     ) : (
-                      <span className="text-ink-quiet">
+                      <span className="text-on-surface-variant">
                         <Amount value={row.outstanding} />
                       </span>
                     )}

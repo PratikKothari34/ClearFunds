@@ -59,7 +59,7 @@ export function MobileTabBar({
        */}
       <nav
         aria-label="Main"
-        className="md:hidden fixed bottom-0 left-0 right-0 z-20 flex border-t border-rule bg-surface pb-[env(safe-area-inset-bottom)]"
+        className="md:hidden fixed bottom-0 left-0 right-0 z-20 flex border-t border-outline-variant bg-surface pb-[env(safe-area-inset-bottom)]"
       >
         {tabs.map((item) => (
           <Link
@@ -68,7 +68,7 @@ export function MobileTabBar({
             onClick={() => setOpen(false)}
             // 44px is the floor for a tap target. The design case is a
             // volunteer standing in a stairwell, not a careful tap.
-            className="flex-1 min-h-11 flex flex-col items-center justify-center gap-0.5 py-(--cf-s1) text-meta text-ink-quiet aria-[current=page]:text-ink aria-[current=page]:font-medium"
+            className="flex-1 min-h-11 flex flex-col items-center justify-center gap-0.5 py-space-sm font-label-code-sm text-label-code-sm text-on-surface-variant aria-[current=page]:text-on-surface aria-[current=page]:font-medium"
             activeOptions={{ exact: item.to === '/' }}
           >
             <span className="flex items-center gap-1">
@@ -84,7 +84,7 @@ export function MobileTabBar({
             onClick={() => setOpen((v) => !v)}
             aria-expanded={open}
             aria-controls="cf-more-sheet"
-            className="flex-1 min-h-11 flex flex-col items-center justify-center gap-0.5 py-(--cf-s1) text-meta text-ink-quiet"
+            className="flex-1 min-h-11 flex flex-col items-center justify-center gap-0.5 py-space-sm font-label-code-sm text-label-code-sm text-on-surface-variant"
           >
             <span className="flex items-center gap-1">
               More
@@ -184,7 +184,7 @@ function MoreSheet({
        * and lands in the tab order ahead of the sheet's own links.
        */}
       <div
-        className="md:hidden fixed inset-0 z-20 bg-ink/40"
+        className="md:hidden fixed inset-0 z-20 bg-on-surface/40"
         onClick={onClose}
         aria-hidden="true"
       />
@@ -194,15 +194,15 @@ function MoreSheet({
         role="dialog"
         aria-modal="true"
         aria-label="More"
-        className="md:hidden fixed bottom-0 left-0 right-0 z-30 border-t border-rule bg-surface pb-[calc(env(safe-area-inset-bottom)+3.5rem)]"
+        className="md:hidden fixed bottom-0 left-0 right-0 z-30 border-t border-outline-variant bg-surface pb-[calc(env(safe-area-inset-bottom)+3.5rem)]"
       >
-        <ul className="py-(--cf-s1)">
+        <ul className="py-space-sm">
           {items.map((item) => (
             <li key={item.to}>
               <Link
                 to={item.to}
                 onClick={onClose}
-                className="flex items-center justify-between min-h-11 px-(--cf-gutter) py-(--cf-s2) aria-[current=page]:font-medium"
+                className="flex items-center justify-between min-h-11 px-gutter py-space-md aria-[current=page]:font-medium"
               >
                 <span>{item.label}</span>
                 <NavBadge count={counts[item.to]} label={item.label} />

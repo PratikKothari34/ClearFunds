@@ -28,8 +28,8 @@ export const Route = createFileRoute('/login')({
  */
 function Login() {
   return (
-    <main className="min-h-dvh flex flex-col items-center justify-center gap-(--cf-s4) px-(--cf-s3) py-(--cf-s5) bg-surface">
-      <div className="flex flex-col items-center gap-(--cf-s3) text-center">
+    <main className="min-h-dvh flex flex-col items-center justify-center gap-space-xl px-space-lg py-space-xl bg-surface">
+      <div className="flex flex-col items-center gap-space-lg text-center">
         {/*
          * Explicit width and height: the mark is 240px and reserving
          * the box stops the form below it jumping when the image
@@ -51,17 +51,17 @@ function Login() {
         />
 
         <div>
-          <h1 className="font-serif text-figure font-normal m-0 text-ink">
+          <h1 className="font-headline-md font-tabular-currency-lg text-tabular-currency-lg font-normal m-0 text-on-surface">
             ClearFunds
           </h1>
-          <p className="mt-(--cf-s1) mb-0 text-ink-quiet max-w-[40ch]">
+          <p className="mt-space-sm mb-0 text-on-surface-variant max-w-[40ch]">
             Your society&rsquo;s accounts, open to every member.
           </p>
         </div>
       </div>
 
       <form
-        className="w-full max-w-[22rem] flex flex-col gap-(--cf-s3)"
+        className="w-full max-w-[22rem] flex flex-col gap-space-lg"
         /*
          * method="post" although nothing is posted yet.
          *
@@ -80,13 +80,13 @@ function Login() {
         // does nothing rather than appearing to work.
         onSubmit={(event) => event.preventDefault()}
       >
-        <div className="flex flex-col gap-(--cf-s1)">
+        <div className="flex flex-col gap-space-sm">
           {/*
            * A real label, not a placeholder. A placeholder disappears
            * the moment someone types, which strands anyone who looks
            * away mid-entry.
            */}
-          <label htmlFor="cf-login-id" className="text-meta text-ink-quiet">
+          <label htmlFor="cf-login-id" className="font-label-code-sm text-label-code-sm text-on-surface-variant">
             Phone number or email
           </label>
           <input
@@ -99,12 +99,12 @@ function Login() {
             inputMode="text"
             autoComplete="username"
             required
-            className="min-h-11 px-(--cf-s2) border border-rule rounded-sm bg-surface text-ink"
+            className="min-h-11 px-space-md border border-outline-variant rounded-sm bg-surface text-on-surface"
           />
         </div>
 
-        <div className="flex flex-col gap-(--cf-s1)">
-          <label htmlFor="cf-login-flat" className="text-meta text-ink-quiet">
+        <div className="flex flex-col gap-space-sm">
+          <label htmlFor="cf-login-flat" className="font-label-code-sm text-label-code-sm text-on-surface-variant">
             Flat number
           </label>
           <input
@@ -113,16 +113,16 @@ function Login() {
             type="text"
             autoComplete="off"
             required
-            className="min-h-11 px-(--cf-s2) border border-rule rounded-sm bg-surface text-ink cf-tabular"
+            className="min-h-11 px-space-md border border-outline-variant rounded-sm bg-surface text-on-surface cf-tabular"
           />
         </div>
 
-        <PendingAction className="min-h-11 px-(--cf-s3) border border-rule rounded-sm bg-ink text-surface font-medium">
+        <PendingAction className="min-h-11 px-space-lg border border-outline-variant rounded-sm bg-on-surface text-surface font-medium">
           Send me a sign-in code
         </PendingAction>
       </form>
 
-      <p className="m-0 text-meta text-ink-quiet text-center max-w-[40ch]">
+      <p className="m-0 font-label-code-sm text-label-code-sm text-on-surface-variant text-center max-w-[40ch]">
         Accounts are set up by the society office. If you do not have one, or
         you rent and need access under the owner&rsquo;s flat, ask the
         secretary.

@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApprovalsRouteImport } from './routes/approvals'
+import { Route as CommitteeRouteImport } from './routes/committee'
 import { Route as DisputesRouteImport } from './routes/disputes'
 import { Route as DuesRouteImport } from './routes/dues'
 import { Route as LedgerRouteImport } from './routes/ledger'
@@ -33,6 +34,11 @@ const IndexRoute = IndexRouteImport.update({
 const ApprovalsRoute = ApprovalsRouteImport.update({
   id: '/approvals',
   path: '/approvals',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CommitteeRoute = CommitteeRouteImport.update({
+  id: '/committee',
+  path: '/committee',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DisputesRoute = DisputesRouteImport.update({
@@ -104,6 +110,7 @@ const LedgerReversedRoute = LedgerReversedRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/approvals': typeof ApprovalsRoute
+  '/committee': typeof CommitteeRoute
   '/disputes': typeof DisputesRoute
   '/dues': typeof DuesRoute
   '/ledger': typeof LedgerRouteWithChildren
@@ -121,6 +128,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/approvals': typeof ApprovalsRoute
+  '/committee': typeof CommitteeRoute
   '/disputes': typeof DisputesRoute
   '/dues': typeof DuesRoute
   '/login': typeof LoginRoute
@@ -138,6 +146,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/approvals': typeof ApprovalsRoute
+  '/committee': typeof CommitteeRoute
   '/disputes': typeof DisputesRoute
   '/dues': typeof DuesRoute
   '/ledger': typeof LedgerRouteWithChildren
@@ -157,6 +166,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/approvals'
+    | '/committee'
     | '/disputes'
     | '/dues'
     | '/ledger'
@@ -174,6 +184,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/approvals'
+    | '/committee'
     | '/disputes'
     | '/dues'
     | '/login'
@@ -190,6 +201,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/approvals'
+    | '/committee'
     | '/disputes'
     | '/dues'
     | '/ledger'
@@ -208,6 +220,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ApprovalsRoute: typeof ApprovalsRoute
+  CommitteeRoute: typeof CommitteeRoute
   DisputesRoute: typeof DisputesRoute
   DuesRoute: typeof DuesRoute
   LedgerRoute: typeof LedgerRouteWithChildren
@@ -233,6 +246,13 @@ declare module '@tanstack/react-router' {
       path: '/approvals'
       fullPath: '/approvals'
       preLoaderRoute: typeof ApprovalsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/committee': {
+      id: '/committee'
+      path: '/committee'
+      fullPath: '/committee'
+      preLoaderRoute: typeof CommitteeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/disputes': {
@@ -349,6 +369,7 @@ const LedgerRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ApprovalsRoute: ApprovalsRoute,
+  CommitteeRoute: CommitteeRoute,
   DisputesRoute: DisputesRoute,
   DuesRoute: DuesRoute,
   LedgerRoute: LedgerRouteWithChildren,

@@ -54,7 +54,29 @@ export function NavBadge({
     <>
       <span
         aria-hidden="true"
-        className="cf-tabular inline-flex items-center justify-center min-w-5 h-5 px-1 rounded-full text-meta leading-none bg-attention text-surface"
+        /*
+         * `bg-error text-on-error` is the EXPORT'S OWN badge pairing,
+         * and it is used here in place of the attention colour this
+         * badge carried before.
+         *
+         * The mechanical token sweep mapped the old `bg-attention` to
+         * `bg-tertiary-fixed`, which in Stitch is a PALE peach
+         * (#ffdcc3). With a near-white label on it that measured
+         * 1.23:1 - a count a resident simply cannot read, on the one
+         * element whose entire job is to be noticed. Stitch's
+         * saturated `tertiary` is no use either: the config leaves it
+         * at #000000.
+         *
+         * `error` is #ba1a1a with a white `on-error`, 6.15:1, and it
+         * is what the export's own sidebar badge uses.
+         *
+         * THIS IS NOT A SEVERITY CLAIM. The badge counts things
+         * waiting - approvals, unanswered questions - and none of them
+         * is an error. The token is named for its place in the palette,
+         * not for a meaning, and the accessible text beside it says
+         * what the number is. Colour never carries the meaning alone.
+         */
+        className="cf-tabular inline-flex items-center justify-center min-w-5 h-5 px-1 rounded-full font-label-code-sm text-label-code-sm leading-none bg-error text-on-error"
       >
         {shown}
       </span>

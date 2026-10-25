@@ -2,12 +2,20 @@
  * Bundle budget gate.
  *
  * The design makes payload a standing budget rather than a later
- * optimization: the target is a mid-range Android on patchy 4G, and the
- * resident read path must stay the lightest thing in the product.
+ * optimization: the target is a mid-range Android on a working 4G
+ * connection, and the resident read path must stay the lightest thing
+ * in the product.
  *
  * This measures gzip size of the built output and fails the build if a
  * ceiling is crossed. Ceilings are set just above the measured baseline,
  * so the first careless import trips them while normal work does not.
+ *
+ * THE CEILINGS ARE NOT DERIVED FROM THE CONNECTION SPEED, so raising the
+ * assumed throughput (1.5 -> 10 Mbps, 2026-10-25) does not raise any of
+ * them. They are set against the MEASURED baseline - react 68.80 under a
+ * 75 ceiling, app 1.68 under 60 - which is what makes this script catch
+ * a careless import on any network. A faster assumed connection changes
+ * what the printed seconds mean; it does not make a regression cheaper.
  *
  * Usage: npm run build && npm run budget
  */
@@ -81,9 +89,8 @@ for (const f of files) {
   if (!f.endsWith('.js') && !f.endsWith('.css')) continue
   const kb = gzipKb(f)
 
-  // Deferred by design: route chunks, the i18n library, the Devanagari
-  // @font-face block. Reported for visibility, never charged to first
-  // paint.
+  // Deferred by design: route chunks and the i18n library. Reported for
+  // visibility, never charged to first paint.
   if (!eager.has(f)) {
     lazy += kb
     continue
@@ -118,16 +125,22 @@ for (const [name, value] of Object.entries(rows)) {
  * chunk hides it from firstPaint without making it cheap.
  */
 console.log(
-  `\n  deferred (routes, i18n, Devanagari): ${lazy.toFixed(2)} KB, not in first paint`,
+  `\n  deferred (routes, i18n): ${lazy.toFixed(2)} KB, not in first paint`,
 )
 
-// 1.5 Mbps is the working assumption for the target connection.
-console.log(
-  `\n  first paint at 1.5 Mbps: ${((firstPaint * 8) / 1500).toFixed(2)} s`,
-)
-console.log(
-  `  repeat visit (vendor cached): ${(((app + css + html) * 8) / 1500).toFixed(2)} s`,
-)
+/*
+ * 10 Mbps is the working assumption for the target connection: a
+ * mid-range Android on 4G that is actually working. It was 1.5 Mbps, a
+ * degraded-connection figure, which made every payload look urgent and
+ * left no way to tell a real regression from the pessimism in the
+ * denominator.
+ *
+ * One number, used twice, because two copies drift.
+ */
+const KBPS = 10000
+const seconds = (kb) => ((kb * 8) / KBPS).toFixed(2)
+console.log(`\n  first paint at ${KBPS / 1000} Mbps: ${seconds(firstPaint)} s`)
+console.log(`  repeat visit (vendor cached): ${seconds(app + css + html)} s`)
 
 if (failures.length > 0) {
   console.error('\nBudget exceeded:')
@@ -137,8 +150,9 @@ if (failures.length > 0) {
     )
   }
   console.error(
-    '\nRaise a ceiling only with a reason. The budget exists because the ' +
-      'target is a mid-range phone on a patchy connection.',
+    '\nRaise a ceiling only with a reason. A ceiling is set just above ' +
+      'the measured baseline, so crossing one means something grew, ' +
+      'whatever the connection is assumed to be.',
   )
   process.exit(1)
 }

@@ -1,7 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { BalanceBand } from '../components/dashboard/BalanceBand'
 import { AttentionBand } from '../components/dashboard/AttentionBand'
-import { FingerprintBand } from '../components/dashboard/FingerprintBand'
 import { PeriodBand } from '../components/dashboard/PeriodBand'
 import { RecentBand } from '../components/dashboard/RecentBand'
 import { useBandStates, type BandName } from '../lib/bands'
@@ -13,16 +12,35 @@ export const Route = createFileRoute('/')({
 })
 
 /**
- * The home dashboard. Five bands, fixed order, nothing collapses.
+ * The home dashboard. Four blocks, fixed order, nothing collapses.
  *
- * The order is the design and is not a layout preference: band
- * positions are identical on every visit, so they are learnable and tap
- * targets never move. Band 2 reserves its slot even when empty, and
- * band 3 never disappears because its absence would read as a pass.
+ * It was five bands of identical weight - same padding, same heading
+ * size, same two hairlines each - which put ten rules down a phone at
+ * even spacing and gave the eye nowhere to land. Restructured
+ * 2026-10-25 so the hierarchy answers the question a resident actually
+ * arrives with:
  *
- * THE BANDS FETCH INDEPENDENTLY. The dashboard is not held on the
- * fingerprint fetch, which is cross-origin and the slowest thing on the
- * screen. Each band owns its own failed state and its own retry, and a
+ *   1. The balance, WITH the published-record check attached to it
+ *      under one hairline. One subject: a number, and the evidence for
+ *      trusting it. This is the only block with the `primary` tone.
+ *   2. What needs the viewer - the only block allowed to raise its
+ *      voice, and it already owns the warning colour.
+ *   3. This month.
+ *   4. Recent entries.
+ *
+ * The order is the design and is not a layout preference: positions are
+ * identical on every visit, so they are learnable and tap targets never
+ * move. Block 2 reserves its slot even when empty, and the record check
+ * never disappears because its absence would read as a pass.
+ *
+ * THE BANDS STILL FETCH INDEPENDENTLY, and merging two of them into
+ * one block did NOT merge their states: 'fingerprint' remains its own
+ * BandName with its own failed flag and its own retry, handed to the
+ * balance block under anchor-prefixed props. The dashboard is not held
+ * on the fingerprint fetch, which is cross-origin and the slowest thing
+ * on the screen, and a balance that loaded renders whatever the anchor
+ * did. Guarded by balanceProvenance.test.tsx, because the merge from
+ * five bands to four passed 479 existing tests without one noticing. Each band owns its own failed state and its own retry, and a
  * failed band renders a retry rather than an empty slot — in this
  * design an empty slot carries meaning, so a silent failure would say
  * something untrue (see BandFallback).
@@ -101,14 +119,25 @@ function Home() {
 
   return (
     <>
+      {/*
+       * The balance and its provenance are ONE block, and the two
+       * still fetch and fail independently - 'fingerprint' remains its
+       * own BandName with its own failed state and its own retry,
+       * passed in under anchor-prefixed props. Merging the two states
+       * into one would make a reachable balance depend on a reachable
+       * anchor, which is exactly the coupling the band design exists
+       * to avoid.
+       */}
       <BalanceBand
         balance={balance}
         asOf={data?.asOf ?? ''}
         entryCount={data?.entryCount ?? 0}
+        anchor={devAnchor()}
+        anchorFailed={absent || band.failed('fingerprint')}
+        onAnchorRetry={() => band.retry('fingerprint')}
         {...props('balance')}
       />
       <AttentionBand items={data?.attention ?? []} {...props('attention')} />
-      <FingerprintBand status={devAnchor()} {...props('fingerprint')} />
       <PeriodBand period={period} {...props('period')} />
       <RecentBand entries={recent} {...props('recent')} />
     </>

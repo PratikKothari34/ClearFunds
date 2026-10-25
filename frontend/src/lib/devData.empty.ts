@@ -14,15 +14,20 @@
 
 import type {
   AdjustingEntry,
+  AllocationRemainder,
   AnchorStatus,
+  ApprovalPolicy,
   AuditYear,
+  CommitteeSeat,
   DashboardData,
   DuesRow,
   Entry,
   FlagLogItem,
+  MatrixRow,
   PendingApproval,
   ReportSummary,
   SignoffPeriod,
+  StructuringGroup,
 } from './types'
 
 /*
@@ -53,3 +58,19 @@ export const SAMPLE_ADJUSTING: readonly AdjustingEntry[] | null = null
 export const SAMPLE_ANCHOR: AnchorStatus = { state: 'unreachable' }
 
 export const SAMPLE_DASHBOARD: DashboardData | null = null
+
+/*
+ * The governance fixtures, absent.
+ *
+ * `SAMPLE_POLICY` is null rather than a zero-seat committee for the
+ * same reason the dashboard is: every field of `ApprovalPolicy` is a
+ * statement about the society's rule, and a committee of 0 seats
+ * needing 0 approvals is not "unknown", it is a claim that nothing
+ * needs approving. The roster and the matrix follow the list
+ * convention - null, never [].
+ */
+export const SAMPLE_COMMITTEE: readonly CommitteeSeat[] | null = null
+export const SAMPLE_POLICY: ApprovalPolicy | null = null
+export const SAMPLE_STRUCTURING: readonly StructuringGroup[] | null = null
+export const SAMPLE_MATRIX: readonly MatrixRow[] | null = null
+export const SAMPLE_ALLOCATION: AllocationRemainder | null = null

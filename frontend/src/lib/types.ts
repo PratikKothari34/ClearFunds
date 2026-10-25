@@ -328,6 +328,7 @@ export type InternalPath = Exclude<FileRouteTypes['to'], `${string}$${string}`>
 export const INTERNAL_PATHS: readonly InternalPath[] = [
   '/',
   '/approvals',
+  '/committee',
   '/disputes',
   '/dues',
   '/login',
@@ -375,4 +376,109 @@ export interface DashboardData {
    */
   readonly attention: readonly AttentionItem[]
   readonly recent: readonly Entry[]
+}
+
+/**
+ * One seat on the managing committee.
+ *
+ * SEATS, NOT USERS. The statutory body is a fixed number of elected
+ * seats (bye-law 113 puts it at 11-13 for this market), and the
+ * approval denominator M is the seat count — not the count of people
+ * who happen to be able to sign today. A vacant or restricted seat
+ * therefore still occupies the roster and still counts toward M.
+ *
+ * That distinction is the whole reason this type exists. If M were
+ * derived from active signers, a committee could resign its way to a
+ * lower threshold: seven resignations from thirteen would take
+ * `ceil(2M/3)` from 9 to 4, and the remaining four could then clear
+ * anything. The denominator is locked to the statutory seat count, and
+ * `status` records why a seat cannot sign rather than removing it.
+ */
+export type SeatStatus =
+  /** Holds a key and may sign. */
+  | 'active'
+  /** Elected, but barred from signing pending ratification at the AGM. */
+  | 'restricted'
+  /** No sitting member. Still counts toward M. */
+  | 'vacant'
+
+export interface CommitteeSeat {
+  /** Position on the statutory register, 1-based. */
+  readonly seat: number
+  /** Absent on a vacant seat. A handle on resident-visible payloads. */
+  readonly holderHandle?: string
+  /** 'Treasurer', 'Secretary', 'President', or absent for a plain member. */
+  readonly office?: string
+  readonly status: SeatStatus
+  /**
+   * Why this seat cannot sign. Present only when `status` is not
+   * 'active' — stated rather than left blank, because an unexplained
+   * gap in a roster reads as a loading failure.
+   */
+  readonly restrictionReason?: string
+}
+
+/**
+ * The approval rule in force, as the chain recorded it.
+ *
+ * Every field is snapshotted, never read from live config. The limit
+ * and the seat count that applied WHEN an entry was raised are what
+ * that entry's approvals are checkable against; reading today's values
+ * would let a committee lower the limit afterwards and retroactively
+ * legitimise an approval already given.
+ */
+export interface ApprovalPolicy {
+  /** Statutory seats. The denominator M. */
+  readonly seats: number
+  /** `ceil(2 * seats / 3)`, server-computed and snapshotted. */
+  readonly quorumRequired: number
+  /** At or below this, treasurer AND secretary. Above it, N-of-M. */
+  readonly limit: Money
+}
+
+/**
+ * A flat's position on the maintenance register.
+ *
+ * `outstanding` is server-computed like every other figure here. The
+ * frontend never subtracts `paid` from `billed`: a flat showing a
+ * wrong arrears figure is told to pay money it does not owe, or not
+ * chased for money it does.
+ */
+export interface MatrixRow {
+  readonly flat: string
+  /** 'owner' or 'tenant'. Shown because liability differs. */
+  readonly tenancy: 'owner' | 'tenant'
+  readonly billed: Money
+  readonly paid: Money
+  readonly outstanding: Money
+  /**
+   * Days past due, server-computed. Absent when nothing is overdue —
+   * absent rather than 0, so "not overdue" and "overdue by zero days"
+   * cannot be confused.
+   */
+  readonly overdueDays?: number
+}
+
+/**
+ * How an indivisible remainder was shared out.
+ *
+ * THE ROUNDING POLICY, MADE VISIBLE. A charge split across flats
+ * rarely divides evenly: 1000 paise across 3 flats leaves 1 paise. The
+ * server assigns each leftover minor unit to the flat with the lowest
+ * cumulative share so far, so the advantage rotates and no flat is
+ * systematically favoured.
+ *
+ * It is disclosed rather than hidden because a resident who adds up
+ * the per-flat figures and gets a different total from the society's
+ * is looking at an apparent discrepancy of exactly the kind this
+ * product exists to explain.
+ */
+export interface AllocationRemainder {
+  /** What was divided. */
+  readonly total: Money
+  readonly flatCount: number
+  /** Minor units that did not divide evenly. */
+  readonly remainderMinor: number
+  /** Flats that took one extra minor unit this time. */
+  readonly carriedBy: readonly string[]
 }

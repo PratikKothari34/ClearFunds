@@ -33,7 +33,7 @@ export function Fingerprint({
 }) {
   return (
     <div className="max-w-[68ch]">
-      <p className="m-0 text-meta text-ink-quiet">
+      <p className="m-0 font-label-code-sm text-label-code-sm text-on-surface-variant">
         Short reference for entry{' '}
         <span className="cf-tabular">#{sequence}</span>
       </p>
@@ -52,20 +52,20 @@ export function Fingerprint({
        * CSS gaps and a clean copy path, which is a change to make
        * deliberately rather than to imply in a comment.
        */}
-      <p className="mt-(--cf-s1) mb-0 font-mono tracking-[0.12em] break-all select-all">
+      <p className="mt-space-sm mb-0 font-label-code-md tracking-[0.12em] break-all select-all">
         {value}
       </p>
 
-      <p className="mt-(--cf-s2) mb-0 text-meta text-ink-quiet">
+      <p className="mt-space-md mb-0 font-label-code-sm text-label-code-sm text-on-surface-variant">
         This short reference is for reading and comparing by eye. The full
         reference is on every printed and exported report.{' '}
         <Link
           to="/verify"
-          className="text-anchor underline decoration-1 underline-offset-2"
+          className="text-on-primary-fixed-variant underline decoration-1 underline-offset-2"
         >
           Check this record against the published copy
         </Link>
-        .
+        {'.'}
       </p>
     </div>
   )

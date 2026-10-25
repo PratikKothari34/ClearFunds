@@ -45,15 +45,20 @@
 import * as source from './devData.source'
 import type {
   AdjustingEntry,
+  AllocationRemainder,
   AnchorStatus,
+  ApprovalPolicy,
   AuditYear,
+  CommitteeSeat,
   DashboardData,
   DuesRow,
   Entry,
   FlagLogItem,
+  MatrixRow,
   PendingApproval,
   ReportSummary,
   SignoffPeriod,
+  StructuringGroup,
 } from './types'
 
 /*
@@ -127,3 +132,37 @@ export const devAnchor = (): AnchorStatus => source.SAMPLE_ANCHOR
  */
 export const devDashboard = (): DashboardData | null =>
   source.SAMPLE_DASHBOARD
+
+/**
+ * The committee roster and the rule it answers to.
+ *
+ * Both null in production. The roster must never degrade to `[]`: an
+ * empty committee rendered against a real threshold would say the
+ * society has no one able to approve anything, which is a governance
+ * emergency the product would be inventing.
+ */
+export const devCommittee = (): readonly CommitteeSeat[] | null =>
+  source.SAMPLE_COMMITTEE
+export const devPolicy = (): ApprovalPolicy | null => source.SAMPLE_POLICY
+
+/**
+ * Below-limit payments to one payee that together cross the limit.
+ *
+ * `null` and `[]` are genuinely different here and both are routine:
+ * `[]` means the window was examined and nothing crossed, which is the
+ * normal month and worth saying. `null` means it was not examined.
+ */
+export const devStructuring = (): readonly StructuringGroup[] | null =>
+  source.SAMPLE_STRUCTURING
+
+export const devMatrix = (): readonly MatrixRow[] | null => source.SAMPLE_MATRIX
+
+/**
+ * How an indivisible remainder was shared out.
+ *
+ * Null when unknown. A remainder of zero is a different statement -
+ * "it divided evenly" - and `AllocationNote` renders nothing for it,
+ * so the two cases stay distinct without a second flag.
+ */
+export const devAllocation = (): AllocationRemainder | null =>
+  source.SAMPLE_ALLOCATION

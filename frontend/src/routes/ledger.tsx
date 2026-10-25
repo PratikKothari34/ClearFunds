@@ -15,7 +15,7 @@ export const Route = createFileRoute('/ledger')({
 function LedgerLayout() {
   return (
     <>
-      <h2 className="font-serif text-head font-normal pt-(--cf-s4) mb-(--cf-s2)">
+      <h2 className="font-headline-md font-headline-md text-headline-md font-normal pt-space-xl mb-space-md">
         History
       </h2>
 
@@ -25,13 +25,13 @@ function LedgerLayout() {
        * promises a tab widget's keyboard model (arrow keys, one stop in
        * the tab order) that links do not implement.
        */}
-      <nav aria-label="Filter history" className="flex gap-(--cf-s2) border-b border-rule">
+      <nav aria-label="Filter history" className="flex gap-space-md border-b border-outline-variant">
         {LEDGER_TABS.map((tab) => (
           <Link
             key={tab.to}
             to={tab.to}
             activeOptions={{ exact: true }}
-            className="min-h-11 inline-flex items-center px-(--cf-s1) -mb-px border-b-2 border-transparent text-ink-quiet aria-[current=page]:border-anchor aria-[current=page]:text-ink aria-[current=page]:font-medium"
+            className="min-h-11 inline-flex items-center px-space-sm -mb-px border-b-2 border-transparent text-on-surface-variant aria-[current=page]:border-primary-container aria-[current=page]:text-on-surface aria-[current=page]:font-medium"
           >
             {tab.label}
           </Link>

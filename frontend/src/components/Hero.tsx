@@ -39,10 +39,46 @@ import {
  * The dashboard is NOT held on the fingerprint fetch. The hero ends
  * when the shell and the ledger head are ready; the fingerprint band
  * carries its own pending state. Blocking the whole app on a
- * cross-origin request is the wrong trade on patchy 4G.
+ * cross-origin request is the wrong trade on 4G.
  *
- * Wordmark only, zero images: the brand mark is on the login screen at
- * 240px. An image here competes with the font payload on first load.
+ * THE MARK IS HERE, AT 120px, AND IT IS THE SMALL SOURCE.
+ *
+ * This said "wordmark only, zero images" on the argument that an image
+ * competes with the font payload on first load. That argument was
+ * about the 240px mark the login screen uses. At 120px the file is
+ * ~10 KB, and for every resident who reached this screen by signing
+ * in it is already in the browser cache, because `/login` fetched the
+ * same two sources moments earlier. The cost is a cache hit or 10 KB.
+ *
+ * `srcSet` deliberately does NOT offer the 240px file. A device with
+ * DPR 2 would take it and double the weight for a mark rendered at
+ * 120 CSS pixels, on the one screen where weight is paid before
+ * anything is readable. Slight softness on a retina phone is the
+ * better side of that trade; on the login screen, where the mark is
+ * the subject rather than a waiting cue, 240px is still offered.
+ *
+ * CENTRED, AND THE BIND STILL RUNS. The mark is the thing to look at
+ * while waiting, so it sits in the middle of the screen with the
+ * wordmark and status under it. But the bound edge and the stroke
+ * along it stay, because they are what the screens behind this one
+ * are built from, and because the stroke is the only honest statement
+ * of progress on the screen. A centred logo over a spinner is the
+ * arrangement every loading screen defaults to; the bind is what
+ * makes this one the product's own.
+ *
+ * The box is RESERVED with explicit width and height, so the wordmark
+ * and status line do not jump when the image lands. A layout shift on
+ * the first paint is exactly the kind of jitter this screen's 400 ms
+ * floor exists to prevent.
+ *
+ * The mark is `aria-hidden`. The wordmark immediately below it is the
+ * accessible name, and the whole screen is one `role="status"` region
+ * — alt text here would have a screen reader announce "ClearFunds"
+ * twice before the status it actually came for.
+ *
+ * The wordmark is set in the sans, like every other heading in the
+ * product. It was Source Serif 4, which on a cream ground is the most
+ * recognisable signature of a generated page.
  *
  * Under prefers-reduced-motion there is no stroke at all — a static
  * wordmark and a text status line, which carries the same information.
@@ -73,60 +109,86 @@ export function Hero({
 
   return (
     <div
-      className="min-h-dvh flex flex-col items-center justify-center gap-(--cf-s3) px-(--cf-s3) bg-surface"
+      className="min-h-dvh flex flex-col justify-center gap-space-lg bg-surface"
       // The whole screen is one status region: a screen reader
       // announces the state change without the user hunting for it.
       role="status"
       aria-live="polite"
     >
-      <p className="m-0 font-serif text-figure font-normal text-ink">
-        ClearFunds
-      </p>
-
       {/*
-       * One hairline, matching the ledger's rules, so the first screen
-       * looks like the product it opens. No stroke at all under
-       * reduced motion — the status line below carries the same fact.
+       * The bind runs the full height of the screen, as it does on
+       * every screen behind this one. `cf-field` on the inner column
+       * makes the wait happen ON the reading surface rather than on the
+       * page ground, so the first paint already shows the product's
+       * two surfaces.
        */}
-      {!prefersReduced && (
-        <div
-          className="w-full max-w-[20rem] h-px bg-rule overflow-hidden"
-          aria-hidden="true"
-        >
-          <div
-            className={`h-px ${failed ? 'bg-debit' : 'bg-anchor'}`}
-            style={{
-              // The stroke STOPS where it was when the fetch failed; it
-              // does not retreat and does not continue. Its colour is
-              // what changes.
-              width: `${percent}%`,
-              // Width is driven by elapsed time, and the transition
-              // only smooths between frames. It is not the animation:
-              // a CSS animation would run on its own and could finish
-              // while a fetch is pending.
-              transition: 'width 200ms linear',
-            }}
-          />
-        </div>
-      )}
-
-      <p className="m-0 text-meta text-ink-quiet text-center max-w-[40ch]">
+      <div className="cf-bind cf-field py-space-xl px-gutter flex flex-col items-center gap-space-lg">
         {/*
-         * The boot failure is checked FIRST and says what is true: the
-         * ledger is not there. It must never contain the word "loaded"
-         * and must never blame the published record, which on this path
-         * was not fetched at all. The resident is on a screen with no
-         * balance and no history, so the line has to tell them that and
-         * give them something to do.
+         * `fetchPriority="high"` and no lazy attribute: this is the
+         * only thing on the screen, so deferring it defeats the point
+         * of putting it here. Not `decoding="async"` either — there is
+         * nothing behind it whose paint we would be unblocking.
          */}
-        {bootFailed
-          ? 'The ledger could not be loaded. Check your connection and try again.'
-          : anchorUnreachable
-            ? 'Loaded, but the published record could not be reached. The history is shown with that check pending.'
-            : slow
-              ? 'Still loading. The connection looks slow.'
-              : 'Loading the society ledger'}
-      </p>
+        <img
+          src="/brand/mark-120.webp"
+          width={120}
+          height={120}
+          alt=""
+          aria-hidden="true"
+          className="block"
+          fetchPriority="high"
+        />
+
+        <p className="m-0 font-tabular-currency-lg text-tabular-currency-lg font-medium text-on-surface leading-none">
+          ClearFunds
+        </p>
+
+        {/*
+         * The stroke runs along the bind's own line, left-aligned and
+         * full width rather than a centred 20rem bar, so it reads as the
+         * register's rule being drawn. No stroke at all under reduced
+         * motion — the status line below carries the same fact.
+         */}
+        {!prefersReduced && (
+          <div
+            className="w-full h-px bg-outline overflow-hidden"
+            aria-hidden="true"
+          >
+            <div
+              className={`h-px ${failed ? 'bg-error' : 'bg-primary-container'}`}
+              style={{
+                // The stroke STOPS where it was when the fetch failed; it
+                // does not retreat and does not continue. Its colour is
+                // what changes.
+                width: `${percent}%`,
+                // Width is driven by elapsed time, and the transition
+                // only smooths between frames. It is not the animation:
+                // a CSS animation would run on its own and could finish
+                // while a fetch is pending.
+                transition: 'width 200ms linear',
+              }}
+            />
+          </div>
+        )}
+
+        <p className="m-0 font-label-code-sm text-label-code-sm text-on-surface-variant max-w-[40ch] text-center">
+          {/*
+           * The boot failure is checked FIRST and says what is true: the
+           * ledger is not there. It must never contain the word "loaded"
+           * and must never blame the published record, which on this path
+           * was not fetched at all. The resident is on a screen with no
+           * balance and no history, so the line has to tell them that and
+           * give them something to do.
+           */}
+          {bootFailed
+            ? 'The ledger could not be loaded. Check your connection and try again.'
+            : anchorUnreachable
+              ? 'Loaded, but the published record could not be reached. The history is shown with that check pending.'
+              : slow
+                ? 'Still loading. The connection looks slow.'
+                : 'Loading the society ledger'}
+        </p>
+      </div>
     </div>
   )
 }

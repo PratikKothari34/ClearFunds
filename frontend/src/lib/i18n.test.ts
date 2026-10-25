@@ -1,12 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import {
-  SUPPORTED_LOCALES,
-  isDevanagari,
-  isSupported,
-  normalizeLocale,
-} from './i18n'
+import { SUPPORTED_LOCALES, isSupported, normalizeLocale } from './i18n'
 
 /*
  * Two different failures are guarded here.
@@ -14,12 +9,16 @@ import {
  * The first is a locale that is not a catalogue key reaching i18next:
  * every string then renders through the fallback while the page claims
  * to be in another language, which is worse than being honestly in
- * English.
+ * English. THIS IS NOT DEAD NOW THAT ONLY `en` SHIPS - it is live for
+ * the opposite reason. Residents' browsers still hold `cf-locale` set
+ * to `mr` or `hi` from the versions that supported them, and
+ * navigator.language still reports whatever the device is set to, so
+ * the narrowing path takes real non-`en` input every day.
  *
- * The second is the 104 KB Devanagari font becoming unconditional. The
- * CSS side of that is covered in styles/fonts.test.ts; what is checked
- * here is the TypeScript side, where the regression is a one-word edit
- * turning the dynamic import static.
+ * The second is the translation library becoming unconditional. The
+ * regression is a one-word edit turning the dynamic import static,
+ * which puts the whole chunk in the entry and charges the resident read
+ * path for a locale the product does not ship.
  */
 
 const SOURCE = readFileSync(resolve('src/lib/i18n.ts'), 'utf8')
@@ -32,19 +31,27 @@ describe('normalizeLocale', () => {
   })
 
   it('reduces a regional tag to its base language', () => {
-    // What a real device actually reports. Without this, a Marathi
-    // phone gets English.
-    expect(normalizeLocale('mr-IN')).toBe('mr')
-    expect(normalizeLocale('hi-IN')).toBe('hi')
+    // What a real device actually reports.
     expect(normalizeLocale('en-GB')).toBe('en')
     expect(normalizeLocale('EN-US')).toBe('en')
+    expect(normalizeLocale('en-IN')).toBe('en')
   })
 
   it('falls back to English for a language with no catalogue', () => {
-    // Not an error: a Tamil-speaking society is served English until
-    // someone supplies a Tamil catalogue. Claiming `ta` would render
-    // English under a Tamil lang attribute, which misdirects a screen
-    // reader's voice.
+    /*
+     * Not an error: a society is served English until someone supplies
+     * a catalogue. Claiming the locale would render English under
+     * another lang attribute, which misdirects a screen reader's voice.
+     *
+     * `mr` and `hi` ARE THE IMPORTANT CASES, not historical ones. The
+     * app shipped with both, so residents' browsers hold them under
+     * `cf-locale` right now; this is the assertion that those stored
+     * values resolve to honest English instead of a language with no
+     * resources.
+     */
+    for (const gone of ['mr', 'hi', 'mr-IN', 'hi-IN']) {
+      expect(normalizeLocale(gone), gone).toBe('en')
+    }
     expect(normalizeLocale('ta')).toBe('en')
     expect(normalizeLocale('ta-IN')).toBe('en')
     expect(normalizeLocale('zz')).toBe('en')
@@ -64,69 +71,52 @@ describe('isSupported', () => {
     for (const locale of SUPPORTED_LOCALES) expect(isSupported(locale)).toBe(true)
     // A regional tag is deliberately NOT supported: it is normalized
     // first. Accepting it here would set a language with no resources.
-    for (const value of ['mr-IN', 'en-GB', 'ta', '', null, undefined]) {
+    // `mr` and `hi` are listed because they used to pass.
+    for (const value of ['mr', 'hi', 'en-GB', 'ta', '', null, undefined]) {
       expect(isSupported(value), String(value)).toBe(false)
     }
   })
 })
 
-describe('isDevanagari', () => {
-  it('names the scripts, not the countries', () => {
-    expect(isDevanagari('mr')).toBe(true)
-    expect(isDevanagari('hi')).toBe(true)
-    // English is the default and must never pull the extra font.
-    expect(isDevanagari('en')).toBe(false)
+describe('no second script family is reachable from here', () => {
+  it('imports no font stylesheet at all, statically or dynamically', () => {
+    /*
+     * This module used to import `fonts.devanagari.css` inside a locale
+     * branch. Both the file and the locales are gone, so the assertion
+     * inverts: the i18n layer must not pull ANY font CSS. A static
+     * import would put a face in the entry chunk and nothing else in
+     * the project would fail; a dynamic one would reintroduce a
+     * stylesheet that no longer exists.
+     */
+    expect(SOURCE).not.toMatch(/import\s*\(?\s*['"][^'"]*fonts\./)
+    /*
+     * THE IMPORT, NOT THE WORD - the same correction fonts.test.ts
+     * already carries twice. The header comment in i18n.ts explains at
+     * length that Devanagari and its locales were removed and must not
+     * return, so a test forbidding the string went red on the very
+     * explanation that makes the rule findable. Punishing the comment
+     * teaches the next person to delete the comment.
+     */
+    expect(SOURCE).not.toMatch(/import\s*\(?\s*['"][^'"]*devanagari/i)
   })
 
-  it('does not claim Devanagari for an unknown locale', () => {
-    // Guessing here would download 104 KB for a locale that cannot
-    // render anyway.
-    for (const value of ['ta', 'en-IN', '', 'devanagari']) {
-      expect(isDevanagari(value), value).toBe(false)
-    }
-  })
-})
-
-describe('the Devanagari font stays out of the default payload', () => {
-  it('is reached only through a dynamic import', () => {
-    // A static `import '../styles/fonts.devanagari.css'` puts the whole
-    // face in the entry chunk, and nothing else in the project would
-    // fail. This is the assertion that notices.
-    expect(SOURCE).not.toMatch(/^\s*import\s+['"].*fonts\.devanagari/m)
-    expect(SOURCE).toMatch(/await import\(\s*['"]\.\.\/styles\/fonts\.devanagari\.css['"]\s*\)/)
-  })
-
-  it('is guarded by a locale check at every call site', () => {
-    // Every call to the loader must sit behind isDevanagari. A bare
-    // call added "to keep the switch instant" would defeat the gate.
-    const calls = [...SOURCE.matchAll(/loadDevanagariFont\(/g)]
-    // One definition, plus the guarded calls.
-    expect(calls.length).toBeGreaterThanOrEqual(2)
-    for (const match of SOURCE.matchAll(
-      /([^\n]*\n[^\n]*)loadDevanagariFont\(\)/g,
-    )) {
-      const context = match[1] ?? ''
-      // Skip the declaration itself.
-      if (context.includes('export async function')) continue
-      expect(context, 'unguarded loadDevanagariFont call').toMatch(
-        /isDevanagari/,
-      )
-    }
-  })
-
-  it('loads the face at most once', () => {
-    // Switching back and forth must not re-request it. The flag is set
-    // before the await on purpose, so two near-simultaneous switches
-    // cannot both get past it.
-    expect(SOURCE).toMatch(/devanagariLoaded\s*=\s*true[\s\S]{0,80}await import/)
+  it('declares exactly the locales the product ships', () => {
+    /*
+     * Pinned to ENGLISH-ONLY by count and by content. Adding a locale
+     * is a product decision with a font, a catalogue and a control
+     * behind it, so it must not happen as a one-word edit here - and
+     * re-adding `mr` or `hi` without their font is the specific
+     * regression this catches.
+     */
+    expect([...SUPPORTED_LOCALES]).toEqual(['en'])
   })
 })
 
 describe('document language', () => {
   it('is written on both the boot path and the switch', () => {
     // `lang` picks hyphenation and line-breaking and tells a screen
-    // reader which voice to use. A Marathi page announced in an English
-    // voice is unintelligible, so neither path may skip it.
+    // reader which voice to use. A page announced in the wrong language
+    // is read with the wrong phonemes, so neither path may skip it.
     expect(SOURCE).toMatch(/documentElement\.lang\s*=/)
     const calls = [...SOURCE.matchAll(/applyLang\(/g)]
     // The definition, plus a call from initI18n and one from setLocale.

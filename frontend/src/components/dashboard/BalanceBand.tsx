@@ -1,7 +1,8 @@
 import { Band } from '../Band'
 import { Amount } from '../Amount'
 import { BandFallback } from '../BandFallback'
-import type { Money } from '../../lib/types'
+import { AnchorBody, resolveShown } from './FingerprintBand'
+import type { AnchorStatus, Money } from '../../lib/types'
 import { formatDate } from '../../lib/dates'
 import { isShowableCount } from '../../lib/countable'
 
@@ -15,12 +16,39 @@ import { isShowableCount } from '../../lib/countable'
  * The meta line carries the entry count beside the date, because a
  * balance with no indication of how much history produced it is a
  * number a resident has no way to situate.
+ *
+ * THE TWO FACTS ARE SEPARATED BY A RULE, NOT A MIDDLE DOT. `A - B - C`
+ * joined with middle dots is the meta line every generated page builds,
+ * and it reads as one run-on string rather than as two separate facts.
+ * A vertical rule between them is the register's own device and says
+ * the same thing with less noise.
+ *
+ * THE PROVENANCE IS PART OF THIS BLOCK (2026-10-25), not a band three
+ * scrolls down. A resident opens this app with one question - how much
+ * money is there, and can I trust the number - and the design used to
+ * answer it in two separate sections of equal weight, so the trust
+ * half was something you could scroll past without noticing. The
+ * figure and the record it was checked against are now one subject
+ * with one hairline between them, and that hairline is the only rule
+ * in the block: it divides the number from its evidence, which is a
+ * real boundary rather than texture.
+ *
+ * A MISMATCH IS HOISTED ABOVE THE FIGURE. Its copy ends "do not rely
+ * on the figures above", which is only true if the warning is read
+ * first. Under the number it would be read second, or not at all, so
+ * in this block the warning comes first and `AnchorBody` is told not
+ * to repeat it. This is the one hazard the merge introduces and it is
+ * handled here rather than left to the reader's scroll position.
  */
 
 export function BalanceBand({
   balance,
   asOf,
   entryCount,
+  anchor,
+  anchorPending = false,
+  anchorFailed = false,
+  onAnchorRetry,
   failed = false,
   onRetry,
 }: {
@@ -33,6 +61,23 @@ export function BalanceBand({
    */
   readonly asOf: string
   readonly entryCount: number
+  /**
+   * The published-record check, hosted in this block. Optional and
+   * independently fetched: the anchor comes from outside the
+   * committee's control and routinely resolves later than the balance,
+   * or not at all.
+   *
+   * EACH HALF MUST FAIL ALONE. A balance that loaded renders even when
+   * the anchor is still pending or unreachable, and the provenance
+   * renders even on a failure (as `unreachable`, which is a real state
+   * rather than a blank). Nothing here may make one fetch's outcome
+   * depend on the other's - that would turn two honest partial answers
+   * into one missing section.
+   */
+  readonly anchor?: AnchorStatus
+  readonly anchorPending?: boolean
+  readonly anchorFailed?: boolean
+  readonly onAnchorRetry?: () => void
   /**
    * The band this one most needs a failure state. A missing balance
    * rendered as an empty slot reads as a society with no money, which
@@ -54,8 +99,26 @@ export function BalanceBand({
     )
   }
 
+  // Resolved with the SAME function the standalone band uses, so a
+  // failed anchor fetch cannot read as a pass in one place and not the
+  // other.
+  const shownAnchor = resolveShown(anchor, anchorFailed)
+  const mismatched = shownAnchor?.state === 'mismatch'
+
   return (
-    <Band>
+    <Band tone="primary">
+      {/*
+       * The mismatch warning, BEFORE the figure. See the docblock: its
+       * own copy says not to rely on the figures above, so it has to
+       * be the first thing read, and `AnchorBody` below is told not to
+       * print it twice.
+       */}
+      {mismatched && (
+        <p className="text-on-error-container max-w-[68ch] mb-space-lg">
+          <span aria-hidden="true">⚠ </span>
+          What this app is showing does not match the published record.
+        </p>
+      )}
       {/*
        * The figure is a heading, so it is the first thing in the rotor
        * after the society name. Styled by the band rather than by h2's
@@ -70,11 +133,11 @@ export function BalanceBand({
        * above the figure, which is why the label is visually hidden
        * rather than dropped.
        */}
-      <h2 className="font-sans text-figure font-medium leading-none m-0">
+      <h2 className="font-tabular-currency-lg text-tabular-currency-lg font-medium leading-none m-0">
         <span className="cf-sr-only">Money the society holds: </span>
         <Amount value={balance} />
       </h2>
-      <p className="text-meta text-ink-quiet mt-(--cf-s2)">
+      <p className="font-label-code-sm text-label-code-sm text-on-surface-variant mt-space-md">
         as of {formatDate(asOf)}
         {/*
          * THE COUNT IS DROPPED WHEN IT IS NOT A COUNT, rather than
@@ -95,7 +158,20 @@ export function BalanceBand({
          */}
         {isShowableCount(entryCount) && (
           <>
-            {' · '}
+            {/*
+             * The rule is decoration, so it is aria-hidden - which
+             * means it carries NO WORD BOUNDARY. Without the comma
+             * beside it the band read "as of 25 Oct 202642 entries",
+             * running the year into the count: a garbled number under
+             * the one figure this product exists to show. The comma is
+             * visually hidden so the rule remains the only separator
+             * anyone sees.
+             */}
+            <span className="cf-sr-only">, </span>
+            <span
+              aria-hidden="true"
+              className="inline-block mx-space-md border-l border-outline-variant h-[1em] align-[-0.15em]"
+            />
             <span className="cf-tabular">
               {entryCount.toLocaleString('en-IN')}
             </span>{' '}
@@ -103,6 +179,44 @@ export function BalanceBand({
           </>
         )}
       </p>
+      {/*
+       * The one rule inside the block, and it is doing real work:
+       * everything above is the figure, everything below is the
+       * evidence for it. `aria-live` because the anchor resolves after
+       * the balance, so this region changes under a reader who is
+       * already here.
+       */}
+      <div
+        aria-live="polite"
+        className="mt-space-lg pt-space-lg border-t border-outline-variant"
+      >
+        {/*
+         * Pending is the honest state while the fetch is open. It is
+         * NOT rendered as a pass, and the figure above is already
+         * readable - which is the point of the two halves failing
+         * independently.
+         */}
+        {!anchorFailed && (anchorPending || !anchor) ? (
+          <p className="font-label-code-sm text-label-code-sm text-on-surface-variant max-w-[68ch]">
+            Checking against the published record…
+          </p>
+        ) : shownAnchor ? (
+          <>
+            <AnchorBody status={shownAnchor} hideMismatch />
+            {anchorFailed && onAnchorRetry && (
+              <p className="mt-space-md">
+                <button
+                  type="button"
+                  onClick={onAnchorRetry}
+                  className="min-h-11 px-space-md border border-outline-variant rounded-sm text-on-surface"
+                >
+                  Check again
+                </button>
+              </p>
+            )}
+          </>
+        ) : null}
+      </div>
     </Band>
   )
 }

@@ -85,21 +85,21 @@ function YearEnd() {
   return (
     <>
       <Band>
-        <h2 className="font-serif text-head font-normal mt-0 mb-(--cf-s1)">
+        <h2 className="font-headline-md font-headline-md text-headline-md font-normal mt-0 mb-space-sm">
           Financial years
         </h2>
-        <p className="m-0 text-ink-quiet max-w-[68ch]">
+        <p className="m-0 text-on-surface-variant max-w-[68ch]">
           A year counts as closed once the society&rsquo;s auditor has signed
           off on it. The committee cannot close a year itself.
         </p>
         {worst && (
-          <p className="mt-(--cf-s2) mb-0 max-w-[68ch]">
+          <p className="mt-space-md mb-0 max-w-[68ch]">
             The most serious opinion the society has received is{' '}
             <span className="font-medium">{opinionWords(worst)}</span>.
           </p>
         )}
         {unreadable.length > 0 && (
-          <p className="mt-(--cf-s2) mb-0 pl-(--cf-s2) border-l-2 border-attention max-w-[68ch]">
+          <p className="mt-space-md mb-0 pl-space-md border-l-2 border-tertiary-fixed max-w-[68ch]">
             {unreadable.length === 1
               ? `The opinion recorded for ${unreadable[0]} is not one this page can read, so it is not counted above.`
               : `The opinions recorded for ${unreadable.join(', ')} are not ones this page can read, so they are not counted above.`}{' '}
@@ -118,29 +118,29 @@ function YearEnd() {
         headingId="cf-yearend-adjusting"
       >
         {adjusting.length === 0 ? (
-          <p className="m-0 text-ink-quiet max-w-[68ch]">
+          <p className="m-0 text-on-surface-variant max-w-[68ch]">
             No closed year has needed a correction.
           </p>
         ) : (
           <>
-            <p className="m-0 mb-(--cf-s2) text-ink-quiet max-w-[68ch]">
+            <p className="m-0 mb-space-md text-on-surface-variant max-w-[68ch]">
               A closed year cannot be changed. A correction is recorded in the
               current year instead, and each one is read out at the annual
               general meeting.
             </p>
-            <ul className="list-none m-0 p-0 flex flex-col gap-(--cf-s2)">
+            <ul className="list-none m-0 p-0 flex flex-col gap-space-md">
               {adjusting.map((item) => (
                 <li
                   key={item.entryId}
-                  className="pl-(--cf-s2) border-l-2 border-attention"
+                  className="pl-space-md border-l-2 border-tertiary-fixed"
                 >
                   <p className="m-0">
                     <Amount value={item.amount} /> — corrects {item.correctsYear}
                   </p>
-                  <p className="m-0 text-ink-quiet max-w-[68ch]">
+                  <p className="m-0 text-on-surface-variant max-w-[68ch]">
                     {item.reason}
                   </p>
-                  <p className="m-0 text-meta text-ink-quiet">
+                  <p className="m-0 font-label-code-sm text-label-code-sm text-on-surface-variant">
                     Recorded {formatDate(item.postedAt)}
                   </p>
                 </li>
@@ -157,7 +157,7 @@ function YearRow({ year }: { readonly year: AuditYear }) {
   return (
     <Band heading={year.year} headingId={`cf-year-${year.year}`}>
       {!isClosed(year) || year.closedAt === undefined ? (
-        <p className="m-0 text-ink-quiet max-w-[68ch]">
+        <p className="m-0 text-on-surface-variant max-w-[68ch]">
           Still open. The auditor has not signed off on this year.
         </p>
       ) : (
@@ -194,24 +194,24 @@ function YearRow({ year }: { readonly year: AuditYear }) {
             claim a verdict exists.
           */}
           {year.opinion === undefined ? (
-            <p className="mt-(--cf-s1) mb-0 pl-(--cf-s2) border-l-2 border-attention max-w-[68ch]">
+            <p className="mt-space-sm mb-0 pl-space-md border-l-2 border-tertiary-fixed max-w-[68ch]">
               No audit opinion is recorded against this year, so what the
               auditor concluded is not shown here. This is not a statement
               that the year was found clean. Ask the society for the signed
               report.
             </p>
           ) : isKnownOpinion(year.opinion) ? (
-            <p className="mt-(--cf-s1) mb-0 max-w-[68ch]">
+            <p className="mt-space-sm mb-0 max-w-[68ch]">
               The auditor gave {opinionWords(year.opinion)}.
             </p>
           ) : (
-            <p className="mt-(--cf-s1) mb-0 pl-(--cf-s2) border-l-2 border-attention max-w-[68ch]">
+            <p className="mt-space-sm mb-0 pl-space-md border-l-2 border-tertiary-fixed max-w-[68ch]">
               An opinion is recorded for this year, but it is not one this
               page can describe. Ask the society for the signed report.
             </p>
           )}
           {year.opinionNote && (
-            <p className="mt-(--cf-s1) mb-0 pl-(--cf-s2) border-l-2 border-rule text-ink-quiet max-w-[68ch]">
+            <p className="mt-space-sm mb-0 pl-space-md border-l-2 border-outline-variant text-on-surface-variant max-w-[68ch]">
               {year.opinionNote}
             </p>
           )}

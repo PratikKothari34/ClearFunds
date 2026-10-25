@@ -1,14 +1,19 @@
 import type {
   AdjustingEntry,
+  AllocationRemainder,
   AnchorStatus,
+  ApprovalPolicy,
   AuditYear,
+  CommitteeSeat,
   DashboardData,
   DuesRow,
   Entry,
   FlagLogItem,
+  MatrixRow,
   PendingApproval,
   ReportSummary,
   SignoffPeriod,
+  StructuringGroup,
 } from './types'
 
 /**
@@ -486,5 +491,131 @@ export const SAMPLE_ADJUSTING: readonly AdjustingEntry[] = [
     amount: { minor: 1250000, currency: INR },
     reason: 'Billed twice by the vendor; the second invoice was paid in error',
     postedAt: '2026-10-22T10:30:00+05:30',
+  },
+]
+
+/*
+ * ELEVEN SEATS. Bye-law 113 puts a managing committee at 11-13 for a
+ * society this size, so 11 is the real low end rather than a round
+ * number chosen for arithmetic. It also makes the threshold
+ * interesting: ceil(2 x 11 / 3) = 8, which is not 7 and not a half.
+ *
+ * One seat is RESTRICTED and one is VACANT on purpose. Nine seats can
+ * sign against a threshold of eight, so the committee is one
+ * restriction away from being unable to act at all - the case the
+ * roster exists to make visible, sitting just on the safe side of the
+ * line rather than comfortably clear of it.
+ */
+export const SAMPLE_COMMITTEE: readonly CommitteeSeat[] = [
+  { seat: 1, holderHandle: 'Treasurer', office: 'Treasurer', status: 'active' },
+  { seat: 2, holderHandle: 'Secretary', office: 'Secretary', status: 'active' },
+  { seat: 3, holderHandle: 'President', office: 'President', status: 'active' },
+  { seat: 4, holderHandle: 'Member 4', status: 'active' },
+  { seat: 5, holderHandle: 'Member 5', status: 'active' },
+  { seat: 6, holderHandle: 'Member 6', status: 'active' },
+  { seat: 7, holderHandle: 'Member 7', status: 'active' },
+  { seat: 8, holderHandle: 'Member 8', status: 'active' },
+  { seat: 9, holderHandle: 'Member 9', status: 'active' },
+  {
+    seat: 10,
+    holderHandle: 'Member 10',
+    status: 'restricted',
+    restrictionReason:
+      'Co-opted after a resignation. Cannot approve until the next general body meeting confirms the appointment.',
+  },
+  { seat: 11, status: 'vacant' },
+]
+
+/*
+ * The limit is ZERO, which makes every expense N-of-M.
+ *
+ * That is 0004's safe default and it is what a society starts with
+ * before it votes on a limit. The approvals fixture carries its own
+ * `limitInForce` values because those are snapshots from when each
+ * entry was raised - they are deliberately NOT this number, which is
+ * the whole point of snapshotting.
+ */
+export const SAMPLE_POLICY: ApprovalPolicy = {
+  seats: 11,
+  quorumRequired: 8,
+  limit: { minor: 0, currency: INR },
+}
+
+/*
+ * Three payments to one contractor inside a fortnight, each below the
+ * limit that applied then, together above it. The ordinary shape of a
+ * repair billed in stages - which is exactly why the notice is worded
+ * as a disclosure rather than an accusation.
+ */
+export const SAMPLE_STRUCTURING: readonly StructuringGroup[] = [
+  {
+    payee: 'Omkar Lift Services',
+    total: { minor: 4250000, currency: INR },
+    windowDays: 10,
+    entryIds: ['e-811', 'e-818', 'e-826'],
+  },
+]
+
+/*
+ * A remainder that does not divide: 2 minor units across 112 flats.
+ * Chosen because 112 is the fixture's flat count and the leftover is
+ * smaller than the number of flats, which is the normal case and the
+ * one where "who got the extra paisa" is a real question.
+ */
+export const SAMPLE_ALLOCATION: AllocationRemainder = {
+  total: { minor: 6720000, currency: INR },
+  flatCount: 112,
+  remainderMinor: 2,
+  carriedBy: ['A-103', 'B-404'],
+}
+
+/*
+ * Five flats, covering every state the matrix must render: paid in
+ * full, part-paid, nothing paid, a tenant (liability differs), and one
+ * well past due.
+ *
+ * `outstanding` is NOT billed - paid in any of these rows by
+ * coincidence of arithmetic; it is supplied as its own figure because
+ * the server computes it. A test that recomputed it here would be
+ * asserting the fixture is self-consistent, which is true and useless.
+ */
+export const SAMPLE_MATRIX: readonly MatrixRow[] = [
+  {
+    flat: 'A-101',
+    tenancy: 'owner',
+    billed: { minor: 600000, currency: INR },
+    paid: { minor: 600000, currency: INR },
+    outstanding: { minor: 0, currency: INR },
+  },
+  {
+    flat: 'A-102',
+    tenancy: 'owner',
+    billed: { minor: 600000, currency: INR },
+    paid: { minor: 250000, currency: INR },
+    outstanding: { minor: 350000, currency: INR },
+    overdueDays: 12,
+  },
+  {
+    flat: 'A-103',
+    tenancy: 'tenant',
+    billed: { minor: 600000, currency: INR },
+    paid: { minor: 600000, currency: INR },
+    outstanding: { minor: 0, currency: INR },
+  },
+  {
+    flat: 'B-201',
+    tenancy: 'owner',
+    billed: { minor: 600000, currency: INR },
+    paid: { minor: 0, currency: INR },
+    outstanding: { minor: 600000, currency: INR },
+    overdueDays: 3,
+  },
+  {
+    flat: 'B-302',
+    tenancy: 'owner',
+    billed: { minor: 1800000, currency: INR },
+    paid: { minor: 0, currency: INR },
+    outstanding: { minor: 1800000, currency: INR },
+    overdueDays: 47,
   },
 ]

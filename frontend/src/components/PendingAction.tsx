@@ -23,7 +23,7 @@ import { NOT_CONNECTED, NOT_CONNECTED_EXPLANATION } from '../lib/pending'
 export function PendingAction({
   children,
   srSuffix,
-  className = 'min-h-11 px-(--cf-s3) border border-rule rounded-sm bg-surface text-ink font-medium',
+  className = 'min-h-11 px-space-lg border border-outline-variant rounded-sm bg-surface text-on-surface font-medium',
 }: {
   readonly children: ReactNode
   /**
@@ -42,7 +42,7 @@ export function PendingAction({
         {srSuffix !== undefined && <span className="cf-sr-only"> {srSuffix}</span>}
         <span className="cf-sr-only"> &mdash; {NOT_CONNECTED}</span>
       </button>
-      <p className="mt-(--cf-s2) mb-0 text-meta text-ink-quiet max-w-[68ch]">
+      <p className="mt-space-md mb-0 font-label-code-sm text-label-code-sm text-on-surface-variant max-w-[68ch]">
         {NOT_CONNECTED_EXPLANATION}
       </p>
     </>

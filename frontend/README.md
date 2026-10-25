@@ -20,7 +20,7 @@ review and was still wrong:
 |---|---|
 | `npm run utilities` | A CSS theme token that shadows a built-in Tailwind utility, or a class used in markup that no rule defines |
 | `npm run fixtures` | Development sample data reaching the production bundle |
-| `npm run budget` | A chunk over its gzip ceiling, measured against mid-range Android on patchy 4G |
+| `npm run budget` | A chunk over its gzip ceiling, set just above the measured baseline so a careless import trips it |
 | `npm run csp-hash` | Prints the SHA-256 of the inline theme script for the CSP, read from the built output — see below |
 
 ## Response headers the server must send

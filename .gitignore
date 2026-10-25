@@ -69,3 +69,9 @@ $RECYCLE.BIN/
 !.vscode/extensions.json
 *.swp
 *~
+
+# Design source material, local-only. The Stitch export is a vendor
+# download and the screenshots are working references; neither is part
+# of the product and the repo is public.
+*.zip
+Screenshot*.png

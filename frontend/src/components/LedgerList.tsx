@@ -56,7 +56,7 @@ export function LedgerList({
 }) {
   if (entries.length === 0) {
     return (
-      <p className="text-ink-quiet max-w-[68ch] py-(--cf-s4)">{emptyMessage}</p>
+      <p className="text-on-surface-variant max-w-[68ch] py-space-xl">{emptyMessage}</p>
     )
   }
 

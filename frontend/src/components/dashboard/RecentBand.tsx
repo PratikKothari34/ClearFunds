@@ -45,7 +45,7 @@ export function RecentBand({
   return (
     <Band heading="Recent" headingId="cf-band-recent">
       {entries.length === 0 ? (
-        <p className="text-ink-quiet max-w-[68ch]">
+        <p className="text-on-surface-variant max-w-[68ch]">
           No entries yet. The first one will appear here.
         </p>
       ) : (
@@ -55,10 +55,10 @@ export function RecentBand({
               <EntryRow key={entry.id} entry={entry} />
             ))}
           </div>
-          <p className="mt-(--cf-s2)">
+          <p className="mt-space-md">
             <Link
               to="/ledger"
-              className="text-anchor underline decoration-1 underline-offset-2 inline-flex items-center min-h-11"
+              className="text-on-primary-fixed-variant underline decoration-1 underline-offset-2 inline-flex items-center min-h-11"
             >
               See the full history
             </Link>

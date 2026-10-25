@@ -82,10 +82,10 @@ function Disputes() {
   return (
     <>
       <Band>
-        <h2 className="font-serif text-head font-normal mt-0 mb-(--cf-s1)">
+        <h2 className="font-headline-md font-headline-md text-headline-md font-normal mt-0 mb-space-sm">
           Questions about entries
         </h2>
-        <p className="m-0 text-ink-quiet max-w-[68ch]">
+        <p className="m-0 text-on-surface-variant max-w-[68ch]">
           Any resident can ask about any entry. Asking does not change the
           amount — it puts the question on the record until someone answers it.
         </p>
@@ -93,18 +93,18 @@ function Disputes() {
 
       <Band heading="Not answered yet" headingId="cf-disputes-open">
         {open.length === 0 ? (
-          <p className="m-0 text-ink-quiet max-w-[68ch]">
+          <p className="m-0 text-on-surface-variant max-w-[68ch]">
             Every question has been answered.
           </p>
         ) : (
-          <ul className="list-none m-0 p-0 flex flex-col gap-(--cf-s3)">
+          <ul className="list-none m-0 p-0 flex flex-col gap-space-lg">
             {open.map((item) => (
               <li
                 key={item.id}
-                className="pl-(--cf-s2) border-l-2 border-attention"
+                className="pl-space-md border-l-2 border-tertiary-fixed"
               >
                 <p className="m-0 max-w-[68ch]">{item.question}</p>
-                <p className="m-0 text-meta text-ink-quiet">
+                <p className="m-0 font-label-code-sm text-label-code-sm text-on-surface-variant">
                   {showAuthor && item.authorHandle
                     ? `${item.authorHandle} · `
                     : ''}
@@ -113,7 +113,7 @@ function Disputes() {
                   <Link
                     to="/ledger/$entryId"
                     params={{ entryId: item.entryId }}
-                    className="text-anchor underline decoration-1 underline-offset-2"
+                    className="text-on-primary-fixed-variant underline decoration-1 underline-offset-2"
                   >
                     {describeEntry(item.entryId)}
                   </Link>
@@ -126,11 +126,11 @@ function Disputes() {
 
       <Band heading="Answered" headingId="cf-disputes-answered">
         {answered.length === 0 ? (
-          <p className="m-0 text-ink-quiet max-w-[68ch]">
+          <p className="m-0 text-on-surface-variant max-w-[68ch]">
             Nothing has been answered yet.
           </p>
         ) : (
-          <ul className="list-none m-0 p-0 flex flex-col gap-(--cf-s3)">
+          <ul className="list-none m-0 p-0 flex flex-col gap-space-lg">
             {answered.map((item) => {
               // One call, like the other two surfaces. The list is
               // already filtered by the same predicate, so this can
@@ -138,14 +138,14 @@ function Disputes() {
               // how the spellings diverged, so it is not read again.
               const answeredOn = resolvedOn(item)
               return (
-              <li key={item.id} className="pl-(--cf-s2) border-l-2 border-rule">
+              <li key={item.id} className="pl-space-md border-l-2 border-outline-variant">
                 <p className="m-0 max-w-[68ch]">{item.question}</p>
                 {item.answer && (
-                  <p className="mt-(--cf-s1) mb-0 text-ink-quiet max-w-[68ch]">
+                  <p className="mt-space-sm mb-0 text-on-surface-variant max-w-[68ch]">
                     {item.answer}
                   </p>
                 )}
-                <p className="m-0 text-meta text-ink-quiet">
+                <p className="m-0 font-label-code-sm text-label-code-sm text-on-surface-variant">
                   {/*
                    * No `: ''` fallback. "Answered" with nothing after
                    * it is a sentence saying a question was dealt with
@@ -160,7 +160,7 @@ function Disputes() {
                   <Link
                     to="/ledger/$entryId"
                     params={{ entryId: item.entryId }}
-                    className="text-anchor underline decoration-1 underline-offset-2"
+                    className="text-on-primary-fixed-variant underline decoration-1 underline-offset-2"
                   >
                     {describeEntry(item.entryId)}
                   </Link>

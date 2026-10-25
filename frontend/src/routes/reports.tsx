@@ -49,10 +49,10 @@ function Reports() {
   return (
     <>
       <Band>
-        <h2 className="font-serif text-head font-normal mt-0 mb-(--cf-s1)">
+        <h2 className="font-headline-md font-headline-md text-headline-md font-normal mt-0 mb-space-sm">
           Reports
         </h2>
-        <p className="m-0 text-ink-quiet max-w-[68ch]">
+        <p className="m-0 text-on-surface-variant max-w-[68ch]">
           Each report is produced from the recorded entries when you download
           it, so what you hand over is what the record says.
         </p>
@@ -60,13 +60,13 @@ function Reports() {
 
       <Band heading="Available" headingId="cf-reports-list">
         {reports.length === 0 ? (
-          <p className="m-0 text-ink-quiet max-w-[68ch]">
+          <p className="m-0 text-on-surface-variant max-w-[68ch]">
             No report has been generated yet. A report is produced from the
             recorded entries at the time you download it, so one can be
             generated as soon as there are entries to report on.
           </p>
         ) : (
-          <ul className="list-none m-0 p-0 flex flex-col gap-(--cf-s3)">
+          <ul className="list-none m-0 p-0 flex flex-col gap-space-lg">
             {reports.map((report) => (
               <ReportRow key={report.id} report={report} />
             ))}
@@ -79,10 +79,10 @@ function Reports() {
 
 function ReportRow({ report }: { readonly report: ReportSummary }) {
   return (
-    <li className="flex flex-wrap items-baseline justify-between gap-(--cf-s2)">
+    <li className="flex flex-wrap items-baseline justify-between gap-space-md">
       <div className="min-w-0">
         <p className="m-0">{report.label}</p>
-        <p className="m-0 text-meta text-ink-quiet">
+        <p className="m-0 font-label-code-sm text-label-code-sm text-on-surface-variant">
           {report.periodLabel}
           {report.generatedAt && (
             <>
@@ -113,7 +113,7 @@ function ReportRow({ report }: { readonly report: ReportSummary }) {
       */}
       <PendingAction
         srSuffix={`${report.label}, ${report.periodLabel}`}
-        className="min-h-11 px-(--cf-s3) border border-rule rounded-sm bg-surface text-ink font-medium whitespace-nowrap"
+        className="min-h-11 px-space-lg border border-outline-variant rounded-sm bg-surface text-on-surface font-medium whitespace-nowrap"
       >
         Download
       </PendingAction>

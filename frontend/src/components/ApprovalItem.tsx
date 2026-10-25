@@ -64,10 +64,10 @@ export function ApprovalItem({ item }: { readonly item: PendingApproval }) {
   if (fault !== null) {
     return (
       <Band>
-        <div className="flex items-baseline justify-between gap-(--cf-s2)">
+        <div className="flex items-baseline justify-between gap-space-md">
           <div className="min-w-0">
             <p className="m-0">{item.narration}</p>
-            <p className="m-0 text-meta text-ink-quiet">
+            <p className="m-0 font-label-code-sm text-label-code-sm text-on-surface-variant">
               <span className="break-words">{item.payee}</span>
               {' · raised by '}
               {item.raisedByHandle}
@@ -80,7 +80,7 @@ export function ApprovalItem({ item }: { readonly item: PendingApproval }) {
           <Amount value={item.amount} direction={item.direction} />
         </div>
 
-        <p className="mt-(--cf-s2) mb-0 text-meta text-break max-w-[68ch]">
+        <p className="mt-space-md mb-0 font-label-code-sm text-label-code-sm text-on-error-container max-w-[68ch]">
           This item cannot be approved here: the approvals it reports do not
           match the society&rsquo;s rule that no expense is cleared by one
           person alone. How many approvals it claims to need is not shown,
@@ -93,10 +93,10 @@ export function ApprovalItem({ item }: { readonly item: PendingApproval }) {
 
   return (
     <Band>
-      <div className="flex items-baseline justify-between gap-(--cf-s2)">
+      <div className="flex items-baseline justify-between gap-space-md">
         <div className="min-w-0">
           <p className="m-0">{item.narration}</p>
-          <p className="m-0 text-meta text-ink-quiet">
+          <p className="m-0 font-label-code-sm text-label-code-sm text-on-surface-variant">
             <span className="break-words">{item.payee}</span>
             {' · raised by '}
             {item.raisedByHandle}
@@ -112,7 +112,7 @@ export function ApprovalItem({ item }: { readonly item: PendingApproval }) {
        * different sentences, both naming the limit in force at the time
        * rather than the limit today.
        */}
-      <p className="mt-(--cf-s2) mb-0 text-meta text-ink-quiet max-w-[68ch]">
+      <p className="mt-space-md mb-0 font-label-code-sm text-label-code-sm text-on-surface-variant max-w-[68ch]">
         {item.tier === 'both' ? (
           <>
             This is at or below the society&rsquo;s limit of{' '}
@@ -135,14 +135,14 @@ export function ApprovalItem({ item }: { readonly item: PendingApproval }) {
         )}
       </p>
 
-      <p className="mt-(--cf-s1) mb-0 text-meta">
+      <p className="mt-space-sm mb-0 font-label-code-sm text-label-code-sm">
         <span className="cf-tabular">{item.approvedCount}</span> of{' '}
         <span className="cf-tabular">{item.approvalsRequired}</span> approvals
         so far.{' '}
         {isFullyApproved(item) ? (
-          <span className="text-credit">Ready to be recorded.</span>
+          <span className="text-secondary">Ready to be recorded.</span>
         ) : (
-          <span className="text-attention">
+          <span className="text-on-tertiary-fixed-variant">
             <span className="cf-tabular">{remaining}</span> still needed.
           </span>
         )}
@@ -154,12 +154,12 @@ export function ApprovalItem({ item }: { readonly item: PendingApproval }) {
        * an expense waiting on someone, it is the record disagreeing
        * with the rule.
        */}
-      <div className="mt-(--cf-s2)">
+      <div className="mt-space-md">
         {item.viewerHasApproved ? (
           // Stated rather than hidden. A disabled button with no
           // explanation reads as a broken page; an admin then tries
           // again from another device.
-          <p className="m-0 text-meta text-ink-quiet">
+          <p className="m-0 font-label-code-sm text-label-code-sm text-on-surface-variant">
             You have approved this. It is waiting on others.
           </p>
         ) : (

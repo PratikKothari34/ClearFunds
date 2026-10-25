@@ -60,7 +60,7 @@ function Verify() {
   return (
     <>
       <Band>
-        <h2 className="font-serif text-head font-normal mt-0 mb-(--cf-s2)">
+        <h2 className="font-headline-md font-headline-md text-headline-md font-normal mt-0 mb-space-md">
           Checking this record
         </h2>
         <p className="m-0 max-w-[68ch]">
@@ -71,8 +71,8 @@ function Verify() {
       </Band>
 
       <Band heading="What was compared" headingId="cf-verify-compared">
-        <dl className="grid grid-cols-[auto_1fr] gap-x-(--cf-s3) gap-y-(--cf-s1) m-0 max-w-[68ch]">
-          <dt className="text-ink-quiet">Published copy</dt>
+        <dl className="grid grid-cols-[auto_1fr] gap-x-space-lg gap-y-space-sm m-0 max-w-[68ch]">
+          <dt className="text-on-surface-variant">Published copy</dt>
           {/*
            * Both fields are absent when the published record could not
            * be reached at all, so this row says so rather than
@@ -92,14 +92,14 @@ function Verify() {
             )}
           </dd>
 
-          <dt className="text-ink-quiet">This device last checked</dt>
+          <dt className="text-on-surface-variant">This device last checked</dt>
           <dd className="m-0">
             {status.lastComparedAt
               ? formatDateTime(status.lastComparedAt)
               : 'Not yet — this is the first check on this device'}
           </dd>
 
-          <dt className="text-ink-quiet">Newest entry here</dt>
+          <dt className="text-on-surface-variant">Newest entry here</dt>
           <dd className="m-0">
             {newest ? (
               <>
@@ -122,7 +122,7 @@ function Verify() {
          * Both halves, always, in this order. Shipping only the first
          * half is the overstatement the decision forbids.
          */}
-        <ul className="list-disc pl-(--cf-s3) m-0 max-w-[68ch] flex flex-col gap-(--cf-s1)">
+        <ul className="list-disc pl-space-lg m-0 max-w-[68ch] flex flex-col gap-space-sm">
           <li>
             {/*
               "WOULD BE VISIBLE", NEVER "IS NOT POSSIBLE".
@@ -177,14 +177,14 @@ function Verify() {
         `public/`, not a route, and routing it would 404.
       */}
       <Band heading="Licences" headingId="cf-verify-licences">
-        <p className="m-0 max-w-[68ch] text-ink-quiet">
+        <p className="m-0 max-w-[68ch] text-on-surface-variant">
           ClearFunds is free software under the GNU General Public License,
           version 3 or later. The typefaces it uses are separate works,
           redistributed unchanged under the{' '}
           <a href="/fonts/OFL.txt" className="underline">
             SIL Open Font License
           </a>
-          .
+          {'.'}
         </p>
       </Band>
     </>
@@ -215,7 +215,7 @@ function Result({
    */
   if (!compared) {
     return (
-      <p className="m-0 max-w-[68ch] pl-(--cf-s2) border-l-2 border-rule text-ink-quiet">
+      <p className="m-0 max-w-[68ch] pl-space-md border-l-2 border-outline-variant text-on-surface-variant">
         There is nothing on this device to compare yet, so this check has no
         result. Open the history first; the comparison runs against the
         entries this device holds.
@@ -226,7 +226,7 @@ function Result({
   switch (status.state) {
     case 'match':
       return (
-        <p className="m-0 max-w-[68ch] pl-(--cf-s2) border-l-2 border-credit">
+        <p className="m-0 max-w-[68ch] pl-space-md border-l-2 border-secondary">
           {/*
             "NO CHANGE HAS BEEN FOUND", not "nothing has been changed".
             The check compares this device's copy against the published
@@ -245,7 +245,7 @@ function Result({
       // is nothing earlier to compare against, which is a fact about
       // this device, not about the society.
       return (
-        <p className="m-0 max-w-[68ch] pl-(--cf-s2) border-l-2 border-rule text-ink-quiet">
+        <p className="m-0 max-w-[68ch] pl-space-md border-l-2 border-outline-variant text-on-surface-variant">
           This is the first check on this device, so there is nothing earlier to
           compare against. From now on this page will tell you whether anything
           in the history has changed since your last visit.
@@ -258,7 +258,7 @@ function Result({
       // residents to read a flaky connection as tampering, and then to
       // ignore the real signal when it appears.
       return (
-        <p className="m-0 max-w-[68ch] pl-(--cf-s2) border-l-2 border-rule text-ink-quiet">
+        <p className="m-0 max-w-[68ch] pl-space-md border-l-2 border-outline-variant text-on-surface-variant">
           The published copy could not be reached just now, so no comparison
           was made. This usually means a network problem rather than a problem
           with the record. Try again later; the last successful check is shown
@@ -270,11 +270,11 @@ function Result({
       // The one state that is loud, and the only one that tells the
       // resident to do something outside the app.
       return (
-        <div className="max-w-[68ch] pl-(--cf-s2) border-l-2 border-break text-break">
+        <div className="max-w-[68ch] pl-space-md border-l-2 border-error-container text-on-error-container">
           <p className="m-0 font-medium">
             The record on this device does not match the published copy.
           </p>
-          <p className="mt-(--cf-s1) mb-0">
+          <p className="mt-space-sm mb-0">
             Something in the history differs from what was published. Show this
             screen to the committee and to the society&rsquo;s auditor, and ask
             for an explanation in writing. Do not rely on the figures in this

@@ -40,7 +40,7 @@ export function RoleSwitch({
   if (!import.meta.env.DEV) return null
 
   return (
-    <label className="flex items-center gap-(--cf-s1) text-meta text-ink-quiet">
+    <label className="flex items-center gap-space-sm font-label-code-sm text-label-code-sm text-on-surface-variant">
       {/*
         Labelled "view as" rather than "role": it describes what the
         control does to the screen, not a property of the person. A
@@ -51,7 +51,7 @@ export function RoleSwitch({
       <select
         value={role}
         onChange={(e) => onChange(e.target.value as Role)}
-        className="border border-rule bg-surface px-(--cf-s1) py-0.5 text-meta text-ink"
+        className="border border-outline-variant bg-surface px-space-sm py-0.5 font-label-code-sm text-label-code-sm text-on-surface"
       >
         {ROLES.map((r) => (
           <option key={r} value={r}>

@@ -1,46 +1,25 @@
 @import 'tailwindcss';
-@import './styles/tokens.css';
+@import './styles/stitch.css';
 @import './styles/fonts.css';
-
-/*
- * Tailwind v4 reads its theme from CSS, not a JS config. These map the
- * nine tokens onto utility names so `text-ink` and `bg-surface` work and
- * nothing in a component needs a raw hex.
- */
-@theme inline {
-  --color-surface: var(--cf-surface);
-  --color-ink: var(--cf-ink);
-  --color-ink-quiet: var(--cf-ink-quiet);
-  --color-rule: var(--cf-rule);
-  --color-credit: var(--cf-credit);
-  --color-debit: var(--cf-debit);
-  --color-attention: var(--cf-attention);
-  --color-anchor: var(--cf-anchor);
-  --color-break: var(--cf-break);
-
-  --font-sans: var(--cf-sans);
-  --font-serif: var(--cf-serif);
-  --font-mono: var(--cf-mono);
-
-  --text-meta: var(--cf-t-meta);
-  --text-body: var(--cf-t-body);
-  --text-head: var(--cf-t-head);
-  --text-sub: var(--cf-t-sub);
-  --text-big: var(--cf-t-big);
-  /*
-   * `figure`, not `balance`. Tailwind already ships `.text-balance` for
-   * `text-wrap: balance`, so a font-size utility of that name generates
-   * a second rule with the same selector and the built-in wins on
-   * source order — the 39px balance figure would silently render at
-   * 16px, with nothing in the build to say so.
-   */
-  --text-figure: var(--cf-t-figure);
-}
 
 /*
  * color-scheme is set from data-theme rather than declared `light dark`,
  * so form controls and scrollbars follow the chosen theme instead of the
  * OS when the two disagree.
+ *
+ * THE STITCH EXPORT DECLARES `darkMode: "class"` AND THEN SHIPS NO DARK
+ * THEME. There is no `.dark` block anywhere in any of the eight screens.
+ * The dark palette below is therefore ours, built by inverting Stitch's
+ * own surface ramp rather than by inventing colours: its light ramp runs
+ * lowest -> dim as white -> #cbdbf5, so the dark ramp runs the same
+ * direction over the navy it already uses for `primary-container` and
+ * `inverse-surface`. The accent families keep Stitch's `*-fixed-dim`
+ * values, which exist in the config precisely because they are the ones
+ * meant to sit on a dark ground.
+ *
+ * Every value is overridden as a @theme variable, so the SAME class
+ * names - `bg-surface-container-lowest`, `text-on-surface` - resolve
+ * correctly in both themes and no component carries a `dark:` prefix.
  */
 :root {
   color-scheme: light;
@@ -56,26 +35,291 @@
   color-scheme: dark;
 }
 
+/*
+ * ONE LIGHT-THEME OVERRIDE, and the reason it is here rather than in
+ * stitch.css.
+ *
+ * `stitch.css` is GENERATED from the export's config and carries a
+ * header saying not to hand-edit it, so a correction to a Stitch value
+ * belongs in this file, after the import, where it is visible as a
+ * correction rather than hidden as a transcription difference.
+ *
+ * --color-outline shipped as #76777d: 4.25:1 on the page ground and
+ * 3.83:1 on a raised container, against a 4.5:1 text floor. That is a
+ * fine hairline colour and the export also uses it for text - every
+ * table header, every eyebrow label, the entry-range caption. Those
+ * are the smallest text on the screen, read by someone on a phone, so
+ * the floor applies with the least margin to spare.
+ *
+ * --color-outline-variant is NOT touched. It is #c6c6cd, it is only
+ * ever a divider or a border, and 3:1 is the right floor for a
+ * graphical object. A rule and a label are different jobs; Stitch
+ * gives them different tokens and this keeps that split.
+ */
+:root {
+  --color-outline: #5e5f65;
+}
+
+/*
+ * The dark ramp, declared once and referenced by both dark selectors, so
+ * the two cannot drift. A value changed in one place and not the other
+ * is invisible until someone switches theme.
+ */
+:root {
+  --cf-d-surface: #0d1521;
+  --cf-d-surface-bright: #16202f;
+  --cf-d-container-lowest: #16202f;
+  --cf-d-container-low: #1b2636;
+  --cf-d-container: #202c3e;
+  --cf-d-container-high: #263348;
+  --cf-d-container-highest: #2d3b52;
+  --cf-d-dim: #0a111b;
+  --cf-d-on-surface: #eaf1ff;
+  --cf-d-on-surface-variant: #a8b4c8;
+  /*
+   * LIFTED from #727c8d, which measured 4.35:1 on the dark ground and
+   * 3.34:1 on the raised container - under the 4.5:1 text floor on
+   * every ground in the theme. The export uses `outline` for every
+   * table header and every eyebrow label, and those are text, not
+   * hairlines. The old value would have passed a graphical check and
+   * failed the one that applies.
+   */
+  --cf-d-outline: #9aa5b8;
+  --cf-d-outline-variant: #3a4557;
+
+  /*
+   * THE ACCENTS LIVE HERE TOO, not in the two selectors below.
+   *
+   * They were written out twice, once per selector, while the comment
+   * above this block claimed the ramp existed so the two could not
+   * drift - true of the surfaces only. Two tokens then proved the
+   * point by never being reassigned at all.
+   */
+  --cf-d-primary: #bec6e0;
+  /*
+   * NOT #0b1c30, the dark-on-light value its name suggests.
+   *
+   * The export's header is `bg-primary-container text-on-primary` - a
+   * pairing that only works because the export ships no dark theme. In
+   * dark, primary-container is a dark surface, so an `on-primary` of
+   * #0b1c30 put the society name and the menu control at 1.05:1:
+   * present in the DOM, invisible on the screen. The header is also
+   * where a treasurer confirms WHICH society they are about to approve
+   * against, so an unreadable one is not cosmetic.
+   *
+   * The skeleton is not edited to fix this - the class names stay the
+   * export's. The token is what was wrong.
+   */
+  --cf-d-on-primary: #eaf1ff;
+  --cf-d-primary-container: #16202f;
+  --cf-d-on-primary-container: #a8b4c8;
+
+  --cf-d-secondary: #68dba9;
+  --cf-d-on-secondary: #002114;
+  --cf-d-secondary-container: #005137;
+  --cf-d-on-secondary-container: #85f8c4;
+
+  --cf-d-tertiary: #ffb77d;
+  --cf-d-on-tertiary: #2f1500;
+  --cf-d-tertiary-container: #6e3900;
+  --cf-d-on-tertiary-container: #ffdcc3;
+
+  --cf-d-error: #ffb4ab;
+  --cf-d-on-error: #690005;
+  --cf-d-error-container: #93000a;
+  --cf-d-on-error-container: #ffdad6;
+
+  /*
+   * THE THREE `*-fixed-variant` TOKENS, which carry text in this
+   * product and were the ones that broke.
+   *
+   * `on-tertiary-fixed-variant` marks something needing attention and
+   * `on-primary-fixed-variant` marks every externally-checkable link -
+   * the fingerprint, the published head, "check this ledger". Both kept
+   * their light values in dark and measured under 2:1, which on a
+   * #0d1521 ground is text a resident cannot read at all. The failure
+   * was WORSE than invisible: these are the surfaces whose whole job is
+   * to be checked.
+   *
+   * Each takes the light-on-dark member of its own Stitch family, so
+   * the colour still means what it meant.
+   */
+  --cf-d-on-primary-fixed-variant: #dde1f9;
+  /*
+   * NOT #85f8c4, and this one is a correction of a correction.
+   *
+   * Stitch's `*-fixed` tokens are THEME-INVARIANT BY DESIGN - that is
+   * what "fixed" means in this palette. `secondary-fixed` is #85f8c4 in
+   * both themes, so its `on-` partner must stay DARK in both themes
+   * too. Flipping it to light for dark mode put #85f8c4 text on a
+   * #85f8c4 pill: 1.00:1, the approved-status label gone entirely.
+   *
+   * The two siblings beside it genuinely did need flipping, because
+   * `on-primary-fixed-variant` and `on-tertiary-fixed-variant` are used
+   * here on ordinary THEMED surfaces, not on their own fixed partners.
+   * Same-looking names, different grounds, opposite answers.
+   */
+  --cf-d-on-secondary-fixed-variant: #005137;
+  --cf-d-on-tertiary-fixed-variant: #ffdcc3;
+}
+
+/*
+ * THE DARK OVERRIDES.
+ *
+ * Both selectors carry the same declarations: the media query for a
+ * resident who never touched the control, the attribute for one who
+ * chose dark explicitly. `:not([data-theme='light'])` is what lets an
+ * explicit light choice win over an OS set to dark.
+ */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --color-surface: var(--cf-d-surface);
+    --color-background: var(--cf-d-surface);
+    --color-surface-bright: var(--cf-d-surface-bright);
+    --color-surface-dim: var(--cf-d-dim);
+    --color-surface-container-lowest: var(--cf-d-container-lowest);
+    --color-surface-container-low: var(--cf-d-container-low);
+    --color-surface-container: var(--cf-d-container);
+    --color-surface-container-high: var(--cf-d-container-high);
+    --color-surface-container-highest: var(--cf-d-container-highest);
+    --color-surface-variant: var(--cf-d-container-highest);
+    --color-on-surface: var(--cf-d-on-surface);
+    --color-on-background: var(--cf-d-on-surface);
+    --color-on-surface-variant: var(--cf-d-on-surface-variant);
+    --color-outline: var(--cf-d-outline);
+    --color-outline-variant: var(--cf-d-outline-variant);
+
+    /* The header keeps its navy; on a dark ground it reads as a
+       continuation of the page rather than a band across it. */
+    --color-primary-container: var(--cf-d-primary-container);
+    --color-on-primary-container: var(--cf-d-on-primary-container);
+    --color-primary: var(--cf-d-primary);
+    --color-on-primary: var(--cf-d-on-primary);
+
+    /* Accents: Stitch's own *-fixed-dim family, which is what the
+       config provides for a dark ground. */
+    --color-secondary: var(--cf-d-secondary);
+    --color-on-secondary: var(--cf-d-on-secondary);
+    --color-secondary-container: var(--cf-d-secondary-container);
+    --color-on-secondary-container: var(--cf-d-on-secondary-container);
+
+    --color-tertiary: var(--cf-d-tertiary);
+    --color-on-tertiary: var(--cf-d-on-tertiary);
+    --color-tertiary-container: var(--cf-d-tertiary-container);
+    --color-on-tertiary-container: var(--cf-d-on-tertiary-container);
+
+    --color-error: var(--cf-d-error);
+    --color-on-error: var(--cf-d-on-error);
+    --color-error-container: var(--cf-d-error-container);
+    --color-on-error-container: var(--cf-d-on-error-container);
+
+    /* The three that carry text. See the ramp. */
+    --color-on-primary-fixed-variant: var(--cf-d-on-primary-fixed-variant);
+    --color-on-secondary-fixed-variant: var(--cf-d-on-secondary-fixed-variant);
+    --color-on-tertiary-fixed-variant: var(--cf-d-on-tertiary-fixed-variant);
+
+    --color-inverse-surface: #eaf1ff;
+    --color-inverse-on-surface: #0b1c30;
+  }
+}
+
+:root[data-theme='dark'] {
+  --color-surface: var(--cf-d-surface);
+  --color-background: var(--cf-d-surface);
+  --color-surface-bright: var(--cf-d-surface-bright);
+  --color-surface-dim: var(--cf-d-dim);
+  --color-surface-container-lowest: var(--cf-d-container-lowest);
+  --color-surface-container-low: var(--cf-d-container-low);
+  --color-surface-container: var(--cf-d-container);
+  --color-surface-container-high: var(--cf-d-container-high);
+  --color-surface-container-highest: var(--cf-d-container-highest);
+  --color-surface-variant: var(--cf-d-container-highest);
+  --color-on-surface: var(--cf-d-on-surface);
+  --color-on-background: var(--cf-d-on-surface);
+  --color-on-surface-variant: var(--cf-d-on-surface-variant);
+  --color-outline: var(--cf-d-outline);
+  --color-outline-variant: var(--cf-d-outline-variant);
+
+  --color-primary-container: var(--cf-d-primary-container);
+  --color-on-primary-container: var(--cf-d-on-primary-container);
+  --color-primary: var(--cf-d-primary);
+  --color-on-primary: var(--cf-d-on-primary);
+
+  --color-secondary: var(--cf-d-secondary);
+  --color-on-secondary: var(--cf-d-on-secondary);
+  --color-secondary-container: var(--cf-d-secondary-container);
+  --color-on-secondary-container: var(--cf-d-on-secondary-container);
+
+  --color-tertiary: var(--cf-d-tertiary);
+  --color-on-tertiary: var(--cf-d-on-tertiary);
+  --color-tertiary-container: var(--cf-d-tertiary-container);
+  --color-on-tertiary-container: var(--cf-d-on-tertiary-container);
+
+  --color-error: var(--cf-d-error);
+  --color-on-error: var(--cf-d-on-error);
+  --color-error-container: var(--cf-d-error-container);
+  --color-on-error-container: var(--cf-d-on-error-container);
+
+  /* The three that carry text. See the ramp. */
+  --color-on-primary-fixed-variant: var(--cf-d-on-primary-fixed-variant);
+  --color-on-secondary-fixed-variant: var(--cf-d-on-secondary-fixed-variant);
+  --color-on-tertiary-fixed-variant: var(--cf-d-on-tertiary-fixed-variant);
+
+  --color-inverse-surface: #eaf1ff;
+  --color-inverse-on-surface: #0b1c30;
+}
+
 html {
-  /* 16px is the floor for any figure a resident checks. */
+  /*
+   * 16px root. Stitch's own steps are smaller than this - its `body-md`
+   * is 13px - and they stay as written for labels, table cells and
+   * chrome. The floor applies to FIGURES a resident checks, which is a
+   * rule about reading an amount on a phone at arm's length and is
+   * enforced where those figures are set, not by inflating the root.
+   */
   font-size: 100%;
   -webkit-text-size-adjust: 100%;
 }
 
+/*
+ * The base reset from the export, carried over. `overscroll-behavior`
+ * stops the rubber-band on a phone making a fixed header look detached;
+ * the first/last-child margin rules keep `main` flush with its padding.
+ */
+html,
 body {
   margin: 0;
-  background: var(--cf-surface);
-  color: var(--cf-ink);
-  font-family: var(--cf-sans);
-  font-size: var(--cf-t-body);
-  line-height: 1.5;
-  -webkit-font-smoothing: antialiased;
+  padding: 0;
 }
+
+body {
+  overscroll-behavior: none;
+}
+
+main > :first-child {
+  margin-top: 0 !important;
+}
+
+main > :last-child {
+  margin-bottom: 0 !important;
+}
+
+/*
+ * THE SCROLLBAR IS NOT HIDDEN.
+ *
+ * The export ends its base styles with `::-webkit-scrollbar{display:none}`.
+ * That is dropped deliberately and is the one piece of its CSS not
+ * carried: the main surface here is a long scrolling ledger, and the
+ * scrollbar is the only thing telling a resident how much history there
+ * is and where in it they are. Hiding it also removes the drag target,
+ * which on a ledger of a thousand entries is the fastest way to move.
+ */
 
 /*
  * Every money figure and every hash uses tabular figures, so digits in a
  * column line up and a changed digit is visible in place rather than
- * shifting the row.
+ * shifting the row. JetBrains Mono is monospace so its digits already
+ * align; this also covers the fallback face before the font lands.
  */
 .cf-tabular {
   font-variant-numeric: tabular-nums;
@@ -83,13 +327,13 @@ body {
 }
 
 /*
- * Focus must be visible for a keyboard user and must not be suppressed to
- * tidy up mouse interaction. --cf-anchor clears 3:1 against both surfaces.
+ * Focus must be visible for a keyboard user and must not be suppressed
+ * to tidy up mouse interaction.
  */
 :focus-visible {
-  outline: 2px solid var(--cf-anchor);
+  outline: 2px solid var(--color-on-primary-fixed-variant);
   outline-offset: 2px;
-  border-radius: 2px;
+  border-radius: var(--radius);
 }
 
 /*

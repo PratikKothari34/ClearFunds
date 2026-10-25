@@ -159,3 +159,88 @@ describe('loading copy', () => {
     expect(text).not.toContain('could not')
   })
 })
+
+describe('the brand mark', () => {
+  /**
+   * The mark, rendered past the floor. Separate from `copyAt`, which
+   * returns a string and cannot answer questions about an element.
+   */
+  function markAt(phase: HeroPhase = 'loading'): HTMLImageElement | null {
+    const r = render(<Hero phase={phase} reducedMotion />)
+    act(() => {
+      vi.advanceTimersByTime(HERO_FLOOR_MS + 150)
+    })
+    return r.container.querySelector('img')
+  }
+
+  it('is not announced, because the wordmark beside it already is', () => {
+    /*
+     * The whole screen is one aria-live region, so anything with an
+     * accessible name here is read out before the status the resident
+     * is actually waiting for. A mark with alt="ClearFunds" above a
+     * wordmark reading "ClearFunds" announces the brand twice and the
+     * state last.
+     *
+     * Asserts BOTH halves. `aria-hidden` alone with a non-empty alt
+     * is a contradiction some tools resolve the wrong way, and an
+     * empty alt alone leaves the image in the tree as an unnamed
+     * graphic. Neither on its own is the decorative shape.
+     */
+    const img = markAt()
+    expect(img).not.toBeNull()
+    expect(img?.getAttribute('alt')).toBe('')
+    expect(img?.getAttribute('aria-hidden')).toBe('true')
+  })
+
+  it('reserves its box, so nothing below it moves when it lands', () => {
+    /*
+     * Width and height as ATTRIBUTES, not only as CSS. The attributes
+     * are what give the browser an aspect ratio before the bytes
+     * arrive; a class alone leaves the box at zero height until the
+     * image decodes, and the wordmark and status line jump down when
+     * it does. This screen's 400ms floor exists to avoid exactly that
+     * kind of jitter, so reintroducing it here would be self-defeating.
+     *
+     * The assertion is that both are present and agree with each
+     * other - a square - rather than that either is 120. A later
+     * decision to render it larger is not a regression; rendering it
+     * without a reserved box is.
+     */
+    const img = markAt()
+    const w = img?.getAttribute('width')
+    const h = img?.getAttribute('height')
+    expect(w).toBeTruthy()
+    expect(h).toBeTruthy()
+    expect(w).toBe(h)
+  })
+
+  it('does not offer the large source on the one screen that pays for it', () => {
+    /*
+     * The boot screen is the single place in the product where bytes
+     * are spent before anything is readable. A `srcSet` naming the
+     * 240px file lets any DPR-2 phone - most of this market - take it
+     * and double the weight for a mark drawn at 120 CSS pixels.
+     *
+     * Asserts the ABSENCE of the larger source rather than the exact
+     * `src` string, so renaming or re-encoding the file does not fail
+     * this, while re-adding the retina source does. The login screen
+     * is free to offer 240px and does; there the mark is the subject,
+     * and nothing is waiting on it.
+     */
+    const img = markAt()
+    const sources = `${img?.getAttribute('src') ?? ''} ${img?.getAttribute('srcset') ?? ''}`
+    expect(sources).not.toContain('240')
+  })
+
+  it('still shows on a failed boot, where the wait is longest', () => {
+    /*
+     * The failure phases recolour the stroke and rewrite the copy.
+     * Neither unmounts the mark: a resident staring at an error has
+     * been looking at this screen longer than anyone, and dropping
+     * the only non-text element at that moment makes a failure look
+     * like a broken page rather than a reported one.
+     */
+    expect(markAt('boot-failed')).not.toBeNull()
+    expect(markAt('anchor-unreachable')).not.toBeNull()
+  })
+})

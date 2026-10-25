@@ -48,10 +48,10 @@ function Approvals() {
   if (!canSeeApprovalQueue(role)) {
     return (
       <Band>
-        <h2 className="font-serif text-head font-normal mt-0 mb-(--cf-s1)">
+        <h2 className="font-headline-md font-headline-md text-headline-md font-normal mt-0 mb-space-sm">
           The approval queue is not shown here
         </h2>
-        <p className="m-0 text-ink-quiet max-w-[68ch]">
+        <p className="m-0 text-on-surface-variant max-w-[68ch]">
           Expenses waiting for approval are visible to the committee members
           who approve them. Everything that has been approved is in the
           ledger, with who approved it and when.
@@ -80,10 +80,10 @@ function Approvals() {
   return (
     <>
       <Band>
-        <h2 className="font-serif text-head font-normal mt-0 mb-(--cf-s1)">
+        <h2 className="font-headline-md font-headline-md text-headline-md font-normal mt-0 mb-space-sm">
           Waiting for approval
         </h2>
-        <p className="m-0 text-ink-quiet max-w-[68ch]">
+        <p className="m-0 text-on-surface-variant max-w-[68ch]">
           Nothing is recorded in the ledger until it has the approvals it
           needs. No single person can approve an expense alone.
         </p>
@@ -91,7 +91,7 @@ function Approvals() {
 
       {pending.length === 0 ? (
         <Band>
-          <p className="m-0 text-ink-quiet max-w-[68ch]">
+          <p className="m-0 text-on-surface-variant max-w-[68ch]">
             Nothing is waiting for approval.
           </p>
         </Band>

@@ -66,7 +66,7 @@ export function BandFallback({
         nothing reads an empty slot as a society with no money.
       */}
       <div role="alert">
-        <p className="text-ink-quiet max-w-[68ch] mb-(--cf-s2)">{explanation}</p>
+        <p className="text-on-surface-variant max-w-[68ch] mb-space-md">{explanation}</p>
         {onRetry && (
           <button
             type="button"
@@ -74,7 +74,7 @@ export function BandFallback({
             // min-h-11: the same floor as every other control. A retry
             // is often tapped on a bad connection, one-handed, by
             // someone already mildly annoyed.
-            className="min-h-11 px-(--cf-s2) border border-rule rounded-sm text-ink"
+            className="min-h-11 px-space-md border border-outline-variant rounded-sm text-on-surface"
           >
             Try again
           </button>

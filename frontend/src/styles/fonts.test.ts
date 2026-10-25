@@ -4,21 +4,26 @@ import { describe, expect, it } from 'vitest'
 
 /*
  * The font payload is a budget line, not a styling detail: the design is
- * written against mid-range Android on patchy 4G. These tests assert the
- * three facts that are easy to break by accident —
+ * written against mid-range Android on working 4G. These tests assert the
+ * three facts that are easy to break by accident -
  *
- *   1. Devanagari is not in the default payload.
+ *   1. No non-Latin family enters the default payload.
  *   2. Every declared src actually exists in public/.
  *   3. Every face swaps rather than blocking first paint.
  *
  * Breaking any of them is invisible locally on a fast connection.
+ *
+ * DEVANAGARI IS GONE, not lazily loaded. The product ships English
+ * only: `fonts.devanagari.css` and both Noto woff2 files were deleted
+ * with the `mr` and `hi` locales. The assertions against it stay, aimed
+ * at the DIRECTORY and the STACK rather than at that file, because the
+ * failure they were written for is the one that outlives it - a second
+ * script family arriving in the default payload. A test that only read
+ * the deleted file would have had to be deleted with it, and the budget
+ * would have lost its guard at exactly the moment nothing was watching.
  */
 
 const FONTS = readFileSync(resolve('src/styles/fonts.css'), 'utf8')
-const DEVANAGARI = readFileSync(
-  resolve('src/styles/fonts.devanagari.css'),
-  'utf8',
-)
 const INDEX = readFileSync(resolve('src/index.css'), 'utf8')
 const HTML = readFileSync(resolve('index.html'), 'utf8')
 const TOKENS = readFileSync(resolve('src/styles/tokens.css'), 'utf8')
@@ -35,15 +40,41 @@ function webfaceBlocks(css: string): string[] {
 }
 
 describe('the default font payload', () => {
-  it('does not import Devanagari', () => {
-    // Noto Sans Devanagari is 104 KB across its two weights, twice the
-    // whole Latin payload. Importing it by default charges every
-    // English-reading resident for a locale they do not use.
+  it('does not import Devanagari, which is no longer in the project', () => {
+    // Noto Sans Devanagari was 104 KB across its two weights, twice the
+    // whole Latin payload. It was removed with the locales that needed
+    // it; this asserts it cannot come back by the quiet route.
     expect(INDEX).not.toContain('fonts.devanagari')
     // The src urls, not the file text: fonts.css names Devanagari in a
     // comment explaining why it is absent, and a test that forbids the
     // word punishes the explanation.
     for (const url of srcUrls(FONTS)) expect(url).not.toContain('devanagari')
+    // And no stylesheet declares it at all any more.
+    expect(existsSync(resolve('src/styles/fonts.devanagari.css'))).toBe(false)
+  })
+
+  it('ships no font file outside the Latin faces it declares', () => {
+    /*
+     * THE DIRECTORY, NOT THE STYLESHEET. Deleting a @font-face rule
+     * while leaving its woff2 in public/ ships the bytes to anyone who
+     * guesses the URL and leaves a 104 KB file in the repo that nothing
+     * explains - which is exactly the state the Devanagari removal
+     * could have left behind. Derived from what fonts.css declares, so
+     * adding a face legitimately keeps this green.
+     */
+    const declared = new Set(
+      srcUrls(FONTS).map((u) => u.replace(/^\/fonts\//, '')),
+    )
+    const present = readdirSync(resolve('public/fonts')).filter((f) =>
+      f.endsWith('.woff2'),
+    )
+    expect(present.length).toBeGreaterThan(0)
+    for (const file of present) {
+      expect(
+        declared.has(file),
+        `${file} sits in public/fonts but no @font-face declares it`,
+      ).toBe(true)
+    }
   })
 
   it('does not import a Fontsource stylesheet, which carries every subset', () => {
@@ -96,7 +127,7 @@ describe('every declared face', () => {
   it('points at a file that exists', () => {
     // A renamed or un-copied woff2 fails silently: the fallback renders
     // and nothing in the console says the brand face is missing.
-    const urls = [...srcUrls(FONTS), ...srcUrls(DEVANAGARI)]
+    const urls = srcUrls(FONTS)
     expect(urls.length).toBeGreaterThan(0)
     for (const url of urls) {
       const path = resolve('public', url.replace(/^\//, ''))
@@ -109,7 +140,7 @@ describe('every declared face', () => {
   it('swaps rather than blocking first paint', () => {
     // Without swap the text is invisible for up to 3s on a slow
     // connection, which on this product means a blank balance.
-    for (const block of [...webfaceBlocks(FONTS), ...webfaceBlocks(DEVANAGARI)]) {
+    for (const block of webfaceBlocks(FONTS)) {
       expect(block).toMatch(/font-display:\s*swap/)
     }
   })
@@ -117,15 +148,15 @@ describe('every declared face', () => {
   it('is self-hosted, never a remote origin', () => {
     // A request to a font CDN from an authenticated screen leaks a
     // referrer identifying the society.
-    for (const url of [...srcUrls(FONTS), ...srcUrls(DEVANAGARI)]) {
+    for (const url of srcUrls(FONTS)) {
       expect(url).toMatch(/^\/fonts\//)
     }
   })
 
   it('declares a unicode-range, so a face is not claimed for text it lacks', () => {
     // Source Sans 3 has no Devanagari glyphs. Claiming the range would
-    // suppress the fallback and render tofu instead of Hindi.
-    for (const block of [...webfaceBlocks(FONTS), ...webfaceBlocks(DEVANAGARI)]) {
+    // suppress the fallback and render tofu rather than the glyph.
+    for (const block of webfaceBlocks(FONTS)) {
       expect(block).toMatch(/unicode-range:/)
     }
   })
@@ -152,9 +183,20 @@ describe('the font stacks', () => {
     expect(sans).toMatch(/sans-serif\s*$/)
   })
 
-  it('keeps Devanagari in the stack so a locale switch needs no CSS change', () => {
+  it('names no font family the project does not ship', () => {
+    /*
+     * THE INVERSE OF THE RULE THIS FILE USED TO ASSERT. Devanagari sat
+     * in the stack on purpose while the locales existed, so a switch
+     * needed no CSS change. With the locales and the face gone, the
+     * same stack position is a family that resolves to nothing on every
+     * device that lacks it locally - and on a device that HAS it
+     * locally it silently renders the UI in a different face from the
+     * one the design was checked against.
+     */
     const sans = /--cf-sans:([^;]+);/.exec(TOKENS)?.[1] ?? ''
-    expect(sans).toContain('Noto Sans Devanagari')
+    expect(sans).not.toContain('Devanagari')
+    // Control: the stack was read and still names the face we do ship.
+    expect(sans).toContain('Source Sans 3')
   })
 
   it('declares a fallback override for every metric-matched family used', () => {

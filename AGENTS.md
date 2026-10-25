@@ -74,7 +74,9 @@ anything outside that scope is a separate issue.
 **The frontend is built; the backend has not started.** The frontend is
 React 19 + TypeScript on Vite, deployed as a static SPA, with TanStack Router
 (route-level code splitting), TanStack Query, TanStack Virtual for the ledger,
-Tailwind v4 reading its theme from CSS tokens, and `react-i18next`. It holds
+Tailwind v4 reading its theme from CSS tokens, and `react-i18next`
+(scaffolded but **English-only** - one locale ships, and the library is loaded
+lazily so the default payload never carries it). It holds
 no signing keys, renders no reports, and performs no money arithmetic — see
 the settled items in the next section.
 

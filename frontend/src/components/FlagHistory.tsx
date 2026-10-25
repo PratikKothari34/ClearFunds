@@ -44,7 +44,7 @@ export function FlagHistory({
   if (entries === null) {
     return (
       <Band heading="Questions raised" headingId="cf-entry-flags">
-        <p className="m-0 text-break max-w-[68ch]">
+        <p className="m-0 text-on-error-container max-w-[68ch]">
           The questions on this entry could not be loaded, so they are not
           shown. This does NOT mean nobody has asked about it. The entry above
           is unaffected — nothing has been changed.
@@ -56,11 +56,11 @@ export function FlagHistory({
   return (
     <Band heading="Questions raised" headingId="cf-entry-flags">
       {entries.length === 0 ? (
-        <p className="m-0 text-ink-quiet max-w-[68ch]">
+        <p className="m-0 text-on-surface-variant max-w-[68ch]">
           Nobody has asked about this entry.
         </p>
       ) : (
-        <ol className="list-none m-0 p-0 flex flex-col gap-(--cf-s3)">
+        <ol className="list-none m-0 p-0 flex flex-col gap-space-lg">
           {entries.map((item) => {
             /*
              * Resolved ONCE, into a local. Calling `resolvedOn(item)`
@@ -73,12 +73,12 @@ export function FlagHistory({
             return (
             <li
               key={item.id}
-              className={`pl-(--cf-s2) border-l-2 ${
-                answeredOn === null ? 'border-attention' : 'border-rule'
+              className={`pl-space-md border-l-2 ${
+                answeredOn === null ? 'border-tertiary-fixed' : 'border-outline-variant'
               }`}
             >
               <p className="m-0 max-w-[68ch]">{item.question}</p>
-              <p className="m-0 text-meta text-ink-quiet">
+              <p className="m-0 font-label-code-sm text-label-code-sm text-on-surface-variant">
                 {/*
                  * The handle, or nothing — checked against the viewer's
                  * role as well as against the payload.
@@ -110,12 +110,12 @@ export function FlagHistory({
                 ) : (
                   // --attention, not --break: an open question is
                   // something to do, not something broken.
-                  <span className="text-attention">Not answered yet</span>
+                  <span className="text-on-tertiary-fixed-variant">Not answered yet</span>
                 )}
               </p>
 
               {item.answer && (
-                <p className="mt-(--cf-s1) mb-0 text-ink-quiet max-w-[68ch]">
+                <p className="mt-space-sm mb-0 text-on-surface-variant max-w-[68ch]">
                   {item.answer}
                 </p>
               )}

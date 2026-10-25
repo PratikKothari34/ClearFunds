@@ -41,15 +41,18 @@ if (!rootEl) throw new Error('#root is missing from index.html')
 /*
  * i18n is initialized before the first render, not alongside it.
  *
- * Rendering first would paint English, then swap to Marathi once the
- * catalogue resolved. On a Devanagari locale the font arrives in that
- * same gap, so the swap is a reflow of every line on the page — on the
- * ledger that is the whole screen moving under a resident's thumb.
+ * TODAY THIS COSTS NOTHING AND IS STILL THE RIGHT ORDER. The product
+ * ships English only, the catalogue is bundled, and `initI18n('en')`
+ * sets the document language and returns without touching the network
+ * - so the await resolves from memory.
  *
- * The cost is one await before paint, and it resolves from memory for
- * English because the catalogue is bundled. The hero's 400 ms floor
- * covers the Devanagari case: below the floor nothing has been drawn
- * yet, so there is nothing to reflow.
+ * The order is kept because it is the half that is hard to add back.
+ * Rendering first would paint English, then swap once a catalogue
+ * resolved, and the swap is a reflow of every line on the page - on
+ * the ledger, the whole screen moving under a resident's thumb. The
+ * hero's 400 ms floor covers that case: below the floor nothing has
+ * been drawn yet, so there is nothing to reflow. A second locale
+ * inherits both properties instead of needing them discovered again.
  */
 const locale = preferredLocale()
 

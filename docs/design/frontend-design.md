@@ -40,7 +40,7 @@ Not stylistic. These come from the product and bind every decision below.
 
 | Constraint | Consequence for design |
 |---|---|
-| Mid-range Android, patchy 4G | The hero cannot be a video or a 2 MB font payload. Route-level splitting from the start. |
+| Mid-range Android, working 4G | The hero cannot be a video or a 2 MB font payload. Route-level splitting from the start. |
 | Volunteers, not finance staff | No jargon in the primary path. A label the treasurer has to learn is a defect. |
 | Six roles | President, treasurer, secretary, committee admin, resident, auditor. Navigation and approval surfaces are designed against six. |
 | Money is other people's | Amounts are the most important pixels on every screen. Never decorative. |
@@ -110,13 +110,11 @@ bounded to five items, ordered by what needs *this viewer* first.
 The ledger screen is **A's, essentially unchanged**, because A's ledger was the
 best of the three and the ledger is the product.
 
-- Tabular figures, Indian digit grouping. **This bullet originally said
-  "serif for amounts and narration", which contradicts the type table in §2g —
-  that table assigns Source Serif 4 to band headings only and names Source
-  Sans 3 for both ledger amount and ledger narration. §2g governs**, because
-  the ledger requires tabular figures without exception and the table is the
-  specification; corrected here when the row was built, rather than leaving two
-  readings in the document.
+- Tabular figures, Indian digit grouping. **Source Sans 3 throughout**, for
+  the amount and the narration both. This bullet once said "serif for amounts
+  and narration" and was corrected against the type table in §2g; since
+  2026-10-25 only one family RENDERS: `--cf-serif` resolves to the sans
+  stack, so every surviving `font-serif` already sets the sans.
 - Credit and debit as the only colour accents on the screen. **The activity
   band's amber does not appear on the ledger**, so the palette rule holds where
   it matters.
@@ -353,13 +351,12 @@ need a meaning no existing token carries.
 
 ## 2g. Type
 
-Two families and a subset third.
+**One family, decided 2026-10-25** (`0007`). It was two.
 
 | Family | Role | Notes |
 |---|---|---|
-| **Source Sans 3** | Everything: UI, amounts, labels | Tabular figures, which the ledger requires |
-| **Source Serif 4** | Band headings only | One signal that a band is a band, with no rules or caps |
-| **Noto Sans Devanagari** | Hindi/Marathi locale | **Loaded on locale only.** Source Sans 3 has no Devanagari coverage — this is a separate family, not a weight |
+| **Source Sans 3** | Everything: UI, amounts, labels, headings | Tabular figures, which the ledger requires |
+| ~~Source Serif 4~~ | ~~Band headings only~~ | **Dropped.** A high-contrast serif display on a warm near-cream ground is the single most recognisable signature of a generated page, and a band heading does not need a second typeface to read as a heading. A band heading is now a **quiet caption** above its content — meta-sized, medium weight, `--ink-quiet`, no rule. It sat **on a rule** until 2026-10-25; see *Rules earn their place* below for why that went |
 | ~~A mono face, hex-subset~~ | ~~Fingerprints~~ | **Not built, and not needed.** Fingerprints use the PLATFORM monospace stack (`--cf-mono` in `tokens.css`): zero bytes, no route cost, and even character widths are the only thing the mono was for |
 
 **Scale: 12.8 / 16 / 20 / 25 / 31.25 / 39**, a 1.25 ratio off a 16px body.
@@ -367,7 +364,7 @@ Two families and a subset third.
 | Element | Face | Size | Weight |
 |---|---|---|---|
 | Balance figure | Source Sans 3, tabular | 39px | 500 |
-| Band heading | Source Serif 4 | 20px | 400 |
+| Band heading | Source Sans 3 | 14px | 500, `--ink-quiet`, no rule |
 | Ledger amount | Source Sans 3, tabular | 16px | 400, right-aligned |
 | Ledger narration | Source Sans 3 | 16px | 400 |
 | Date, meta, label | Source Sans 3 | 12.8px | 400, `--ink-quiet` |
@@ -389,9 +386,150 @@ Two families and a subset third.
 
 ---
 
+### Rules earn their place, and the heading does not get one
+
+**Added 2026-10-25, after the second "it looks chopped".** Two decisions
+that were each defensible alone, and wrong together.
+
+The band carried a bottom hairline. The heading inside it sat **on** its own
+hairline. Both were argued for in `Band.tsx`'s own comments — the section
+border is the boundary, the heading rule attaches a heading to the section it
+opens — and **the pair was never looked at**. Five bands put **ten hairlines
+down a phone screen at even spacing**, with every heading at the same size and
+weight.
+
+That is the chopped look, and it has a precise cause: **a rule that appears
+under every heading regardless of content carries no information.** A rule
+should mean *these two things are separate*. Printed unconditionally it is
+texture, and the page becomes equal strips with nothing dominant and nothing
+recessive. The eye has no landing point.
+
+| Device | Before | After |
+|---|---|---|
+| Section boundary | `border-b` hairline | unchanged — this one is a real boundary |
+| Heading | `text-head`, semibold, **on a rule** | `text-meta`, medium, `--ink-quiet`, **no rule** |
+| Vertical rhythm | `py-(--cf-s3)` on all five | `primary` band `s4`, reference bands `s3` |
+| Hairlines on the dashboard | 10 | 4 section boundaries + 1 inside the balance block |
+
+**The heading became a caption.** At `text-head` semibold it competed with the
+balance figure — the one number most of this product's audience opens the app
+to read. A reference band's heading exists to be *found when looked for*, not
+read first. Demoted to a quiet caption, the figure is the only large thing on
+the screen and needs no instruction to be found.
+
+**Not** a tracked-out ALL-CAPS eyebrow. That is template chrome that appears
+whatever the subject, and it costs legibility on the device this is read on.
+Case is left alone; the colour does the demoting.
+
+**Spacing is uneven on purpose.** Equal padding on every band is the other half
+of the effect. `tone` defaults to `quiet`, so the fourteen route files that use
+`Band` get the calmer treatment without being edited, and only a screen's actual
+subject asks for `primary`.
+
+### The balance and its provenance are one block
+
+**Decided 2026-10-25.** A resident arrives with **one** question — *how much
+money is there, and can I trust the number* — and the dashboard answered it in
+two bands of equal weight, a scroll apart. The fingerprint band was something
+you could skip past. Attached to the figure under a single hairline, it is part
+of reading the figure.
+
+The dashboard is now **four blocks**: balance + provenance, what needs you,
+this month, recent.
+
+**This is not the merge `FingerprintBand` forbids.** That comment rules out
+folding the chain check into the **to-do list**, where an empty list would read
+as an all-clear and mask a break. A balance is not a status and makes no claim
+about the chain, so there is nothing for it to mask. The distinction is worth
+keeping straight, because the forbidden version looks superficially similar.
+
+Two hazards came with it, both handled in code rather than left to the reader:
+
+- **A mismatch is hoisted above the figure.** Its copy ends *"do not rely on
+  the figures above"*, which is only true if the warning is read first. Below
+  the number it is read second, or not at all. `AnchorBody` takes a
+  `hideMismatch` flag so the sentence is **moved, never duplicated** — two
+  identical warnings read as two faults.
+- **Each half still fails alone.** `'fingerprint'` remains its own `BandName`
+  with its own failed flag and its own retry, passed in under anchor-prefixed
+  props. A balance that loaded renders whatever the anchor did, and an anchor
+  failure renders `unreachable` rather than a blank, because a blank reads as a
+  pass.
+
+**One copy of the provenance switch**, exported as `AnchorBody` and shared with
+the standalone band. Two copies would let one drift into saying *verified*,
+which is the one claim this product may never make.
+
+**Guarded by `balanceProvenance.test.tsx`**, and the guard was mutation-tested:
+moving the warning below the figure, coupling the two failures, blanking a
+failed anchor, and duplicating the warning each kill a test. That mattered
+— **the merge from five bands to four passed all 479 existing tests without
+one noticing**, which is exactly the shape of a vacuous suite.
+
+### A JSX newline before a full stop renders as a space
+
+Found in the same pass. `{expr}` on one line and `.` on the next collapses the
+newline to a space, so the sentence rendered **"checked on this device 21 Oct
+2026 ."** — on the line every resident with a healthy ledger reads. Eight
+sites across six files, all of the shape `</Link>` then a bare `.`; each is now
+`{'.'}` glued to the preceding expression.
+
+Worth naming because it is invisible in the source — the JSX looks correct,
+and no test asserting on substrings catches a stray space.
+
+### Separators between facts
+
+**A meta line joins two facts with a vertical rule, never a middle dot**
+(2026-10-25, `0007`). `A · B · C` is template chrome: it appears on
+generated pages whatever the subject, and it reads as one run-on string
+rather than as separate facts. The rule is the register's own device - the
+line between two columns - and it is already in the palette as
+`--cf-rule`.
+
+**The rule is `aria-hidden`, so it carries NO WORD BOUNDARY, and a
+visually-hidden separator must sit beside it.** This is not a detail. The
+middle dot it replaced was a text node with a space on each side; the rule
+contributes nothing to the accessible name, so swapping one for the other
+fused the facts:
+
+| Separator | Accessible name |
+|---|---|
+| Middle dot | `as of 25 Oct 2026 · 42 entries` |
+| Rule alone | `as of 25 Oct 202642 entries` |
+| Rule + hidden comma | `as of 25 Oct 2026, 42 entries` |
+
+The middle row is the bug as it stood in the working tree: the year runs
+into the entry count and a screen reader announces one impossible number,
+directly under the one figure a resident opens the app to read. **Nothing
+looked wrong on screen and no test failed** - because nothing in the suite
+asserted on the separator at all.
+
+Guarded by `frontend/src/components/dashboard/separator.test.tsx`, which
+asserts **the boundary, not the punctuation**: nothing but digits may sit
+between the end of the first fact and the start of the second. A later
+change from a comma to a dash passes; a change that drops the boundary
+does not. Both fixtures deliberately put a digit on each side, because
+that is the only arrangement in which losing the boundary corrupts a value
+rather than merely looking cramped. A first version of that test looked
+for a run of five or more digits instead, which fitted the balance band's
+`202642` and **passed a mutant of the entry row**, where the same bug
+produces only `225` - the threshold was a property of one fixture, not of
+the rule.
+
+**13 rendered · sites remain across 6 files** - `ApprovalItem` (4),
+`FlagHistory` (2), `disputes` (3), `ledger.$entryId` (1), `my-flat` (1),
+`reports` (2). They are outside this pass's scope, and each needs the
+hidden separator when it is converted.
+
+**The three · in `lib/titles.ts` are NOT in that count and must stay.**
+They build the document title (`Ledger · ClearFunds`), which is a
+string, not a rendered line: there is no element to draw a rule on, and a
+screen reader reads the title text itself, so the dot is already the
+boundary. Converting one would be a straight regression.
+
 ## 2h. Optimization
 
-The standing bundle budget, against mid-range Android on patchy 4G.
+The standing bundle budget, against mid-range Android on working 4G.
 
 - **Route-level splitting from the first commit.** The resident read path —
   hero, dashboard, ledger — is its own chunk and must not import approvals,
@@ -401,8 +539,9 @@ The standing bundle budget, against mid-range Android on patchy 4G.
   resident path is at A's weight while carrying C's idea **and** the route
   that was supposed to pay for it pays nothing.
 - **Fonts:** system face until the webfont lands, `font-display: swap`,
-  metric-matched fallbacks. Latin subset preloaded; **Devanagari on locale
-  only**, never in the default payload.
+  metric-matched fallbacks. Latin subset preloaded, and **that is the whole
+  font payload** - the product ships English only, so no second script family
+  exists to defer.
 - **The ledger is virtualized** (TanStack **Virtual**, not Table — built
   2026-10-23). The ledger is not a grid: rows are heterogeneous, a reversed
   pair is one variable-height item, and nothing is sorted or filtered
@@ -472,15 +611,26 @@ families**, two of them on first paint. Stated as "it is the heaviest design"
 in the first draft, which the arithmetic never supported and which is now
 wrong twice over.
 
-At ~1.5 Mbps effective on patchy 4G, transfer time is `KB * 8 / 1500` seconds.
+At ~10 Mbps effective on a working 4G connection, transfer time is
+`KB * 8 / 10000` seconds. **Restated 2026-10-25**: these figures were
+computed at 1.5 Mbps, a degraded-connection assumption that made every
+payload look urgent.
 
 | Payload | Families | Total | 4G transfer |
 |---|---|---|---|
-| **D, resident read path, measured** | **Source Sans 3 (400+500) + Source Serif 4** | **50.2 KB** | **0.27 s** |
-| **D, after switching to Hindi or Marathi, measured** | **The above + Noto Sans Devanagari (400+500)** | **151.8 KB** | **0.81 s** |
-| **D, after opening `Verify`** | **No change — no mono face exists** | **50.2 KB** | **0.27 s** |
-| For reference: a single-family design | Inter + Noto Devanagari | ~138 KB | 0.74 s |
-| For reference: a mono-forward design | IBM Plex Sans + Mono + Devanagari | ~200 KB | 1.07 s |
+| **D, resident read path, measured** | **Source Sans 3 (400+500) + Source Serif 4** | **50.2 KB** | **0.04 s** |
+| **D, after opening `Verify`** | **No change — no mono face exists** | **50.2 KB** | **0.04 s** |
+| For reference: a single-family design | Inter | ~36 KB | 0.03 s |
+| For reference: a mono-forward design | IBM Plex Sans + Mono | ~98 KB | 0.08 s |
+
+**At this throughput the font differences stop being a design argument.**
+The spread between the lightest and heaviest option above is ~50 ms, which
+no resident perceives. That is a reason to drop the serif on the grounds
+in `0007` — it looked generated — and not on the grounds of bytes; and it
+removes the payload objection to any future type decision. **The budget
+still holds**, because its ceilings are set against the measured baseline
+rather than against a transfer time: a careless import is a regression at
+10 Mbps exactly as it was at 1.5.
 
 **The submitted brand mark, unprepared, was 347 KB — larger than the entire
 font payload and ~1.9 s on its own.** That is the whole reason the hero is
@@ -502,15 +652,22 @@ in the same direction. The history, because the size of the error is the point:
 
 The estimates were wrong because they costed full character sets. The faces
 that ship are Latin subsets: `source-sans-3-latin-400` and `-500` at 15.3 KB
-each, `source-serif-4-latin-400` at 19.6 KB. Devanagari is the heavy pair
-(49.2 + 52.4 KB), which is exactly why it is lazy — `i18n.ts` imports
-`fonts.devanagari.css` only when the locale needs it, and a test suite in
-`src/styles/fonts.test.ts` fails if it ever reaches the default payload or a
-`preload`.
+each, `source-serif-4-latin-400` at 19.6 KB.
 
-**An English-reading resident downloads 50.2 KB of font, once.** That is the
-number this design should be judged on, and it is under a third of what this
-document claimed when the design was chosen.
+**Devanagari was the heavy pair (49.2 + 52.4 KB) and is now gone entirely**
+(2026-10-25). It was lazily loaded while Hindi and Marathi shipped; with the
+product on English only, both faces, `fonts.devanagari.css` and the Fontsource
+package were deleted rather than left unreachable. `src/styles/fonts.test.ts`
+still guards the budget, with the assertions re-aimed: no font stylesheet
+outside the Latin faces, **no woff2 in `public/fonts/` that no `@font-face`
+declares** (deleting a rule but leaving the bytes was the live risk), and no
+non-Latin family named in `--cf-sans` - a stack position for a face nothing
+loads silently renders the UI in a different font on any device that happens
+to have it installed.
+
+**A resident downloads 50.2 KB of font, once** - and now there is no other
+case, so this is the only figure. It is under a third of what this document
+claimed when the design was chosen.
 
 **The consequence is the finding that matters: the fingerprint idea costs the
 resident read path nothing.** The one asset it needs lives on a route most

@@ -1,0 +1,168 @@
+/*
+ * THE STITCH DESIGN SYSTEM, CARRIED VERBATIM.
+ *
+ * GENERATED from the `tailwind.config` object in the Stitch export
+ * (`clearfunds_public_resident_ledger/code.html`) by
+ * `scripts/gen-theme.mjs`. Every value below is that config's, not a
+ * reinterpretation: 47 colours, 9 spacing steps, 4 radii, 13 type
+ * steps with their line-heights, tracking and weights, 13 families.
+ *
+ * WHY GENERATED AND NOT THE CDN
+ *
+ * The export loads `cdn.tailwindcss.com`, which is a runtime JIT
+ * compiler: ~400 KB of JavaScript that reads the config at load and
+ * generates CSS in the browser. Three things rule it out, and none is
+ * a matter of taste.
+ *
+ *   1. The CSP has no `script-src` for it. It is blocked, and the
+ *      symptom is every screen rendering fully populated and
+ *      completely unstyled, with nothing in the terminal.
+ *   2. It alone is several times the entire first-paint budget.
+ *   3. It compiles on every page load, on the mid-range Android this
+ *      product targets.
+ *
+ * Tailwind v4 reads its theme from CSS, so the SAME config produces
+ * the SAME class names compiled at build time. `bg-surface-container-
+ * lowest`, `gap-space-xs`, `text-tabular-currency-lg` and
+ * `rounded-xl` all resolve exactly as they do in the export. The
+ * markup is copyable unchanged, which is the point.
+ *
+ * DO NOT HAND-EDIT. Re-run `npm run theme` against the export.
+ */
+
+@theme {
+  /* ---- colours: Stitch tailwind.config, verbatim ---- */
+  --color-background: #f8f9ff;
+  --color-error: #ba1a1a;
+  --color-error-container: #ffdad6;
+  --color-inverse-on-surface: #eaf1ff;
+  --color-inverse-primary: #bec6e0;
+  --color-inverse-surface: #213145;
+  --color-on-background: #0b1c30;
+  --color-on-error: #ffffff;
+  --color-on-error-container: #93000a;
+  --color-on-primary: #ffffff;
+  --color-on-primary-container: #7c839b;
+  --color-on-primary-fixed: #131b2e;
+  --color-on-primary-fixed-variant: #3f465c;
+  --color-on-secondary: #ffffff;
+  --color-on-secondary-container: #00714e;
+  --color-on-secondary-fixed: #002114;
+  --color-on-secondary-fixed-variant: #005137;
+  --color-on-surface: #0b1c30;
+  --color-on-surface-variant: #45464d;
+  --color-on-tertiary: #ffffff;
+  --color-on-tertiary-container: #c76c00;
+  --color-on-tertiary-fixed: #2f1500;
+  --color-on-tertiary-fixed-variant: #6e3900;
+  --color-outline: #76777d;
+  --color-outline-variant: #c6c6cd;
+  --color-primary: #000000;
+  --color-primary-container: #131b2e;
+  --color-primary-fixed: #dae2fd;
+  --color-primary-fixed-dim: #bec6e0;
+  --color-secondary: #006c4a;
+  --color-secondary-container: #82f5c1;
+  --color-secondary-fixed: #85f8c4;
+  --color-secondary-fixed-dim: #68dba9;
+  --color-surface: #f8f9ff;
+  --color-surface-bright: #f8f9ff;
+  --color-surface-container: #e5eeff;
+  --color-surface-container-high: #dce9ff;
+  --color-surface-container-highest: #d3e4fe;
+  --color-surface-container-low: #eff4ff;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-dim: #cbdbf5;
+  --color-surface-tint: #565e74;
+  --color-surface-variant: #d3e4fe;
+  --color-tertiary: #000000;
+  --color-tertiary-container: #2f1500;
+  --color-tertiary-fixed: #ffdcc3;
+  --color-tertiary-fixed-dim: #ffb77d;
+
+  /* ---- spacing ---- */
+  --spacing-space-lg: 1.25rem;
+  --spacing-space-md: 0.75rem;
+  --spacing-space-sm: 0.5rem;
+  --spacing-gutter: 1rem;
+  --spacing-gutter-lg: 1.5rem;
+  --spacing-margin: 1.5rem;
+  --spacing-space-xl: 2rem;
+  --spacing-margin-mobile: 1rem;
+  --spacing-space-xs: 0.25rem;
+
+  /* ---- radii ---- */
+  --radius: 0.125rem;
+  --radius-lg: 0.25rem;
+  --radius-xl: 0.5rem;
+  --radius-full: 0.75rem;
+
+  /* ---- type steps: size + line-height + tracking + weight ---- */
+  --text-label-code-md: 11px;
+  --text-label-code-md--line-height: 16px;
+  --text-label-code-md--letter-spacing: -0.01em;
+  --text-label-code-md--font-weight: 500;
+  --text-body-md: 13px;
+  --text-body-md--line-height: 20px;
+  --text-body-md--letter-spacing: 0em;
+  --text-body-md--font-weight: 400;
+  --text-label-code-sm: 10px;
+  --text-label-code-sm--line-height: 14px;
+  --text-label-code-sm--letter-spacing: 0em;
+  --text-label-code-sm--font-weight: 400;
+  --text-label-code-lg: 13px;
+  --text-label-code-lg--line-height: 18px;
+  --text-label-code-lg--letter-spacing: -0.02em;
+  --text-label-code-lg--font-weight: 500;
+  --text-headline-xl-mobile: 26px;
+  --text-headline-xl-mobile--line-height: 34px;
+  --text-headline-xl-mobile--letter-spacing: -0.015em;
+  --text-headline-xl-mobile--font-weight: 600;
+  --text-headline-lg: 24px;
+  --text-headline-lg--line-height: 32px;
+  --text-headline-lg--letter-spacing: -0.015em;
+  --text-headline-lg--font-weight: 600;
+  --text-headline-xl: 32px;
+  --text-headline-xl--line-height: 40px;
+  --text-headline-xl--letter-spacing: -0.02em;
+  --text-headline-xl--font-weight: 600;
+  --text-tabular-currency-lg: 20px;
+  --text-tabular-currency-lg--line-height: 28px;
+  --text-tabular-currency-lg--letter-spacing: -0.03em;
+  --text-tabular-currency-lg--font-weight: 600;
+  --text-tabular-currency-md: 13px;
+  --text-tabular-currency-md--line-height: 18px;
+  --text-tabular-currency-md--letter-spacing: -0.01em;
+  --text-tabular-currency-md--font-weight: 500;
+  --text-body-sm: 12px;
+  --text-body-sm--line-height: 18px;
+  --text-body-sm--letter-spacing: 0.005em;
+  --text-body-sm--font-weight: 400;
+  --text-headline-md: 18px;
+  --text-headline-md--line-height: 26px;
+  --text-headline-md--letter-spacing: -0.01em;
+  --text-headline-md--font-weight: 600;
+  --text-body-lg: 15px;
+  --text-body-lg--line-height: 24px;
+  --text-body-lg--letter-spacing: 0em;
+  --text-body-lg--font-weight: 400;
+  --text-headline-sm: 15px;
+  --text-headline-sm--line-height: 22px;
+  --text-headline-sm--letter-spacing: -0.005em;
+  --text-headline-sm--font-weight: 600;
+
+  /* ---- families ---- */
+  --font-label-code-md: 'JetBrains Mono', ui-monospace, 'Cascadia Mono', Menlo, Consolas, monospace;
+  --font-body-md: Inter, ui-sans-serif, system-ui, 'Segoe UI', Roboto, sans-serif;
+  --font-label-code-sm: 'JetBrains Mono', ui-monospace, 'Cascadia Mono', Menlo, Consolas, monospace;
+  --font-label-code-lg: 'JetBrains Mono', ui-monospace, 'Cascadia Mono', Menlo, Consolas, monospace;
+  --font-headline-xl-mobile: Inter, ui-sans-serif, system-ui, 'Segoe UI', Roboto, sans-serif;
+  --font-headline-lg: Inter, ui-sans-serif, system-ui, 'Segoe UI', Roboto, sans-serif;
+  --font-headline-xl: Inter, ui-sans-serif, system-ui, 'Segoe UI', Roboto, sans-serif;
+  --font-tabular-currency-lg: 'JetBrains Mono', ui-monospace, 'Cascadia Mono', Menlo, Consolas, monospace;
+  --font-tabular-currency-md: 'JetBrains Mono', ui-monospace, 'Cascadia Mono', Menlo, Consolas, monospace;
+  --font-body-sm: Inter, ui-sans-serif, system-ui, 'Segoe UI', Roboto, sans-serif;
+  --font-headline-md: Inter, ui-sans-serif, system-ui, 'Segoe UI', Roboto, sans-serif;
+  --font-body-lg: Inter, ui-sans-serif, system-ui, 'Segoe UI', Roboto, sans-serif;
+  --font-headline-sm: Inter, ui-sans-serif, system-ui, 'Segoe UI', Roboto, sans-serif;
+}

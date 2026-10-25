@@ -22,12 +22,7 @@ Source Sans 3 (source-sans-3-latin-400-normal.woff2,
 Source Serif 4 (source-serif-4-latin-400-normal.woff2)
     Google Inc.
 
-Noto Sans Devanagari (noto-sans-devanagari-devanagari-400-normal.woff2,
-                      noto-sans-devanagari-devanagari-500-normal.woff2)
-    Copyright 2022 The Noto Project Authors
-    (https://github.com/notofonts/devanagari)
-
-The licence text below is identical in all three upstream packages and is
+The licence text below is identical in both upstream packages and is
 reproduced verbatim from them.
 
 This Font Software is licensed under the SIL Open Font License, Version 1.1.

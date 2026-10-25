@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react'
  * READY MEANS THE SHELL AND THE LEDGER HEAD, NOTHING MORE. The
  * published-fingerprint check is a cross-origin fetch and the slowest
  * thing on the first screen; holding the whole app on it would mean a
- * resident on patchy 4G stares at the hero while their balance is
+ * resident on a slow connection stares at the hero while their balance is
  * already in hand. The fingerprint band owns its own pending state and
  * resolves independently.
  *

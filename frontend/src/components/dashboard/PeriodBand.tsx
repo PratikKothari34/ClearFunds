@@ -15,6 +15,15 @@ import type { DashboardData } from '../../lib/types'
  *
  * Labelled "Money in" / "Money out" rather than credit and debit.
  * The audience is a resident, not a bookkeeper.
+ *
+ * THE FIGURES SIT IN A COLUMN, right-aligned against the field's edge,
+ * with the label on the left. That is how an amount appears in the
+ * register this product replaces, and it is the arrangement that lets
+ * two figures be compared digit by digit - tabular figures only line up
+ * if the numbers share an edge. Side-by-side columns of
+ * label-above-figure looked like a stat row on any dashboard and put
+ * the two amounts at different horizontal positions, which is the one
+ * thing that makes them hard to compare.
  */
 
 export function PeriodBand({
@@ -47,23 +56,27 @@ export function PeriodBand({
     <Band heading={period.label} headingId="cf-band-period">
       {/*
        * A definition list, because these are label-value pairs and a
-       * screen reader then announces the pairing. Two columns at every
-       * width: at 320px the two amounts still fit side by side, and
-       * stacking them would make the comparison a scroll.
+       * screen reader then announces the pairing.
+       *
+       * One row per figure, label left and amount right, rather than the
+       * two side-by-side blocks this used to be. That earlier note said
+       * stacking would make the comparison a scroll; it would have, as
+       * two label-above-figure blocks, but a two-row grid costs about
+       * 24px and never scrolls. What it buys is the shared right edge -
+       * both amounts end at the same x, which is the only arrangement in
+       * which tabular figures actually line up digit against digit.
        */}
-      <dl className="flex gap-(--cf-s4)">
-        <div>
-          <dt className="text-meta text-ink-quiet">Money in</dt>
-          <dd className="m-0 mt-0.5">
-            <Amount value={period.inflow} direction="in" />
-          </dd>
-        </div>
-        <div>
-          <dt className="text-meta text-ink-quiet">Money out</dt>
-          <dd className="m-0 mt-0.5">
-            <Amount value={period.outflow} direction="out" />
-          </dd>
-        </div>
+      <dl className="m-0 grid grid-cols-[1fr_auto] gap-x-space-lg">
+        <dt className="text-on-surface-variant py-space-sm">Money in</dt>
+        <dd className="m-0 py-space-sm text-right">
+          <Amount value={period.inflow} direction="in" />
+        </dd>
+        <dt className="text-on-surface-variant py-space-sm border-t border-outline-variant">
+          Money out
+        </dt>
+        <dd className="m-0 py-space-sm text-right border-t border-outline-variant">
+          <Amount value={period.outflow} direction="out" />
+        </dd>
       </dl>
     </Band>
   )

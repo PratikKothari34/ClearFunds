@@ -101,7 +101,7 @@ function MyFlat() {
   if (!flat) {
     return (
       <Band>
-        <p className="m-0 text-ink-quiet max-w-[68ch]">
+        <p className="m-0 text-on-surface-variant max-w-[68ch]">
           No flat is linked to this account yet. Ask the society office to link
           it.
         </p>
@@ -112,25 +112,25 @@ function MyFlat() {
   return (
     <>
       <Band>
-        <p className="m-0 text-meta text-ink-quiet">Your flat</p>
-        <h2 className="font-serif text-head font-normal mt-(--cf-s1) mb-0 cf-tabular">
+        <p className="m-0 font-label-code-sm text-label-code-sm text-on-surface-variant">Your flat</p>
+        <h2 className="font-headline-md font-headline-md text-headline-md font-normal mt-space-sm mb-0 cf-tabular">
           {flat.flat}
         </h2>
       </Band>
 
       <Band heading="Maintenance" headingId="cf-myflat-dues">
-        <dl className="grid grid-cols-[auto_1fr] gap-x-(--cf-s3) gap-y-(--cf-s1) m-0">
-          <dt className="text-ink-quiet">Billed</dt>
+        <dl className="grid grid-cols-[auto_1fr] gap-x-space-lg gap-y-space-sm m-0">
+          <dt className="text-on-surface-variant">Billed</dt>
           <dd className="m-0">
             <Amount value={flat.billed} />
           </dd>
 
-          <dt className="text-ink-quiet">Paid</dt>
+          <dt className="text-on-surface-variant">Paid</dt>
           <dd className="m-0">
             <Amount value={flat.paid} />
           </dd>
 
-          <dt className="text-ink-quiet">Outstanding</dt>
+          <dt className="text-on-surface-variant">Outstanding</dt>
           <dd className="m-0">
             {/*
              * THREE WAYS, and the unreadable case shows no figure.
@@ -142,11 +142,11 @@ function MyFlat() {
              * here is worse than no amount.
              */}
             {isUnreadableAmount(flat.outstanding) ? (
-              <span className="text-break">
+              <span className="text-on-error-container">
                 Could not be read. Ask the treasurer before paying.
               </span>
             ) : isOutstanding(flat.outstanding) ? (
-              <span className="text-attention">
+              <span className="text-on-tertiary-fixed-variant">
                 <Amount value={flat.outstanding} />
               </span>
             ) : (
@@ -170,7 +170,7 @@ function MyFlat() {
           `/dues` makes the same promise from the same function, so the
           two pages cannot drift apart again.
         */}
-        <p className="mt-(--cf-s2) mb-0 text-meta text-ink-quiet max-w-[68ch]">
+        <p className="mt-space-md mb-0 font-label-code-sm text-label-code-sm text-on-surface-variant max-w-[68ch]">
           As of {formatDate(flat.asOf)}. Other residents cannot see this. Of
           the society&rsquo;s office-bearers, {duesVisibilitySentence()} can.
         </p>
@@ -178,12 +178,12 @@ function MyFlat() {
 
       <Band heading="Questions from this flat" headingId="cf-myflat-questions">
         {mine.length === 0 ? (
-          <p className="m-0 text-ink-quiet max-w-[68ch]">
+          <p className="m-0 text-on-surface-variant max-w-[68ch]">
             You have not asked about any entry yet. Open any entry in the
             history to ask about it.
           </p>
         ) : (
-          <ul className="list-none m-0 p-0 flex flex-col gap-(--cf-s3)">
+          <ul className="list-none m-0 p-0 flex flex-col gap-space-lg">
             {mine.map((item) => {
               // Resolved once into a local: see FlagHistory for why a
               // second call plus a cast is the thing to avoid.
@@ -191,17 +191,17 @@ function MyFlat() {
               return (
               <li
                 key={item.id}
-                className={`pl-(--cf-s2) border-l-2 ${
-                  answeredOn === null ? 'border-attention' : 'border-rule'
+                className={`pl-space-md border-l-2 ${
+                  answeredOn === null ? 'border-tertiary-fixed' : 'border-outline-variant'
                 }`}
               >
                 <p className="m-0 max-w-[68ch]">{item.question}</p>
                 {item.answer && (
-                  <p className="mt-(--cf-s1) mb-0 text-ink-quiet max-w-[68ch]">
+                  <p className="mt-space-sm mb-0 text-on-surface-variant max-w-[68ch]">
                     {item.answer}
                   </p>
                 )}
-                <p className="m-0 text-meta text-ink-quiet">
+                <p className="m-0 font-label-code-sm text-label-code-sm text-on-surface-variant">
                   {answeredOn !== null
                     ? `Answered ${formatDate(answeredOn)}`
                     : 'Not answered yet'}
@@ -209,7 +209,7 @@ function MyFlat() {
                   <Link
                     to="/ledger/$entryId"
                     params={{ entryId: item.entryId }}
-                    className="text-anchor underline decoration-1 underline-offset-2"
+                    className="text-on-primary-fixed-variant underline decoration-1 underline-offset-2"
                   >
                     See the entry
                   </Link>
