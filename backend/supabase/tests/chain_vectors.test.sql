@@ -1,0 +1,32 @@
+-- Generated from contracts/chain/vectors/entry-preimage.v1.json. The SQL
+-- encoder must reproduce every hash in it byte for byte.
+begin;
+select plan(26);
+select is(encode(cf.encode('absent', 'null'::jsonb),'hex'), '0000000000', 'primitive: absent');
+select is(encode(cf.encode('int', '0'::jsonb),'hex'), '01000000080000000000000000', 'primitive: int zero');
+select is(encode(cf.encode('int', '1'::jsonb),'hex'), '01000000080000000000000001', 'primitive: int one');
+select is(encode(cf.encode('int', '-1'::jsonb),'hex'), '0100000008ffffffffffffffff', 'primitive: int minus one');
+select is(encode(cf.encode('int', '125075'::jsonb),'hex'), '0100000008000000000001e893', 'primitive: int 125075 (₹1,250.75)');
+select is(encode(cf.encode('int', '9007199254740991'::jsonb),'hex'), '0100000008001fffffffffffff', 'primitive: int max');
+select is(encode(cf.encode('int', '-9007199254740991'::jsonb),'hex'), '0100000008ffe0000000000001', 'primitive: int min');
+select is(encode(cf.encode('text', '"INR"'::jsonb),'hex'), '0200000003494e52', 'primitive: text ascii');
+select is(encode(cf.encode('text', '""'::jsonb),'hex'), '0200000000', 'primitive: text empty');
+select is(encode(cf.encode('text', '"शुल्क"'::jsonb),'hex'), '020000000fe0a4b6e0a581e0a4b2e0a58de0a495', 'primitive: text devanagari');
+select is(encode(cf.encode('text', '"é"'::jsonb),'hex'), '0200000002c3a9', 'primitive: text precomposed é (NFC)');
+select is(encode(cf.encode('bytes', '"0000000000000000000000000000000000000000000000000000000000000000"'::jsonb),'hex'), '03000000200000000000000000000000000000000000000000000000000000000000000000', 'primitive: bytes 32 zero');
+select is(encode(cf.encode('bytes', '""'::jsonb),'hex'), '0300000000', 'primitive: bytes empty');
+select is(encode(cf.encode('bool', 'true'::jsonb),'hex'), '040000000101', 'primitive: bool true');
+select is(encode(cf.encode('bool', 'false'::jsonb),'hex'), '040000000100', 'primitive: bool false');
+select is(encode(cf.encode('list<int>', '[3, 1, 2]'::jsonb),'hex'), '0500000027010000000800000000000000030100000008000000000000000101000000080000000000000002', 'primitive: list of int [3,1,2]');
+select is(encode(cf.encode('list<int>', '[]'::jsonb),'hex'), '0500000000', 'primitive: list empty');
+select is(encode(cf.preimage('soc_7f3k9q',1,1,decode('0000000000000000000000000000000000000000000000000000000000000000','hex'),'test_vector',1793520000000,'adm_4b1c','{"amount_minor": 125075, "currency": "INR", "delta": -125075, "note": "रखरखाव शुल्क — अक्टूबर 2026", "empty_note": "", "optional": null, "flag": true, "ref_hash": "b081d5a69ee868dd0285cf25f877a1217a5eef422dd6c1ef52f68a72761399ba", "ids": [3, 1, 2], "none": []}'::jsonb),'hex'), '0200000016636c65617266756e64732f636861696e2d656e74727901000000080000000000000001020000000a736f635f3766336b39710100000008000000000000000103000000200000000000000000000000000000000000000000000000000000000000000000020000000b746573745f766563746f720100000008000001a1961f5c00020000000861646d5f3462316305000000ce0100000008000000000001e8930200000003494e520100000008fffffffffffe176d0200000041e0a4b0e0a496e0a4b0e0a496e0a4bee0a4b520e0a4b6e0a581e0a4b2e0a58de0a49520e2809420e0a485e0a495e0a58de0a49fe0a582e0a4ace0a4b02032303236020000000000000000000400000001010300000020b081d5a69ee868dd0285cf25f877a1217a5eef422dd6c1ef52f68a72761399ba05000000270100000008000000000000000301000000080000000000000001010000000800000000000000020500000000', 'preimage: single entry, every type populated');
+select is(encode(extensions.digest(cf.preimage('soc_7f3k9q',1,1,decode('0000000000000000000000000000000000000000000000000000000000000000','hex'),'test_vector',1793520000000,'adm_4b1c','{"amount_minor": 125075, "currency": "INR", "delta": -125075, "note": "रखरखाव शुल्क — अक्टूबर 2026", "empty_note": "", "optional": null, "flag": true, "ref_hash": "b081d5a69ee868dd0285cf25f877a1217a5eef422dd6c1ef52f68a72761399ba", "ids": [3, 1, 2], "none": []}'::jsonb),'sha256'),'hex'), 'f9548f3eac3a2a0219414f9dfb94776f6cafe446caa913389fcfe95aacb8bbcb', 'hash: single entry, every type populated');
+select is(encode(cf.preimage('soc_7f3k9q',1,2,decode('f9548f3eac3a2a0219414f9dfb94776f6cafe446caa913389fcfe95aacb8bbcb','hex'),'test_vector',1793520060000,null,'{"amount_minor": 9007199254740991, "currency": "INR", "delta": -1, "note": "Lift AMC – Q3", "empty_note": "", "optional": null, "flag": false, "ref_hash": "0000000000000000000000000000000000000000000000000000000000000000", "ids": [], "none": []}'::jsonb),'hex'), '0200000016636c65617266756e64732f636861696e2d656e74727901000000080000000000000001020000000a736f635f3766336b3971010000000800000000000000020300000020f9548f3eac3a2a0219414f9dfb94776f6cafe446caa913389fcfe95aacb8bbcb020000000b746573745f766563746f720100000008000001a196204660000000000005000000750100000008001fffffffffffff0200000003494e520100000008ffffffffffffffff020000000f4c69667420414d4320e28093205133020000000000000000000400000001000300000020000000000000000000000000000000000000000000000000000000000000000005000000000500000000', 'preimage: second entry, linked to the first; actor absent; int at the upper bound');
+select is(encode(extensions.digest(cf.preimage('soc_7f3k9q',1,2,decode('f9548f3eac3a2a0219414f9dfb94776f6cafe446caa913389fcfe95aacb8bbcb','hex'),'test_vector',1793520060000,null,'{"amount_minor": 9007199254740991, "currency": "INR", "delta": -1, "note": "Lift AMC – Q3", "empty_note": "", "optional": null, "flag": false, "ref_hash": "0000000000000000000000000000000000000000000000000000000000000000", "ids": [], "none": []}'::jsonb),'sha256'),'hex'), 'a415634efbabe6a5ff08504e19dca78bd7759ab322670924c84de38c84e771fd', 'hash: second entry, linked to the first; actor absent; int at the upper bound');
+select throws_ok($$select cf.encode('int','9007199254740992'::jsonb)$$, '22023', null, 'int above 2^53-1 is rejected');
+select throws_ok($$select cf.encode('bytes','"ABAB"'::jsonb)$$, '22023', null, 'uppercase hex is rejected');
+select throws_ok($$select cf.encode('int','1.5'::jsonb)$$, '22023', null, 'a fractional int is rejected');
+select throws_ok($$select cf.append((select id from public.societies limit 1),'test_vector',null,'{}')$$, null, null, 'test_vector may not enter a real chain');
+select is(normalize(E'Cafe\u0301', nfc), E'Caf\u00e9', 'NFC normalisation composes');
+select * from finish();
+rollback;
