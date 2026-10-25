@@ -135,7 +135,7 @@ function YearEnd() {
                   className="pl-space-md border-l-2 border-tertiary-fixed"
                 >
                   <p className="m-0">
-                    <Amount value={item.amount} /> — corrects {item.correctsYear}
+                    <Amount amount={item.amount} /> — corrects {item.correctsYear}
                   </p>
                   <p className="m-0 text-on-surface-variant max-w-[68ch]">
                     {item.reason}

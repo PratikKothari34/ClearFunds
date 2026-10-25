@@ -116,10 +116,10 @@ function EntryDetail() {
            */}
           {reversed ? (
             <Cancelled>
-              <Amount value={entry.amount} direction={entry.direction} />
+              <Amount amount={entry.amount} direction={entry.direction} />
             </Cancelled>
           ) : (
-            <Amount value={entry.amount} direction={entry.direction} />
+            <Amount amount={entry.amount} direction={entry.direction} />
           )}
         </p>
 
@@ -207,7 +207,7 @@ function EntryDetail() {
            */}
           <dd className="m-0">
             {/* No `direction`: a balance is a position, not a movement. */}
-            <Amount value={entry.balanceAfter} />
+            <Amount amount={entry.balanceAfter} />
           </dd>
         </dl>
       </Band>

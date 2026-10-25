@@ -77,7 +77,7 @@ export function ApprovalItem({ item }: { readonly item: PendingApproval }) {
               </span>
             </p>
           </div>
-          <Amount value={item.amount} direction={item.direction} />
+          <Amount amount={item.amount} direction={item.direction} />
         </div>
 
         <p className="mt-space-md mb-0 font-label-code-sm text-label-code-sm text-on-error-container max-w-[68ch]">
@@ -104,7 +104,7 @@ export function ApprovalItem({ item }: { readonly item: PendingApproval }) {
             <span className="whitespace-nowrap">{formatDate(item.raisedAt)}</span>
           </p>
         </div>
-        <Amount value={item.amount} direction={item.direction} />
+        <Amount amount={item.amount} direction={item.direction} />
       </div>
 
       {/*

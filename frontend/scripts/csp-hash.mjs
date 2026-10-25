@@ -1,48 +1,60 @@
 /*
- * Prints the CSP source value for every inline <script> in the built HTML.
+ * ASSERTS THAT index.html CONTAINS NO INLINE <script> AT ALL.
  *
- * The hash covers the exact bytes between the tags, so it must be taken
- * from dist/index.html after the build rather than from index.html in
- * source: if any tooling ever rewrites that block, the source hash would
- * be right and the shipped page would be blocked.
+ * This script used to print the SHA-256 of the one inline script, which ran
+ * before first paint to apply the stored dark/light theme. There is now a
+ * single light theme, so that script is gone and there is nothing to hash.
  *
- * Usage: npm run build && npm run csp-hash
+ * That is a STRONGER position, not a weaker one: a `script-src` with no
+ * 'sha256-...' entry permits strictly less than one with it, and the value
+ * can no longer drift out of sync with a backend that is not in this repo.
+ *
+ * So this check inverts. It fails if an inline script is ever reintroduced,
+ * because the deployed CSP has no hash for it - the browser would block it
+ * silently, nothing here would fail, and whatever it was doing before first
+ * paint would simply stop happening in production only.
+ *
+ *   npm run csp-hash            report the state, and print a hash if one
+ *                               is needed for the backend lane
+ *   npm run csp-hash -- --check the same, non-zero if an inline script exists
+ *
+ * If an inline script is genuinely needed again: run without --check, hand
+ * the printed value to the backend lane for `script-src`, and change this
+ * file back to recording and comparing that hash.
  */
 import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import { dirname, join } from 'node:path'
 
-const HTML = 'dist/index.html'
+const root = join(dirname(fileURLToPath(import.meta.url)), '..')
+const html = readFileSync(join(root, 'index.html'), 'utf8')
 
-let html
-try {
-  html = readFileSync(HTML, 'utf8')
-} catch {
-  console.error(`${HTML} not found. Run \`npm run build\` first.`)
-  process.exit(1)
-}
+/*
+ * Bare `<script>` only. The module script carries `type="module"` and `src`,
+ * so it cannot match, and in dev Vite stamps a `nonce` on an inline tag,
+ * which also stops it matching - correctly, since the nonce-bearing variant
+ * is not what production serves.
+ */
+const matches = [...html.matchAll(/<script>\n([\s\S]*?)<\/script>/g)]
 
-// Inline scripts only: a src= script is covered by its own URL, not a hash.
-const inline = [...html.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi)]
-
-if (inline.length === 0) {
-  console.log("No inline scripts. script-src does not need a hash.")
+if (matches.length === 0) {
+  console.log('csp-hash: no inline script in index.html, so no hash is needed.')
+  console.log("  script-src 'self'")
   process.exit(0)
 }
 
-console.log(`${inline.length} inline script(s) in ${HTML}:\n`)
-const sources = inline.map((m) => {
-  const digest = createHash('sha256').update(m[1], 'utf8').digest('base64')
-  return `'sha256-${digest}'`
-})
-for (const s of sources) console.log(`  ${s}`)
-
-console.log(`\nscript-src 'self' ${sources.join(' ')};`)
-
-if (inline.length > 1) {
-  console.error(
-    "\nWarning: the design allows exactly one inline script, the " +
-      'theme-before-paint block. More than one means something was ' +
-      'added or a tool injected code — check before shipping the hashes.',
-  )
-  process.exit(1)
+console.error(
+  `csp-hash: found ${matches.length} inline <script> in index.html, expected 0.\n` +
+    'The deployed CSP carries no script hash, so this is BLOCKED in production -\n' +
+    'silently, with nothing failing here and no message in the console.\n',
+)
+for (const [, body] of matches) {
+  const hash = `sha256-${createHash('sha256').update(body, 'utf8').digest('base64')}`
+  console.error(`  ${hash}`)
 }
+console.error(
+  '\nEither remove the inline script, or hand the hash above to the backend\n' +
+    'lane and change scripts/csp-hash.mjs back to recording and comparing it.',
+)
+process.exit(1)

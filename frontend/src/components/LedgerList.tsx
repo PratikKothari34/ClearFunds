@@ -1,167 +1,181 @@
+import type { ReactNode } from 'react'
 import { useRef } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { EntryRow } from './EntryRow'
-import type { Entry } from '../lib/types'
+import { LEDGER_GRID, LedgerRow } from './EntryRow'
+import { complaints, pair, type Entry } from '../lib/ledger'
 
-/**
- * The ledger, virtualized.
+/*
+ * TANSTACK VIRTUAL, NOT TANSTACK TABLE.
  *
- * Two things here are requirements rather than implementation choices.
+ * The ledger is not a grid. A reversed entry and its reversal render as one
+ * VARIABLE-HEIGHT item, never two rows, and that is a virtualizer's job - a
+ * table would have to be fought to do it.
  *
- * ONE ITEM PER ENTRY, NOT PER LINE. A reversed entry and its reversal
- * render inside a single EntryRow, so the virtualizer measures one
- * variable-height item. Were the pair two items, the virtualizer could
- * mount the struck-through amount and leave the reversal below the
- * window: a resident would see money cancelled with nothing saying why.
- *
- * MEASURED, NOT ESTIMATED. `estimateSize` is a first guess only;
- * `measureElement` replaces it with the real height once an item
- * mounts. Heights genuinely vary — a reversal reason is free text, a
- * payee wraps at 320px, a flag count adds a line — so a fixed row
- * height would overlap rows or leave gaps exactly on the rows that
- * matter most.
- *
- * The scroll container is the window, not an inner div. An inner
- * scroller on a phone fights the page scroll and traps the browser's
- * own overscroll gestures.
- *
- * `oxlint` warns `react(incompatible-library)` against useVirtualizer,
- * because it returns functions that React Compiler cannot safely
- * memoize. The warning is accepted, not worked around: the compiler is
- * not enabled on this project, and when it is, skipping memoization of
- * this one component is the correct outcome — the virtualizer's whole
- * job is to recompute on scroll. Do NOT "fix" this by wrapping
- * measureElement in useCallback: the function identity is what feeds
- * fresh measurements back, and a stale one silently freezes row
- * heights at their estimate, which is the bug this component exists to
- * avoid.
+ * Height is measured rather than estimated because the heights genuinely
+ * differ: a plain entry, an entry carrying a resident query, and a reversed
+ * pair holding two dated records plus a quoted reason are three different
+ * sizes. A fixed estimate would clip the reason, which is mandatory text.
  */
 
-/** A generous first guess. Measurement corrects it on mount. */
-const ESTIMATED_ROW_HEIGHT = 96
+const HEADERS = [
+  'Date / Entry',
+  'Status',
+  'Description',
+  'Voucher',
+  'Approval',
+  'Amount',
+  'Balance',
+  'Action',
+] as const
 
-/**
- * Below this, virtualization costs more than it saves: the measurement
- * pass and the absolute positioning buy nothing on a list that fits in
- * two screens, and plain DOM keeps find-in-page working.
- */
-export const VIRTUALIZE_THRESHOLD = 40
+export interface LedgerListProps {
+  entries: readonly Entry[]
+  /*
+   * What to say when there is nothing to show.
+   *
+   * ONLY THE CALLER KNOWS WHICH EMPTY THIS IS. "No entries yet" is a claim
+   * about the society - that no money has ever moved - and it is false on a
+   * filtered tab or a search that matched nothing, where the right sentence
+   * is that nothing MATCHED. `search.ts` rule 3 states the distinction; this
+   * prop is how the caller makes it, because the component is handed the
+   * filtered list and cannot tell the two apart.
+   *
+   * Omitted means the unfiltered ledger, so the default is the
+   * no-data sentence.
+   */
+  emptyMessage?: ReactNode
+}
 
-export function LedgerList({
-  entries,
-  emptyMessage = 'No entries yet. The first one will appear here.',
-}: {
-  readonly entries: readonly Entry[]
-  readonly emptyMessage?: string
-}) {
-  if (entries.length === 0) {
+export function LedgerList({ entries, emptyMessage }: LedgerListProps) {
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const rows = pair(entries)
+  const found = complaints(entries)
+
+  const virtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => scrollRef.current,
+    /* A plain row's height; every item is then measured for real. */
+    estimateSize: () => 96,
+    overscan: 6,
+  })
+
+  if (rows.length === 0) {
+    /* An empty screen states what to do, rather than just being blank. */
     return (
-      <p className="text-on-surface-variant max-w-[68ch] py-space-xl">{emptyMessage}</p>
+      <div className="rounded-xl bg-surface-container-lowest p-space-lg text-center shadow-sm">
+        {emptyMessage !== undefined ? (
+          <p className="font-body-md text-body-md text-on-surface">
+            {emptyMessage}
+          </p>
+        ) : (
+          <>
+            <p className="font-body-md text-body-md text-on-surface">
+              No entries yet.
+            </p>
+            <p className="mt-space-xs font-body-sm text-body-sm text-on-surface-variant">
+              Once the committee records its first entry, it appears here and
+              cannot be edited or removed.
+            </p>
+          </>
+        )}
+      </div>
     )
   }
 
-  if (entries.length < VIRTUALIZE_THRESHOLD) {
-    return <PlainList entries={entries} />
-  }
-
-  return <VirtualList entries={entries} />
-}
-
-function PlainList({ entries }: { readonly entries: readonly Entry[] }) {
-  /*
-   * A LIST, SO A SCREEN READER CAN SAY HOW LONG IT IS.
-   *
-   * Both paths were a bare `div` of rows, which announces neither
-   * "list of 40" nor "item 3 of 40". That matters more here than on an
-   * ordinary list: this is a financial history, and a resident who
-   * cannot tell whether they have reached the end cannot tell a short
-   * ledger from one that stopped loading.
-   *
-   * `role` rather than `<ul>` because `EntryRow` renders an
-   * `<article>`, and an `<li>` wrapper around it would add a node per
-   * row for no gain. The virtual path cannot use `<ul>` at all - its
-   * children are absolutely positioned - so both paths use the role
-   * and stay the same shape.
-   */
   return (
-    <div role="list" aria-label={`${entries.length} entries, newest first`}>
-      {entries.map((entry, index) => (
-        <div
-          key={entry.id}
-          role="listitem"
-          aria-setsize={entries.length}
-          aria-posinset={index + 1}
-        >
-          <EntryRow entry={entry} />
+    <section className="flex flex-col overflow-hidden rounded-xl bg-surface-container-lowest shadow-sm">
+      {found.length > 0 && (
+        /*
+         * The chain that arrived breaks a rule the server is supposed to
+         * enforce. Say so instead of rendering a plausible ledger on top of
+         * it - a resident cannot tell a contract breach from a correct
+         * ledger, and this is the one place that can.
+         */
+        <div className="border-b border-outline-variant bg-error-container/30 p-space-md">
+          <p className="font-body-md text-body-md font-semibold text-on-error-container">
+            This history does not follow the ledger&apos;s own rules.
+          </p>
+          <ul className="mt-space-xs flex flex-col gap-space-xs">
+            {found.map((c) => (
+              <li
+                key={`${c.entryId}-${c.problem}`}
+                className="font-body-sm text-body-sm text-on-surface"
+              >
+                Entry #{c.entryId}: {c.problem}.
+              </li>
+            ))}
+          </ul>
+          <p className="mt-space-xs font-body-sm text-body-sm text-on-surface-variant">
+            Report this to the committee. The entries below are shown exactly
+            as received.
+          </p>
         </div>
-      ))}
-    </div>
-  )
-}
+      )}
 
-function VirtualList({ entries }: { readonly entries: readonly Entry[] }) {
-  // The list's offset from the top of the document, so window-scroll
-  // virtualization knows where the list starts.
-  const listRef = useRef<HTMLDivElement>(null)
-
-  const virtualizer = useVirtualizer({
-    count: entries.length,
-    // Window scrolling: the page scrolls, not a nested div.
-    getScrollElement: () => (typeof window === 'undefined' ? null : document.documentElement),
-    estimateSize: () => ESTIMATED_ROW_HEIGHT,
-    // Keeps a few rows mounted past the viewport so a fast flick does
-    // not show blank space, and so find-in-page has something to hit
-    // just off-screen.
-    overscan: 8,
-    scrollMargin: listRef.current?.offsetTop ?? 0,
-  })
-
-  const items = virtualizer.getVirtualItems()
-
-  return (
-    <div
-      ref={listRef}
-      role="list"
-      /*
-       * THE TOTAL IS DECLARED, because the rows cannot carry it.
-       *
-       * Only the rows near the viewport are mounted, so the
-       * accessibility tree holds about a dozen of them whatever the
-       * ledger's length - a screen reader counting children would
-       * report "12 items" for 400 entries. `aria-setsize` on each row
-       * states the real total, and `aria-posinset` states where the
-       * mounted row actually sits, which is the documented remedy for
-       * a virtualized list and the only way the two agree.
-       */
-      aria-label={`${entries.length} entries, newest first`}
-      style={{ height: virtualizer.getTotalSize(), position: 'relative' }}
-    >
-      {items.map((item) => {
-        const entry = entries[item.index]
-        if (!entry) return null
-        return (
+      {/* The export's header row, same columns in the same order. */}
+      <div
+        className={`${LEDGER_GRID} border-b border-outline-variant bg-surface-container-low px-space-sm py-space-md font-label-code-sm text-label-code-sm uppercase tracking-wider text-outline`}
+        aria-hidden="true"
+      >
+        {HEADERS.map((h) => (
           <div
-            key={entry.id}
-            role="listitem"
-            aria-setsize={entries.length}
-            aria-posinset={item.index + 1}
-            // measureElement reads this node's real height and feeds it
-            // back, which is what makes a variable-height reversed pair
-            // position correctly.
-            ref={virtualizer.measureElement}
-            data-index={item.index}
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              width: '100%',
-              transform: `translateY(${item.start - virtualizer.options.scrollMargin}px)`,
-            }}
+            key={h}
+            className={
+              h === 'Amount' || h === 'Balance'
+                ? 'text-right'
+                : h === 'Action'
+                  ? 'text-center'
+                  : ''
+            }
           >
-            <EntryRow entry={entry} />
+            {h}
           </div>
-        )
-      })}
-    </div>
+        ))}
+      </div>
+
+      {/*
+       * The scrollbar is deliberately NOT hidden. The export sets
+       * `::-webkit-scrollbar { display: none }`; on a long ledger the
+       * scrollbar is the only signal of how much history exists, so hiding
+       * it loses information a resident uses.
+       */}
+      <div
+        ref={scrollRef}
+        className="max-h-[70vh] overflow-y-auto overflow-x-auto"
+        /*
+         * A list, not a table, because an item can contain two records.
+         * Named so a screen reader user knows what they have landed in.
+         */
+        role="list"
+        aria-label="Ledger entries, newest first"
+      >
+        <div
+          style={{ height: `${virtualizer.getTotalSize()}px` }}
+          className="relative w-full"
+        >
+          {virtualizer.getVirtualItems().map((item) => {
+            const row = rows[item.index]
+            if (row === undefined) return null
+            const key =
+              row.kind === 'reversedPair'
+                ? `pair-${row.reversal.id}`
+                : `entry-${row.entry.id}`
+            return (
+              <div
+                key={key}
+                role="listitem"
+                /* Measured, not estimated - see the header comment. */
+                ref={virtualizer.measureElement}
+                data-index={item.index}
+                className="absolute left-0 top-0 w-full"
+                style={{ transform: `translateY(${item.start}px)` }}
+              >
+                <LedgerRow row={row} />
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </section>
   )
 }

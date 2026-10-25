@@ -1,188 +1,271 @@
-import { Link } from '@tanstack/react-router'
 import { Amount } from './Amount'
-import { Cancelled } from './Cancelled'
-import type { Entry } from '../lib/types'
-import { formatDate } from '../lib/dates'
-import { isShowableCount } from '../lib/countable'
+import { Icon } from './Icon'
+import { formatPostedAt, type Entry, type Row } from '../lib/ledger'
 
-/**
- * One ledger row — and, when an entry has been reversed, ONE row
- * carrying both the entry and its reversal.
+/*
+ * THE LEDGER ROW.
  *
- * This is the most confusable surface in the product for a
- * non-technical resident, and the pairing is why. The two parts are
- * never two rows: the ledger is virtualized, and splitting a reversed
- * pair across a virtualization boundary shows a struck-through amount
- * whose reversal is off-screen. A resident then sees money cancelled
- * with no sign of the cancellation — the worst single rendering failure
- * available here. So the pair is one variable-height item.
+ * The export renders this as a <table> with eight columns. The columns and
+ * their order are kept exactly - Date/Entry, Status, Description, Voucher,
+ * Approval, Amount, Balance, Action - but they are laid out on a grid
+ * instead of table cells, because a reversed entry and its reversal must be
+ * ONE item of variable height. A table would have to be fought to let one
+ * logical row hold two dated records with their own amounts.
  *
- * Accessibility is load-bearing rather than decorative:
- *
- *   - CSS `line-through` is announced by NOTHING. A screen reader user
- *     would hear a cancelled payment read as a live one. So the amount
- *     is wrapped in <s> AND a visually-hidden "cancelled" exists in the
- *     accessibility tree.
- *   - Colour is never the only signal for direction. Amount carries a
- *     sign and an announced word.
- *
- * Type note: Source Sans 3 for both narration and amount, per the type
- * specification. Section 2 of the design says "serif for amounts and
- * narration" where it describes what was inherited from A; the type
- * table that follows assigns Source Serif 4 to band headings only and
- * names Source Sans 3 for both ledger amount and ledger narration. The
- * table is the specification, and tabular figures — which the ledger
- * requires without exception — are the reason.
+ * The grid template is shared with the header in LedgerList so the two stay
+ * aligned, which is the thing a table would have given for free.
  */
 
-export function EntryRow({ entry }: { readonly entry: Entry }) {
-  const reversed = entry.state === 'reversed'
+export const LEDGER_GRID =
+  'grid grid-cols-[7rem_7rem_minmax(12rem,1fr)_8rem_9rem_9rem_9rem_6rem] gap-space-md'
+
+/*
+ * Status, said in words a resident reads rather than a token name.
+ *
+ * `reversed` is deliberately "Cancelled" and not "Reversed": the audience is
+ * a non-technical resident, and the vocabulary stays the same everywhere -
+ * the entry says cancelled, the amount's hidden text says cancelled.
+ */
+const STATUS: Record<Entry['status'], { label: string; className: string }> = {
+  verified: {
+    label: 'Verified',
+    /*
+     * `secondary-fixed` is theme-invariant (#85f8c4 in both themes), so its
+     * partner MUST be the dark `on-secondary-fixed-variant` (#005137) and
+     * must not be flipped in dark. Flipping it to match its siblings puts
+     * this label at 1.00:1 against its own fill.
+     */
+    className: 'bg-secondary-fixed/40 text-on-secondary-fixed-variant',
+  },
+  pending: {
+    label: 'Awaiting approval',
+    className: 'bg-surface-container-high text-on-surface-variant',
+  },
+  reversed: {
+    label: 'Cancelled',
+    className: 'bg-surface-container-high text-on-surface-variant',
+  },
+  reversal: {
+    label: 'Correction',
+    className: 'bg-tertiary-fixed/40 text-on-tertiary-fixed-variant',
+  },
+}
+
+function StatusChip({ status }: { status: Entry['status'] }) {
+  const { label, className } = STATUS[status]
+  return (
+    <span
+      className={`inline-flex w-fit items-center rounded px-space-xs py-0.5 font-body-sm text-body-sm font-medium ${className}`}
+    >
+      {label}
+    </span>
+  )
+}
+
+function PostedAt({ entry }: { entry: Entry }) {
+  const when = formatPostedAt(entry.postedAt)
+  return (
+    <div className="flex flex-col">
+      <span className="cf-tabular font-label-code-md text-label-code-md font-semibold text-on-surface">
+        #{entry.id}
+      </span>
+      {when === null ? (
+        /* Said plainly rather than printing "Invalid Date" beside money. */
+        <span className="font-body-sm text-body-sm italic text-on-surface-variant">
+          Date could not be read
+        </span>
+      ) : (
+        <>
+          <span className="mt-0.5 font-body-sm text-body-sm text-outline">
+            {when.date}
+          </span>
+          <span className="cf-tabular font-label-code-sm text-label-code-sm text-outline">
+            {when.time}
+          </span>
+        </>
+      )}
+    </div>
+  )
+}
+
+function Voucher({ entry }: { entry: Entry }) {
+  if (entry.voucher === null) {
+    return (
+      <span className="font-body-sm text-body-sm text-on-surface-variant">
+        No voucher
+      </span>
+    )
+  }
+  return (
+    <span className="cf-tabular inline-flex w-fit items-center gap-1 rounded bg-surface-container px-space-xs py-1 font-label-code-sm text-label-code-sm text-on-surface">
+      {entry.voucher}
+    </span>
+  )
+}
+
+function FlagNote({ count }: { count: number }) {
+  if (count <= 0) return null
+  /*
+   * Only UNRESOLVED flags are counted. A resolved flag leaves this number
+   * and stays in the entry's append-only log: the log is the record, the
+   * count is a to-do list.
+   *
+   * A flag has NO financial effect - residents raise disputes, they do not
+   * move money - so this never implies the amount is wrong.
+   */
+  return (
+    <p className="mt-space-xs font-body-sm text-body-sm text-on-surface-variant">
+      <Icon name="audit" className="mr-1 inline size-3.5 align-[-2px]" />
+      {count === 1
+        ? '1 resident has queried this entry'
+        : `${count} residents have queried this entry`}
+    </p>
+  )
+}
+
+/* One ordinary entry: the export's eight columns, in its order. */
+function PlainRow({ entry, cancelled }: { entry: Entry; cancelled: boolean }) {
+  return (
+    <>
+      <div><PostedAt entry={entry} /></div>
+      <div><StatusChip status={entry.status} /></div>
+      <div className="min-w-0">
+        <p className="font-body-md text-body-md font-semibold text-on-surface">
+          {/*
+           * The DESCRIPTION is not struck through, only the amount is.
+           *
+           * Striking both was the first version and it was removed: a strike
+           * on prose conveys nothing to a screen reader, so it could only
+           * ever be guarded by asserting that an <s> element exists - a
+           * display guard answering an honesty question. Mutation-tested: a
+           * mutant that dropped the strike here passed every test, which is
+           * the signal that the guard was impossible rather than missing.
+           *
+           * What a resident actually needs is carried where it survives
+           * being read aloud: the amount says "(cancelled)", the status chip
+           * says "Cancelled", and the pair's own heading names the
+           * relationship.
+           */}
+          {entry.description}
+        </p>
+        <p className="font-body-sm text-body-sm text-outline">{entry.counterparty}</p>
+        <FlagNote count={entry.openFlags} />
+      </div>
+      <div><Voucher entry={entry} /></div>
+      <div>
+        <p className="font-body-sm text-body-sm font-medium text-on-surface">
+          {entry.approvalRoute}
+        </p>
+      </div>
+      <div className="text-right">
+        <Amount amount={entry.amount} cancelled={cancelled} />
+      </div>
+      <div className="text-right">
+        {/*
+         * A cancelled entry has no running balance of its own: it did not
+         * change the total. Showing one would invite a resident to subtract
+         * it twice. The reversal half of the pair carries the balance.
+         */}
+        {cancelled ? (
+          <span className="font-body-sm text-body-sm text-on-surface-variant">
+            No effect on balance
+          </span>
+        ) : (
+          <Amount amount={entry.balanceAfter} />
+        )}
+      </div>
+      <div className="text-center">
+        <span className="font-body-sm text-body-sm text-on-surface-variant">
+          {entry.status === 'pending' ? 'In approval' : 'Recorded'}
+        </span>
+      </div>
+    </>
+  )
+}
+
+/*
+ * A reversed entry WITH its reversal, as one item.
+ *
+ * This is the most confusable surface in the product for a non-technical
+ * resident: the running balance stays consistent while rows are on screen
+ * that do not contribute to it. So the item is explicit about all three
+ * facts rather than leaving them to be inferred from a strike-through:
+ *
+ *   - the original is cancelled, in words
+ *   - WHY, quoting the mandatory reason
+ *   - which entry cancelled it, by number
+ *
+ * The original is NOT hidden. Omitting it would conceal exactly what the
+ * chain exists to prove.
+ */
+function ReversedPairRow({
+  original,
+  reversal,
+}: {
+  original: Entry
+  reversal: Entry
+}) {
+  const reason = reversal.reversalReason?.trim()
 
   return (
-    <article
-      // Not a <tr>: the pair is one item of variable height, and a
-      // table row cannot contain a second row's worth of content
-      // without becoming two rows.
-      className="flex flex-col gap-space-sm py-space-md border-b border-outline-variant"
-      aria-labelledby={`cf-entry-${entry.id}-narration`}
-    >
-      <div className="flex items-baseline justify-between gap-space-md">
-        {/*
-         * min-w-0 lets the payee wrap. Without it the flex child
-         * refuses to shrink and the amount is pushed off a 320px
-         * screen.
-         */}
-        <div className="min-w-0">
-          <p
-            id={`cf-entry-${entry.id}-narration`}
-            className={`m-0 ${reversed ? 'text-on-surface-variant' : ''}`}
-          >
-            {reversed ? (
-              <Cancelled>{entry.narration}</Cancelled>
-            ) : (
-              entry.narration
-            )}
-          </p>
-          <p className="m-0 font-label-code-sm text-label-code-sm text-on-surface-variant">
-            {/*
-             * Payee wraps; the date does not. A wrapped date reads as
-             * two separate values.
-             */}
-            <span className="break-words">{entry.payee}</span>
-            {/*
-             * A rule, not a middle dot. Payee and date are two facts,
-             * and `A - B` joined with a dot reads as one string; the
-             * register separates columns with a line.
-             *
-             * The rule is aria-hidden, so it carries no word boundary
-             * and the visually-hidden comma supplies one - without it
-             * the payee ran straight into the date.
-             */}
-            <span className="cf-sr-only">, </span>
-            <span
-              aria-hidden="true"
-              className="inline-block mx-space-md border-l border-outline-variant h-[1em] align-[-0.15em]"
-            />
-            <span className="whitespace-nowrap">
-              {formatDate(entry.postedAt)}
-            </span>
-          </p>
-        </div>
+    <div className="flex flex-col gap-space-sm rounded-lg border-l-2 border-outline bg-surface-container-low/60 p-space-sm">
+      {/*
+       * Announced once, for the whole item, before either half is read out.
+       * A screen reader user otherwise meets two amounts with no statement
+       * of how they relate.
+       */}
+      <p className="font-body-sm text-body-sm font-semibold text-on-surface">
+        Cancelled entry and its correction
+      </p>
 
-        <div className={reversed ? 'text-on-surface-variant' : ''}>
-          {/*
-           * The amount carries the word too, not just the narration.
-           *
-           * This site had the `<s>` and NOT the visually-hidden word,
-           * while the header above said the amount carries both. A
-           * screen reader therefore announced "cancelled" once, for the
-           * narration, and then read the figure as a live one - the
-           * exact failure the header calls the worst available here.
-           * Sharing `Cancelled` is what stops the two halves drifting
-           * apart again.
-           */}
-          {reversed ? (
-            <Cancelled>
-              <Amount value={entry.amount} direction={entry.direction} />
-            </Cancelled>
-          ) : (
-            <Amount value={entry.amount} direction={entry.direction} />
-          )}
-        </div>
+      <div className={LEDGER_GRID}>
+        <PlainRow entry={original} cancelled />
       </div>
 
-      {/*
-       * The reversal, inside the same row item. Indented and in --break
-       * so the relationship is visible without a connecting line.
-       *
-       * Gated on `reversed` ALONE, not on `reversed && reversedBy`. The
-       * row is already struck through at this point, so gating the whole
-       * block on the link meant a reversed entry that arrived without one
-       * rendered as cancelled with NO reason and no explanation — the one
-       * thing a mandatory-reason rule exists to put on screen. The link
-       * and the date are what degrade when `reversedBy` is missing; the
-       * reason is not.
-       */}
-      {reversed && (
-        <p className="m-0 pl-space-md border-l-2 border-error-container font-label-code-sm text-label-code-sm text-on-error-container max-w-[68ch]">
-          {entry.reversedBy
-            ? `Cancelled on ${formatDate(entry.reversedBy.postedAt)}`
-            : 'Cancelled'}
-          {entry.reversalReason && <>: {entry.reversalReason}</>}
-          {entry.reversedBy && (
-            <>
-              {' '}
-              <Link
-                to="/ledger/$entryId"
-                params={{ entryId: entry.reversedBy.id }}
-                className="underline decoration-1 underline-offset-2"
-              >
-                See the correction
-              </Link>
-            </>
+      <div className="flex flex-col gap-space-xs border-t border-outline-variant pt-space-sm">
+        <p className="font-body-sm text-body-sm text-on-surface">
+          <span className="font-semibold">
+            Cancelled by entry #{reversal.id}.
+          </span>{' '}
+          {reason === undefined || reason.length === 0 ? (
+            /*
+             * The reason is mandatory, so its absence is a contract breach,
+             * not a blank field. Saying so is the honest render; an empty
+             * space would read as "no reason needed".
+             */
+            <span className="italic text-on-surface-variant">
+              No reason was recorded, which this ledger requires.
+            </span>
+          ) : (
+            <span className="text-on-surface-variant">{reason}</span>
           )}
         </p>
-      )}
+      </div>
 
-      {/*
-       * A reversal itself, pointing back at what it cancels. The
-       * original stays visible in the ledger and is marked reversed;
-       * nothing is ever edited or deleted.
-       */}
-      {entry.state === 'reversal' && entry.reverses && (
-        <p className="m-0 pl-space-md border-l-2 border-outline-variant font-label-code-sm text-label-code-sm text-on-surface-variant max-w-[68ch]">
-          Corrects an entry from {formatDate(entry.reverses.postedAt)}
-          {entry.reversalReason && <>: {entry.reversalReason}</>}
-          {' '}
-          <Link
-            to="/ledger/$entryId"
-            params={{ entryId: entry.reverses.id }}
-            className="underline decoration-1 underline-offset-2"
-          >
-            See the original
-          </Link>
-        </p>
-      )}
+      <div className={LEDGER_GRID}>
+        <PlainRow entry={reversal} cancelled={false} />
+      </div>
+    </div>
+  )
+}
 
-      {/*
-       * Only UNRESOLVED flags are counted here. A resolved flag leaves
-       * the count and stays in the entry's append-only log: the log is
-       * the record, the count is a to-do list.
-       *
-       * COUNTS QUESTIONS, NOT RESIDENTS. One resident may ask twice, so
-       * "2 residents have asked" was a claim about how many people are
-       * unhappy with this entry — derived from a number that does not
-       * carry it. On a surface where residents are anonymous to each
-       * other, overstating how many of them objected is the wrong
-       * direction to be wrong in.
-       */}
-      {isShowableCount(entry.openFlagCount) && (
-        <p className="m-0 font-label-code-sm text-label-code-sm text-on-surface-variant">
-          <span className="cf-tabular">{entry.openFlagCount}</span>{' '}
-          {entry.openFlagCount === 1 ? 'question has' : 'questions have'} been
-          asked about this entry
-        </p>
-      )}
-    </article>
+export function LedgerRow({ row }: { row: Row }) {
+  if (row.kind === 'reversedPair') {
+    return <ReversedPairRow original={row.original} reversal={row.reversal} />
+  }
+
+  const { entry } = row
+  /*
+   * An entry marked reversed whose reversal is not on this page: struck
+   * through, but with no reversal to link. Still shown.
+   */
+  const stranded = entry.status === 'reversed'
+
+  return (
+    <div
+      className={`${LEDGER_GRID} items-start border-b border-outline-variant px-space-sm py-space-md`}
+    >
+      <PlainRow entry={entry} cancelled={stranded} />
+    </div>
   )
 }

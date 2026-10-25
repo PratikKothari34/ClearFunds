@@ -69,13 +69,13 @@ export function PeriodBand({
       <dl className="m-0 grid grid-cols-[1fr_auto] gap-x-space-lg">
         <dt className="text-on-surface-variant py-space-sm">Money in</dt>
         <dd className="m-0 py-space-sm text-right">
-          <Amount value={period.inflow} direction="in" />
+          <Amount amount={period.inflow} direction="in" />
         </dd>
         <dt className="text-on-surface-variant py-space-sm border-t border-outline-variant">
           Money out
         </dt>
         <dd className="m-0 py-space-sm text-right border-t border-outline-variant">
-          <Amount value={period.outflow} direction="out" />
+          <Amount amount={period.outflow} direction="out" />
         </dd>
       </dl>
     </Band>

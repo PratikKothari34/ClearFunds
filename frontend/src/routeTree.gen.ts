@@ -11,11 +11,14 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApprovalsRouteImport } from './routes/approvals'
+import { Route as AuditRouteImport } from './routes/audit'
+import { Route as ChainRouteImport } from './routes/chain'
 import { Route as CommitteeRouteImport } from './routes/committee'
 import { Route as DisputesRouteImport } from './routes/disputes'
 import { Route as DuesRouteImport } from './routes/dues'
 import { Route as LedgerRouteImport } from './routes/ledger'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as MaintenanceRouteImport } from './routes/maintenance'
 import { Route as MyFlatRouteImport } from './routes/my-flat'
 import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as SignOffRouteImport } from './routes/sign-off'
@@ -34,6 +37,16 @@ const IndexRoute = IndexRouteImport.update({
 const ApprovalsRoute = ApprovalsRouteImport.update({
   id: '/approvals',
   path: '/approvals',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuditRoute = AuditRouteImport.update({
+  id: '/audit',
+  path: '/audit',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ChainRoute = ChainRouteImport.update({
+  id: '/chain',
+  path: '/chain',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CommitteeRoute = CommitteeRouteImport.update({
@@ -59,6 +72,11 @@ const LedgerRoute = LedgerRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MaintenanceRoute = MaintenanceRouteImport.update({
+  id: '/maintenance',
+  path: '/maintenance',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MyFlatRoute = MyFlatRouteImport.update({
@@ -110,11 +128,14 @@ const LedgerReversedRoute = LedgerReversedRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/approvals': typeof ApprovalsRoute
+  '/audit': typeof AuditRoute
+  '/chain': typeof ChainRoute
   '/committee': typeof CommitteeRoute
   '/disputes': typeof DisputesRoute
   '/dues': typeof DuesRoute
   '/ledger': typeof LedgerRouteWithChildren
   '/login': typeof LoginRoute
+  '/maintenance': typeof MaintenanceRoute
   '/my-flat': typeof MyFlatRoute
   '/reports': typeof ReportsRoute
   '/sign-off': typeof SignOffRoute
@@ -128,10 +149,13 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/approvals': typeof ApprovalsRoute
+  '/audit': typeof AuditRoute
+  '/chain': typeof ChainRoute
   '/committee': typeof CommitteeRoute
   '/disputes': typeof DisputesRoute
   '/dues': typeof DuesRoute
   '/login': typeof LoginRoute
+  '/maintenance': typeof MaintenanceRoute
   '/my-flat': typeof MyFlatRoute
   '/reports': typeof ReportsRoute
   '/sign-off': typeof SignOffRoute
@@ -146,11 +170,14 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/approvals': typeof ApprovalsRoute
+  '/audit': typeof AuditRoute
+  '/chain': typeof ChainRoute
   '/committee': typeof CommitteeRoute
   '/disputes': typeof DisputesRoute
   '/dues': typeof DuesRoute
   '/ledger': typeof LedgerRouteWithChildren
   '/login': typeof LoginRoute
+  '/maintenance': typeof MaintenanceRoute
   '/my-flat': typeof MyFlatRoute
   '/reports': typeof ReportsRoute
   '/sign-off': typeof SignOffRoute
@@ -166,11 +193,14 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/approvals'
+    | '/audit'
+    | '/chain'
     | '/committee'
     | '/disputes'
     | '/dues'
     | '/ledger'
     | '/login'
+    | '/maintenance'
     | '/my-flat'
     | '/reports'
     | '/sign-off'
@@ -184,10 +214,13 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/approvals'
+    | '/audit'
+    | '/chain'
     | '/committee'
     | '/disputes'
     | '/dues'
     | '/login'
+    | '/maintenance'
     | '/my-flat'
     | '/reports'
     | '/sign-off'
@@ -201,11 +234,14 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/approvals'
+    | '/audit'
+    | '/chain'
     | '/committee'
     | '/disputes'
     | '/dues'
     | '/ledger'
     | '/login'
+    | '/maintenance'
     | '/my-flat'
     | '/reports'
     | '/sign-off'
@@ -220,11 +256,14 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ApprovalsRoute: typeof ApprovalsRoute
+  AuditRoute: typeof AuditRoute
+  ChainRoute: typeof ChainRoute
   CommitteeRoute: typeof CommitteeRoute
   DisputesRoute: typeof DisputesRoute
   DuesRoute: typeof DuesRoute
   LedgerRoute: typeof LedgerRouteWithChildren
   LoginRoute: typeof LoginRoute
+  MaintenanceRoute: typeof MaintenanceRoute
   MyFlatRoute: typeof MyFlatRoute
   ReportsRoute: typeof ReportsRoute
   SignOffRoute: typeof SignOffRoute
@@ -246,6 +285,20 @@ declare module '@tanstack/react-router' {
       path: '/approvals'
       fullPath: '/approvals'
       preLoaderRoute: typeof ApprovalsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/audit': {
+      id: '/audit'
+      path: '/audit'
+      fullPath: '/audit'
+      preLoaderRoute: typeof AuditRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/chain': {
+      id: '/chain'
+      path: '/chain'
+      fullPath: '/chain'
+      preLoaderRoute: typeof ChainRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/committee': {
@@ -281,6 +334,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/maintenance': {
+      id: '/maintenance'
+      path: '/maintenance'
+      fullPath: '/maintenance'
+      preLoaderRoute: typeof MaintenanceRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/my-flat': {
@@ -369,11 +429,14 @@ const LedgerRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ApprovalsRoute: ApprovalsRoute,
+  AuditRoute: AuditRoute,
+  ChainRoute: ChainRoute,
   CommitteeRoute: CommitteeRoute,
   DisputesRoute: DisputesRoute,
   DuesRoute: DuesRoute,
   LedgerRoute: LedgerRouteWithChildren,
   LoginRoute: LoginRoute,
+  MaintenanceRoute: MaintenanceRoute,
   MyFlatRoute: MyFlatRoute,
   ReportsRoute: ReportsRoute,
   SignOffRoute: SignOffRoute,

@@ -1,103 +1,126 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { Band } from '../components/Band'
-import { ApprovalItem } from '../components/ApprovalItem'
-import { BandFallback } from '../components/BandFallback'
-import { devApprovals } from '../lib/devData'
-import { canSeeApprovalQueue } from '../lib/identity'
-import { useViewerRole } from '../lib/viewer'
+import {
+  AwaitingData,
+  PageHeader,
+  Panel,
+  ProofBand,
+  SplitLayout,
+  Toolbar,
+} from '../components/Page'
+import { ApprovalQueue } from '../components/ApprovalQueue'
+import { SAMPLE_APPROVALS, SAMPLE_DATA_ON } from '../lib/sample'
 
 export const Route = createFileRoute('/approvals')({
-  component: Approvals,
+  component: ApprovalsPage,
 })
 
-/**
- * Entries waiting on approval.
+/*
+ * THE APPROVAL DESK.
  *
- * The design rule that shapes this page: every item states WHY it needs
- * the approvals it needs, against the limit that was in force when it
- * was raised. An approval count with no explanation reads as an
- * arbitrary gate, and an admin who does not understand the gate treats
- * it as an obstacle instead of a safeguard.
+ * The export's skeleton is kept - a queue in the wide column, the rules in
+ * the rail. What is NOT kept is its signing panel: "Committee Passphrase /
+ * Hardware Key PIN", "Apple Secure Enclave", "Browser WebAuthn",
+ * "ECDSA secp256k1".
  *
- * The approval count and tier come from the server, snapshotted into
- * the chain when the entry was raised. They are never computed here,
- * and never read from live settings: a committee that could lower the
- * limit afterwards could retroactively legitimise an approval already
- * given.
- *
- * Each item renders through `ApprovalItem`, which is a COMPONENT
- * rather than a function in this file because the rule it carries -
- * that nothing may narrate an approval reduced to one person - has to
- * be testable, and `autoCodeSplitting` makes a route component
- * unrenderable in a test.
- *
- * What this page still owns: who may see the queue at all, and the
- * absent-versus-empty distinction below.
+ * Signing keys are SERVER-HELD. The frontend holds no key material and
+ * performs no signing. Device-held keys were rejected because key loss is
+ * realistic for volunteer committee members and every recovery story
+ * reintroduces a shared secret. A passphrase field here would be a lie
+ * about where the trust sits, and would train admins to type a credential
+ * into a page that has no use for one.
  */
-function Approvals() {
-  const role = useViewerRole()
-  const pending = devApprovals()
-
-  /*
-   * Checked before the list is read, because `nav.ts` omitting the
-   * item is COSMETIC by its own admission and a typed URL skips the
-   * menu. What this page puts on screen is every payee, narration and
-   * amount one signature short, the limit in force, and who raised it
-   * - the committee's working state, not the record.
-   */
-  if (!canSeeApprovalQueue(role)) {
-    return (
-      <Band>
-        <h2 className="font-headline-md font-headline-md text-headline-md font-normal mt-0 mb-space-sm">
-          The approval queue is not shown here
-        </h2>
-        <p className="m-0 text-on-surface-variant max-w-[68ch]">
-          Expenses waiting for approval are visible to the committee members
-          who approve them. Everything that has been approved is in the
-          ledger, with who approved it and when.
-        </p>
-      </Band>
-    )
-  }
-
-  /*
-   * ABSENT IS NOT EMPTY. "Nothing is waiting for approval." is a
-   * statement that the committee is clear — the single sentence a
-   * treasurer would act on by closing the page. A failed read must
-   * never produce it: an expense needing a signature would sit
-   * invisible while the product said there was nothing to do.
-   */
-  if (pending === null) {
-    return (
-      <BandFallback
-        heading="Pending approvals could not be loaded"
-        headingId="cf-approvals-absent"
-        explanation="This list did not load, so it is not shown. It does NOT mean nothing is waiting for approval — check again before assuming the committee is clear. Nothing has been approved or recorded."
-      />
-    )
-  }
-
+function ApprovalsPage() {
   return (
-    <>
-      <Band>
-        <h2 className="font-headline-md font-headline-md text-headline-md font-normal mt-0 mb-space-sm">
-          Waiting for approval
-        </h2>
-        <p className="m-0 text-on-surface-variant max-w-[68ch]">
-          Nothing is recorded in the ledger until it has the approvals it
-          needs. No single person can approve an expense alone.
-        </p>
-      </Band>
+    <div>
+      <PageHeader
+        group="Statutory Register"
+        page="Approval Desk"
+        tag="Bye-Law 142"
+        title="Approval Desk"
+        subtitle="Entries awaiting a second signature"
+        chips={[
+          {
+            label: 'Waiting',
+            value: SAMPLE_DATA_ON
+              ? String(SAMPLE_APPROVALS.length)
+              : 'Not loaded',
+          },
+          { label: 'Your signature needed', value: 'Not loaded' },
+        ]}
+      />
 
-      {pending.length === 0 ? (
-        <Band>
-          <p className="m-0 text-on-surface-variant max-w-[68ch]">
-            Nothing is waiting for approval.
-          </p>
-        </Band>
-      ) : (
-        pending.map((item) => <ApprovalItem key={item.id} item={item} />)
-      )}
-    </>
+      <ProofBand eyebrow="Who may approve">
+        <p className="font-headline-md text-headline-md text-on-primary">
+          No entry is approved by one person
+        </p>
+        <p className="font-body-sm text-body-sm leading-relaxed text-on-primary-container">
+          At or below the committee’s rupee limit an entry needs the treasurer and the secretary, both. Above it, and to change the limit itself, it needs at least two thirds of the committee, rounded up. The limit that applied when an entry was raised is the one it is checked against.
+        </p>
+      </ProofBand>
+
+      <Toolbar placeholder="Look up a pending entry by number, payee or amount" />
+
+      <SplitLayout
+        main={
+          <Panel title="Waiting for approval">
+            {SAMPLE_DATA_ON ? (
+              <ApprovalQueue approvals={SAMPLE_APPROVALS} />
+            ) : (
+              <AwaitingData
+                what="The approval queue is not connected yet."
+                contract="It will list each pending entry with its amount, who has already approved it, and how many more approvals its tier requires."
+              />
+            )}
+          </Panel>
+        }
+        rail={
+          <>
+            <Panel title="How many approvals an entry needs">
+              <dl className="flex flex-col gap-space-md">
+                <div>
+                  <dt className="font-body-md text-body-md font-semibold text-on-surface">
+                    At or below the committee&apos;s limit
+                  </dt>
+                  <dd className="mt-space-xs font-body-sm text-body-sm text-on-surface-variant">
+                    The treasurer <strong>and</strong> the secretary. Both, not
+                    either.
+                  </dd>
+                </div>
+                <div>
+                  <dt className="font-body-md text-body-md font-semibold text-on-surface">
+                    Above the limit
+                  </dt>
+                  <dd className="mt-space-xs font-body-sm text-body-sm text-on-surface-variant">
+                    At least two-thirds of the committee, rounded up. On a
+                    committee of thirteen that is nine. The same applies to
+                    changing the limit itself.
+                  </dd>
+                </div>
+                <div>
+                  <dt className="font-body-md text-body-md font-semibold text-on-surface">
+                    Cancelling an entry
+                  </dt>
+                  <dd className="mt-space-xs font-body-sm text-body-sm text-on-surface-variant">
+                    Needs at least as many approvals as the entry it cancels. A
+                    cancellation that was easier than the original would be a
+                    way around the limit.
+                  </dd>
+                </div>
+              </dl>
+            </Panel>
+
+            <Panel
+              title="Signing"
+              footnote="Your approval is signed on the server on your behalf. There is no key or passphrase to keep on this device, and nothing here will ever ask you for one."
+            >
+              <AwaitingData
+                what="Approving is not connected yet."
+                contract="Approval will be an authenticated request; the server signs and appends. The browser never holds key material."
+              />
+            </Panel>
+          </>
+        }
+      />
+    </div>
   )
 }

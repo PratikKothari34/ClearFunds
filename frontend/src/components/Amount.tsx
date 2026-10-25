@@ -1,57 +1,81 @@
-import { formatMoney } from '../lib/money'
-import type { Money } from '../lib/types'
+import { formatMoney, type Money } from '../lib/money'
 
-/**
- * A money figure.
+export interface AmountProps {
+  amount: Money | null | undefined
+  /*
+   * `strong` is the figure a resident is reading for - a row's own amount or
+   * a balance. `quiet` is a supporting figure inside a breakdown.
+   */
+  weight?: 'strong' | 'quiet'
+  /*
+   * Struck through, for the original half of a reversed pair. The strike is
+   * NEVER the only signal - the row also carries the word "cancelled".
+   */
+  cancelled?: boolean
+  className?: string
+}
+
+/*
+ * A money figure, and the three rules that govern every one in the product.
  *
- * Three things every amount in the product needs, in one place:
+ * 1. NO COLOUR-ONLY SIGNAL. A credit and an expense are told apart by the
+ *    sign that is already in the formatted string, not by green against red.
+ *    Roughly one man in twelve cannot separate those two hues, and this is a
+ *    figure someone acts on. Colour is used to make a sign easier to find
+ *    once you know what you are looking at, never to carry the meaning.
  *
- *   - `tabular-nums`, without exception. Proportional figures make a
- *     column of rupee amounts fail to align, which makes a correct
- *     ledger look wrong.
- *   - `whitespace-nowrap`. An amount broken across two lines is
- *     unreadable and, worse, briefly looks like a different number.
- *   - A direction that is never signalled by colour alone. `in` and
- *     `out` carry a sign and an announced word, so the information
- *     survives a colour-blind reader, a monochrome print and a
- *     screenshot.
+ * 2. NO ARITHMETIC. The sign arrives from the server inside `minor`. This
+ *    component does not negate, total, or compare - a silent wrong total is
+ *    worse than a crash, because nobody sees it.
+ *
+ * 3. AN UNREADABLE FIGURE SAYS SO. `formatMoney` returns null rather than
+ *    guessing, and this renders that as a visible sentence. A dash or a
+ *    "0.00" would be a claim - "this flat owes nothing" - made on data that
+ *    could not be read.
  */
-
 export function Amount({
-  value,
-  direction,
+  amount,
+  weight = 'strong',
+  cancelled = false,
   className = '',
-}: {
-  readonly value: Money
-  /** Omitted for a balance, which has no direction. */
-  readonly direction?: 'in' | 'out'
-  readonly className?: string
-}) {
-  const text = formatMoney(value)
+}: AmountProps) {
+  const text = amount ? formatMoney(amount) : null
 
-  const tone =
-    direction === 'in'
-      ? 'text-secondary'
-      : direction === 'out'
-        ? 'text-error'
-        : ''
+  if (text === null) {
+    return (
+      <span
+        className={`font-body-sm text-body-sm text-on-surface-variant italic ${className}`}
+      >
+        {/* Stated, never substituted with a dash or a zero. */}
+        Figure could not be read
+      </span>
+    )
+  }
 
-  return (
-    <span className={`cf-tabular whitespace-nowrap ${tone} ${className}`}>
-      {direction && (
-        <>
-          {/*
-           * The sign is the non-colour signal. It is aria-hidden and
-           * replaced by a word, because "minus" read before an amount
-           * is ambiguous about whether the society paid or was paid.
-           */}
-          <span aria-hidden="true">{direction === 'in' ? '+' : '-'}</span>
-          <span className="cf-sr-only">
-            {direction === 'in' ? 'received ' : 'paid '}
-          </span>
-        </>
-      )}
-      {text}
-    </span>
-  )
+  /*
+   * The 16px floor applies to `strong`, which is a figure acted on. It is
+   * NOT a performance setting and NOT a style preference: it is about
+   * reading a maintenance figure on a phone at arm's length. A faster phone
+   * and a faster network improve neither eyesight nor arm length.
+   */
+  const size =
+    weight === 'strong'
+      ? 'text-tabular-currency-md font-tabular-currency-md font-semibold'
+      : 'text-label-code-sm font-label-code-sm'
+
+  if (cancelled) {
+    return (
+      <span className={`cf-tabular ${size} ${className}`}>
+        <s className="text-on-surface-variant decoration-2">{text}</s>
+        {/*
+         * The strike-through is decoration and carries no meaning to a
+         * screen reader, so the word is supplied. Without it, a cancelled
+         * figure is read out as a live one.
+         */}
+        <span className="cf-sr-only"> (cancelled)</span>
+      </span>
+    )
+  }
+
+  return <span className={`cf-tabular ${size} text-on-surface ${className}`}>{text}</span>
 }

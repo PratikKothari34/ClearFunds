@@ -149,12 +149,12 @@ function PeriodSignoff({
         <dl className="grid grid-cols-[auto_1fr] gap-x-space-lg gap-y-space-sm m-0">
           <dt className="text-on-surface-variant">Money in</dt>
           <dd className="m-0">
-            <Amount value={period.inflow} direction="in" />
+            <Amount amount={period.inflow} direction="in" />
           </dd>
 
           <dt className="text-on-surface-variant">Money out</dt>
           <dd className="m-0">
-            <Amount value={period.outflow} direction="out" />
+            <Amount amount={period.outflow} direction="out" />
           </dd>
 
           <dt className="text-on-surface-variant">Entries</dt>

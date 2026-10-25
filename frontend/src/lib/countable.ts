@@ -1,3 +1,105 @@
+import type { Money } from './money'
+
+/*
+ * THE ONLY PLACE A RAW `.minor` IS READ TO MAKE A DECISION.
+ *
+ * HARD CONSTRAINT: no surface branches on a raw `.minor`. The reason is a
+ * real bug this file exists to prevent:
+ *
+ *   `NaN > 0` is false.
+ *
+ * So a flat whose arrears figure could not be read took the SAME BRANCH as a
+ * flat that had paid in full. The count of flats in arrears came out TOO LOW,
+ * which told a treasurer to stop chasing people who still owed money. No
+ * error, no warning, a plausible number.
+ *
+ * The fix is to partition THREE ways, never two. "Not positive" is not the
+ * same statement as "zero or negative", and the difference is the whole bug.
+ */
+
+/*
+ * `unreadable` is a first-class answer, not an error case. A surface that
+ * receives it must DISCLOSE it - "3 of 150 flats could not be read" - rather
+ * than folding it into either of the other two buckets.
+ */
+export type Countable =
+  | { readonly kind: 'positive'; readonly amount: Money }
+  | { readonly kind: 'zeroOrNegative'; readonly amount: Money }
+  | { readonly kind: 'unreadable'; readonly reason: string }
+
+export function classify(amount: Money | null | undefined): Countable {
+  if (amount === null || amount === undefined) {
+    return { kind: 'unreadable', reason: 'no amount was supplied' }
+  }
+  if (typeof amount.minor !== 'number' || !Number.isFinite(amount.minor)) {
+    /*
+     * Catches NaN and both Infinities. This is the branch the original bug
+     * fell through: without it, NaN reached the comparison below and silently
+     * answered "not positive".
+     */
+    return { kind: 'unreadable', reason: 'the amount is not a finite number' }
+  }
+  if (!Number.isInteger(amount.minor)) {
+    // A fractional minor unit means the ×100 input boundary was crossed wrongly.
+    return { kind: 'unreadable', reason: 'the amount is not a whole minor unit' }
+  }
+  if (typeof amount.currency !== 'string' || amount.currency.length !== 3) {
+    return { kind: 'unreadable', reason: 'the currency is missing or malformed' }
+  }
+
+  return amount.minor > 0
+    ? { kind: 'positive', amount }
+    : { kind: 'zeroOrNegative', amount }
+}
+
+/*
+ * A tally over a list, keeping the unreadable ones VISIBLE.
+ *
+ * `positive + zeroOrNegative` deliberately need not equal `total`. A caller
+ * that wants a denominator must use `total`, and a caller that reports
+ * "N flats in arrears" must also report `unreadable` when it is non-zero -
+ * otherwise it is making a completeness claim it cannot support.
+ *
+ * This is a COUNT of entries, not a sum of money. No amounts are added.
+ */
+export interface Tally {
+  readonly positive: number
+  readonly zeroOrNegative: number
+  readonly unreadable: number
+  readonly total: number
+}
+
+export function tally(amounts: readonly (Money | null | undefined)[]): Tally {
+  let positive = 0
+  let zeroOrNegative = 0
+  let unreadable = 0
+
+  for (const a of amounts) {
+    const c = classify(a)
+    if (c.kind === 'positive') positive += 1
+    else if (c.kind === 'zeroOrNegative') zeroOrNegative += 1
+    else unreadable += 1
+  }
+
+  return {
+    positive,
+    zeroOrNegative,
+    unreadable,
+    total: amounts.length,
+  }
+}
+
+/*
+ * ---------------------------------------------------------------------------
+ * COUNTS, WHICH ARE NOT AMOUNTS.
+ *
+ * `classify` above partitions a MONEY value. These three partition an integer
+ * COUNT - how many open questions sit against an entry. They are kept separate
+ * rather than folded into `classify` because a count has no currency and no
+ * sign convention, and because the two have different safe directions on junk,
+ * which is the distinction the rest of this section documents.
+ * ---------------------------------------------------------------------------
+ */
 /**
  * Whether a figure is one we are entitled to show.
  *
@@ -69,50 +171,4 @@ export function addableCount(count: unknown): number {
  */
 export function isUnreadableCount(count: unknown): boolean {
   return !Number.isInteger(count) || (count as number) < 0
-}
-
-/**
- * Whether an amount is unusable - absent, NaN, fractional, negative.
- *
- * THE SAME DISCIPLINE AS `isUnreadableCount`, APPLIED TO MONEY, which
- * had none. Every money comparison in the product was a bare
- * `amount.minor > 0`, and `NaN > 0` is false, so a flat whose
- * outstanding figure arrived unreadable dropped out of the arrears
- * list and the dues page then stated "4 of 96 flats have something
- * outstanding" - a count that is too LOW. Under-reporting arrears
- * tells a treasurer to stop chasing a debt that may exist, which is
- * the direction this product must never fail in.
- *
- * A fractional `minor` is unusable too, not merely odd: minor units
- * are an integer count by decision `0002`, so 1250.5 paise means the
- * figure was computed by something that divided when it should not
- * have - the exact arithmetic the frontend is forbidden to do.
- *
- * Negative is unusable rather than "money owed the other way": this
- * product's outstanding figures are magnitudes, and direction is a
- * separate field. A negative arrears figure is a wire error.
- *
- * ZERO IS NOT UNREADABLE. Zero outstanding is the answer "this flat
- * has paid", which is a fact and the commonest one. That is why this
- * is not `!isPayable(...)`.
- */
-export function isUnreadableAmount(amount: unknown): boolean {
-  if (typeof amount !== 'object' || amount === null) return true
-  const minor = (amount as { minor?: unknown }).minor
-  return !Number.isInteger(minor) || (minor as number) < 0
-}
-
-/**
- * Whether an amount is a figure we can state as outstanding.
- *
- * The display-side counterpart: strictly positive AND readable. A
- * surface that colours a row amber, or counts it as owing, asks this;
- * a surface deciding whether to warn asks `isUnreadableAmount` and
- * speaks up. Both are needed, because the two questions have
- * different right answers for junk - silence for a display, a warning
- * for a decision.
- */
-export function isOutstanding(amount: unknown): boolean {
-  if (isUnreadableAmount(amount)) return false
-  return ((amount as { minor: number }).minor) > 0
 }

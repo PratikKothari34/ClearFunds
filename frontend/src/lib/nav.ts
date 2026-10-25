@@ -29,8 +29,8 @@ export interface NavItem {
   readonly pinned?: boolean
 }
 
-const HOME: NavItem = { to: '/', label: 'Home', icon: 'home', pinned: true }
-const LEDGER: NavItem = { to: '/ledger', label: 'Ledger', icon: 'account_balance' }
+const HOME: NavItem = { to: '/', label: 'Home', icon: 'matrix', pinned: true }
+const LEDGER: NavItem = { to: '/ledger', label: 'Ledger', icon: 'bank' }
 /*
  * LABELLED IN THE WORDS THE PAGES USE.
  *
@@ -56,20 +56,20 @@ const DISPUTES: NavItem = {
 const APPROVALS: NavItem = {
   to: '/approvals',
   label: 'Approvals',
-  icon: 'check_circle',
+  icon: 'approvals',
   countable: true,
 }
-const REPORTS: NavItem = { to: '/reports', label: 'Reports', icon: 'description' }
-const DUES: NavItem = { to: '/dues', label: 'Dues', icon: 'grid_view' }
-const MY_FLAT: NavItem = { to: '/my-flat', label: 'My flat', icon: 'home' }
+const REPORTS: NavItem = { to: '/reports', label: 'Reports', icon: 'audit' }
+const DUES: NavItem = { to: '/dues', label: 'Dues', icon: 'ledger' }
+const MY_FLAT: NavItem = { to: '/my-flat', label: 'My flat', icon: 'matrix' }
 const SIGNOFF: NavItem = {
   to: '/sign-off',
   label: 'Sign-off',
-  icon: 'gavel',
+  icon: 'shield',
   countable: true,
   pinned: true,
 }
-const YEAR_END: NavItem = { to: '/year-end', label: 'Year-end', icon: 'schedule' }
+const YEAR_END: NavItem = { to: '/year-end', label: 'Year-end', icon: 'clock' }
 
 const BY_ROLE: Record<Role, readonly NavItem[]> = {
   // The resident keeps four items, so the surface this audience uses most

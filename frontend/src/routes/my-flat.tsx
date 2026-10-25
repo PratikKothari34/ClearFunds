@@ -1,6 +1,6 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { Amount } from '../components/Amount'
-import { isOutstanding, isUnreadableAmount } from '../lib/countable'
+import { classify } from '../lib/countable'
 import { Band } from '../components/Band'
 import { BandFallback } from '../components/BandFallback'
 import { duesVisibilitySentence, isFromFlat } from '../lib/identity'
@@ -122,12 +122,12 @@ function MyFlat() {
         <dl className="grid grid-cols-[auto_1fr] gap-x-space-lg gap-y-space-sm m-0">
           <dt className="text-on-surface-variant">Billed</dt>
           <dd className="m-0">
-            <Amount value={flat.billed} />
+            <Amount amount={flat.billed} />
           </dd>
 
           <dt className="text-on-surface-variant">Paid</dt>
           <dd className="m-0">
-            <Amount value={flat.paid} />
+            <Amount amount={flat.paid} />
           </dd>
 
           <dt className="text-on-surface-variant">Outstanding</dt>
@@ -141,16 +141,16 @@ function MyFlat() {
              * read, and one they may act on by paying. A wrong amount
              * here is worse than no amount.
              */}
-            {isUnreadableAmount(flat.outstanding) ? (
+            {classify(flat.outstanding).kind === 'unreadable' ? (
               <span className="text-on-error-container">
                 Could not be read. Ask the treasurer before paying.
               </span>
-            ) : isOutstanding(flat.outstanding) ? (
+            ) : classify(flat.outstanding).kind === 'positive' ? (
               <span className="text-on-tertiary-fixed-variant">
-                <Amount value={flat.outstanding} />
+                <Amount amount={flat.outstanding} />
               </span>
             ) : (
-              <Amount value={flat.outstanding} />
+              <Amount amount={flat.outstanding} />
             )}
           </dd>
         </dl>

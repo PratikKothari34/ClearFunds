@@ -1,121 +1,124 @@
-import type { ApprovalPolicy, CommitteeSeat } from '../lib/types'
-import { canReachQuorum, policyFault, signableSeats } from '../lib/quorum'
+import { formatMoney } from '../lib/money'
+import { formatPostedAt } from '../lib/ledger'
+import type { ReactNode } from 'react'
+import { SAMPLE_LIMIT, type SampleAdmin } from '../lib/sample'
 
-/**
- * The statutory committee roster and the threshold it answers to.
+/*
+ * THE COMMITTEE AND THE APPROVAL LIMIT.
  *
- * WHY THIS SURFACE EXISTS: the approval queue tells an admin that an
- * expense needs eight signatures. It does not tell them who the eight
- * could be, or that three seats currently cannot sign. A committee
- * that cannot reach its own threshold looks, from the queue alone,
- * exactly like a committee that simply has not got round to it.
+ * The export built this screen around device-held keys - "Apple Secure
+ * Enclave", "Browser WebAuthn", "Bound Public Key". None of it applies:
+ * keys are server-held, so there is nothing per-member to enrol, bind or
+ * lose, and no key column to show.
  *
- * SEATS, NOT PEOPLE. Every seat is listed including vacant ones,
- * because the denominator M is the statutory seat count and a
- * resignation does not lower it. Hiding empty seats would make the
- * roster look like the denominator, and a reader who counts the rows
- * would get the wrong M.
- *
- * Status is never carried by colour alone - each non-active seat
- * states its restriction in words.
+ * What IS shown is the pair of tiers and the floor under them, because the
+ * invariant worth displaying is that no single admin moves the ledger
+ * alone - the tier trades nine-of-thirteen for two-of-two, never for one.
  */
 export function CommitteeRoster({
-  roster,
-  policy,
+  members,
 }: {
-  readonly roster: readonly CommitteeSeat[]
-  readonly policy: ApprovalPolicy
+  members: readonly SampleAdmin[]
 }) {
-  const fault = policyFault(policy)
-
-  /*
-   * A FAULTED POLICY IS REPORTED, NEVER NARRATED. The figures below
-   * read "8 of 11 signatures" as though that were the society's rule.
-   * Printing a snapshot that claims less than two-thirds would be this
-   * page stating a threshold the society never agreed to - the same
-   * failure `approval.ts` exists to stop on the queue.
-   */
-  if (fault !== null) {
-    return (
-      <p className="m-0 font-label-code-sm text-label-code-sm text-on-error-container max-w-[68ch]">
-        The approval rule recorded for this committee does not match the
-        society&rsquo;s own minimum, so it is not shown here. Nothing is
-        wrong with the entries in the ledger; what cannot be relied on is
-        the rule this screen would otherwise state. Ask the committee to
-        check it.
-      </p>
-    )
-  }
-
-  const signable = signableSeats(roster)
-  const blocked = !canReachQuorum(roster, policy)
+  const reachable = members.filter((m) => m.active).length
 
   return (
-    <div>
-      <p className="m-0">
-        <span className="cf-tabular">{policy.quorumRequired}</span> of{' '}
-        <span className="cf-tabular">{policy.seats}</span> seats must approve
-        anything above the limit.
-      </p>
-      <p className="mt-space-sm mb-0 font-label-code-sm text-label-code-sm text-on-surface-variant max-w-[68ch]">
-        That is two-thirds of the committee, rounded up. It is a floor: the
-        committee can require more, never fewer.
+    <div className="flex flex-col gap-space-sm">
+      <p className="font-body-sm text-body-sm text-on-surface-variant">
+        {/*
+          Reachable, not "online". A member whose approval cannot currently
+          be obtained still holds their role; the count is about whether a
+          threshold can be met today, not about who is logged in.
+        */}
+        {reachable} of {members.length} can be reached for an approval today.
       </p>
 
-      {/*
-        THE BLOCKED CASE IS STATED FIRST AND PLAINLY. It is not an
-        empty queue and not a loading state — it is the committee
-        unable to act at all, which nothing else on this screen would
-        reveal.
-      */}
-      {blocked && (
-        <p className="mt-space-md mb-0 text-on-error-container max-w-[68ch]">
-          Only <span className="cf-tabular">{signable}</span>{' '}
-          {signable === 1 ? 'seat holds' : 'seats hold'} a key that can sign
-          right now, which is fewer than the{' '}
-          <span className="cf-tabular">{policy.quorumRequired}</span> needed.
-          Until that changes, no expense above the limit can be approved by
-          anyone.
-        </p>
-      )}
-
-      <ul className="list-none p-0 mt-space-lg mb-0">
-        {roster.map((s) => (
+      <ul className="flex flex-col divide-y divide-outline-variant">
+        {members.map((m) => (
           <li
-            key={s.seat}
-            className="flex items-baseline gap-space-md py-space-sm border-b border-outline-variant last:border-b-0"
+            key={m.name}
+            className="flex flex-wrap items-baseline justify-between gap-space-sm py-space-sm"
           >
-            <span className="cf-tabular font-label-code-sm text-label-code-sm text-on-surface-variant w-[2.5ch] shrink-0">
-              {s.seat}
+            <span className="font-body-md text-body-md text-on-surface">
+              {m.name}
             </span>
-            <span className="min-w-0 flex-1">
-              {/*
-                A vacant seat says so in the name position rather than
-                rendering an empty cell — an empty cell in a roster
-                reads as a row that failed to load.
-              */}
-              <span className={s.status === 'vacant' ? 'text-on-surface-variant' : ''}>
-                {s.holderHandle ?? 'Seat vacant'}
+            <span className="flex items-center gap-space-sm">
+              <span className="font-body-sm text-body-sm text-on-surface-variant">
+                {m.role}
               </span>
-              {s.office && (
-                <span className="font-label-code-sm text-label-code-sm text-on-surface-variant"> {s.office}</span>
-              )}
-              {s.status !== 'active' && (
-                <span className="block font-label-code-sm text-label-code-sm text-on-tertiary-fixed-variant">
-                  {/*
-                    Never colour alone: the reason is the signal, the
-                    colour only draws the eye to it.
-                  */}
-                  {s.restrictionReason ??
-                    (s.status === 'vacant'
-                      ? 'No sitting member. The seat still counts toward the total.'
-                      : 'Cannot sign at present.')}
+              {!m.active && (
+                <span className="rounded bg-surface-container px-space-xs py-[2px] font-body-sm text-body-sm text-on-surface">
+                  Cannot be reached
                 </span>
               )}
             </span>
           </li>
         ))}
       </ul>
+    </div>
+  )
+}
+
+export function LimitPanel({ limit }: { limit: typeof SAMPLE_LIMIT }) {
+  const amount = formatMoney(limit.limit)
+  const setAt = formatPostedAt(limit.setAt)
+
+  return (
+    <dl className="flex flex-col gap-space-sm">
+      <Row
+        term="The limit in force"
+        detail={
+          setAt === null
+            ? 'Recorded in the chain, so an approval can be checked against the limit that applied when it was made.'
+            : `Set on ${setAt.date} and recorded in the chain, so an approval can be checked against the limit that applied when it was made.`
+        }
+      >
+        {amount ?? 'Could not be read'}
+      </Row>
+
+      <Row
+        term="At or below the limit"
+        detail="The treasurer and the secretary, both. Two people, never one, whatever the limit is set to."
+      >
+        {/*
+          Spelled as "2 of 2" rather than a bare 2, so it reads the same
+          way as the tier below it and the pair is visibly a threshold.
+        */}
+        {limit.atOrBelowNeeds} of {limit.atOrBelowNeeds}
+      </Row>
+
+      <Row
+        term="Above the limit"
+        detail="At least two-thirds of the committee, rounded up. The committee can set it higher; it cannot set it lower, and changing the limit itself needs this same majority."
+      >
+        {limit.aboveNeeds} of {limit.committeeSize}
+      </Row>
+    </dl>
+  )
+}
+
+function Row({
+  term,
+  detail,
+  children,
+}: {
+  term: string
+  detail: string
+  children: ReactNode
+}) {
+  return (
+    <div className="flex flex-col gap-space-xs rounded bg-surface-container-low p-space-sm">
+      <div className="flex flex-wrap items-baseline justify-between gap-space-sm">
+        <dt className="font-body-md text-body-md font-semibold text-on-surface">
+          {term}
+        </dt>
+        <dd className="cf-tabular font-tabular-currency-md text-tabular-currency-md font-semibold text-on-surface">
+          {children}
+        </dd>
+      </div>
+      <p className="font-body-sm text-body-sm leading-relaxed text-on-surface-variant">
+        {detail}
+      </p>
     </div>
   )
 }

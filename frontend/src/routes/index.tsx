@@ -1,145 +1,148 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { BalanceBand } from '../components/dashboard/BalanceBand'
-import { AttentionBand } from '../components/dashboard/AttentionBand'
-import { PeriodBand } from '../components/dashboard/PeriodBand'
-import { RecentBand } from '../components/dashboard/RecentBand'
-import { useBandStates, type BandName } from '../lib/bands'
-import { devAnchor, devDashboard } from '../lib/devData'
-import { inChainOrder } from '../lib/ledger'
+import { LedgerList } from '../components/LedgerList'
+import {
+  AwaitingData,
+  PageHeader,
+  Panel,
+  ProofBand,
+  SplitLayout,
+  Toolbar,
+} from '../components/Page'
+import { formatPostedAt, type Entry } from '../lib/ledger'
+import { formatMoney } from '../lib/money'
+import {
+  SAMPLE_BALANCE,
+  SAMPLE_BALANCE_AS_AT,
+  SAMPLE_DATA_ON,
+  SAMPLE_ENTRIES,
+  SAMPLE_SOCIETY,
+} from '../lib/sample'
+
+/*
+ * The band copy, as constants rather than inline strings: the two cases
+ * share their second sentence, and a copy edit that updates one and not
+ * the other is the kind of drift nobody notices.
+ */
+const LEDGER_ORDER_BLURB =
+  'The ledger below shows every entry in the order it was made, including the ones that were later cancelled.'
+
+const SOCIETY_BALANCE_BLURB =
+  'The balance is computed on the server from the chained entries and shown here with the entry it last moved on. ' +
+  LEDGER_ORDER_BLURB
 
 export const Route = createFileRoute('/')({
-  component: Home,
+  component: LedgerPage,
 })
 
-/**
- * The home dashboard. Four blocks, fixed order, nothing collapses.
+/*
+ * THE GENERAL LEDGER - the resident read path, and the lightest route.
  *
- * It was five bands of identical weight - same padding, same heading
- * size, same two hairlines each - which put ten rules down a phone at
- * even spacing and gave the eye nowhere to land. Restructured
- * 2026-10-25 so the hierarchy answers the question a resident actually
- * arrives with:
+ * The list renders from whatever the server returns. While the backend
+ * lane is unbuilt it renders SAMPLE entries instead - self-evidently
+ * invented ones, under a banner that says so - because an empty ledger
+ * cannot be judged for density, column widths or whether a reversed pair
+ * reads correctly, and those are the things this screen has to get right.
  *
- *   1. The balance, WITH the published-record check attached to it
- *      under one hairline. One subject: a number, and the evidence for
- *      trusting it. This is the only block with the `primary` tone.
- *   2. What needs the viewer - the only block allowed to raise its
- *      voice, and it already owns the warning colour.
- *   3. This month.
- *   4. Recent entries.
- *
- * The order is the design and is not a layout preference: positions are
- * identical on every visit, so they are learnable and tap targets never
- * move. Block 2 reserves its slot even when empty, and the record check
- * never disappears because its absence would read as a pass.
- *
- * THE BANDS STILL FETCH INDEPENDENTLY, and merging two of them into
- * one block did NOT merge their states: 'fingerprint' remains its own
- * BandName with its own failed flag and its own retry, handed to the
- * balance block under anchor-prefixed props. The dashboard is not held
- * on the fingerprint fetch, which is cross-origin and the slowest thing
- * on the screen, and a balance that loaded renders whatever the anchor
- * did. Guarded by balanceProvenance.test.tsx, because the merge from
- * five bands to four passed 479 existing tests without one noticing. Each band owns its own failed state and its own retry, and a
- * failed band renders a retry rather than an empty slot — in this
- * design an empty slot carries meaning, so a silent failure would say
- * something untrue (see BandFallback).
- *
- * Independence is modelled HERE, not left until the endpoints arrive.
- * One shared `failed` flag would have been less code and would have
- * made every band fail together, which is the one behaviour the design
- * rules out; and a failure branch that nothing can reach is a branch
- * that is wrong by the time it is needed.
- *
- * Data is sample data until the endpoints exist. It lives in one module
- * so there is a single thing to delete at the cutover; each band's
- * `failed` prop is where its query's error state will be wired in.
+ * The record-check panel stays empty even so. Every other sample value
+ * announces itself as fake on sight; a 64-character hash cannot.
  */
-function Home() {
-  const data = devDashboard()
-  const band = useBandStates()
+function LedgerPage() {
+  const entries: readonly Entry[] = SAMPLE_DATA_ON ? SAMPLE_ENTRIES : []
+  const balance = SAMPLE_DATA_ON ? formatMoney(SAMPLE_BALANCE) : null
+  const movedOn = SAMPLE_DATA_ON ? formatPostedAt(SAMPLE_BALANCE_AS_AT) : null
 
   /*
-   * No data is the SAME state as a failed fetch, and routes through the
-   * same prop.
-   *
-   * `devDashboard()` returns null in a production build, because the
-   * fixture is not in that bundle and `DashboardData` has no honest
-   * empty value: every field is required, a zero balance is a financial
-   * claim, and an absent date is not a date. The design already settles
-   * what the screen does here - "a failed band renders a retry rather
-   * than an empty slot", because in this layout an empty slot carries
-   * meaning and would say something untrue.
-   *
-   * So absent data sets each band's existing `failed` prop instead of
-   * introducing a second not-yet-loaded state that renders differently.
-   * Two code paths for "this band has no figure to show" would drift,
-   * and the one that is harder to reach is the one that would be wrong.
+   * Spread rather than `subtitle={cond ? x : undefined}`: under
+   * `exactOptionalPropertyTypes` an absent prop and one explicitly set
+   * to undefined are different types, and the component asks for absent.
    */
-  const absent = data === null
-
-  // One helper per band rather than a loop: each band takes a
-  // different data shape, and the explicit list is what makes a
-  // forgotten band visible at a glance.
-  const props = (name: BandName) => ({
-    failed: absent || band.failed(name),
-    onRetry: () => band.retry(name),
-  })
-
-  /*
-   * The placeholders below are never READ when `absent` is true: each
-   * band renders its retry instead of its figures. They exist because
-   * the props are typed non-optional, and they are deliberately not
-   * plausible-looking - a zero balance that reached the screen would be
-   * a lie about the society's money, so if one of these ever becomes
-   * visible it must be obvious that the band is broken, not that the
-   * balance is nil.
-   */
-  const balance = data?.balance ?? { minor: 0, currency: 'INR' }
-  /*
-   * SORTED HERE TOO, by the same rule as the ledger tabs.
-   *
-   * This was `data?.recent ?? []` passed straight through, which made
-   * the band the one surface that trusted the server's array order.
-   * The reasoning in `inChainOrder` is not specific to the ledger page:
-   * these rows are read top to bottom as a sequence, so array order IS
-   * the claim being made, and nothing in the wire contract promises it.
-   * The fixture's own head is 847, 846, 845, 848 - the newest entry
-   * fourth - so the band was visibly wrong in the current build while
-   * every ledger tab beside it was right.
-   */
-  const recent = inChainOrder(data?.recent ?? [])
-
-  const period =
-    data?.period ?? {
-      label: '',
-      inflow: { minor: 0, currency: 'INR' },
-      outflow: { minor: 0, currency: 'INR' },
-    }
+  const subtitleProp = SAMPLE_DATA_ON
+    ? { subtitle: SAMPLE_SOCIETY + ' Ltd.' }
+    : {}
 
   return (
-    <>
-      {/*
-       * The balance and its provenance are ONE block, and the two
-       * still fetch and fail independently - 'fingerprint' remains its
-       * own BandName with its own failed state and its own retry,
-       * passed in under anchor-prefixed props. Merging the two states
-       * into one would make a reachable balance depend on a reachable
-       * anchor, which is exactly the coupling the band design exists
-       * to avoid.
-       */}
-      <BalanceBand
-        balance={balance}
-        asOf={data?.asOf ?? ''}
-        entryCount={data?.entryCount ?? 0}
-        anchor={devAnchor()}
-        anchorFailed={absent || band.failed('fingerprint')}
-        onAnchorRetry={() => band.retry('fingerprint')}
-        {...props('balance')}
+    <div>
+      <PageHeader
+        group="Statutory Register"
+        page="General Ledger"
+        tag="Maharashtra Co-Op Compliant"
+        title="General Ledger"
+        {...subtitleProp}
+        chips={[
+          {
+            label: 'Entries',
+            value: SAMPLE_DATA_ON ? String(entries.length) : 'Not loaded',
+          },
+          {
+            label: 'Running balance',
+            value: balance === null ? 'Not loaded' : balance,
+          },
+        ]}
       />
-      <AttentionBand items={data?.attention ?? []} {...props('attention')} />
-      <PeriodBand period={period} {...props('period')} />
-      <RecentBand entries={recent} {...props('recent')} />
-    </>
+
+      <ProofBand eyebrow="Society balance">
+        <p className="cf-tabular font-headline-md text-headline-md text-on-primary">
+          {balance === null ? 'Not loaded' : balance}
+        </p>
+        <p className="font-body-sm text-body-sm leading-relaxed text-on-primary-container">
+          {movedOn === null
+            ? SOCIETY_BALANCE_BLURB
+            : `Last moved on ${movedOn.date}. ` + LEDGER_ORDER_BLURB}
+        </p>
+      </ProofBand>
+
+      <Toolbar placeholder="Look up an entry by number, flat, payee or amount" />
+
+      <SplitLayout
+        main={<LedgerList entries={entries} />}
+        rail={
+          <>
+            <Panel title="Reading this ledger">
+              <dl className="flex flex-col gap-space-md">
+                <div>
+                  <dt className="font-body-md text-body-md font-semibold text-on-surface">
+                    Nothing is ever edited or deleted
+                  </dt>
+                  <dd className="mt-space-xs font-body-sm text-body-sm text-on-surface-variant">
+                    A mistake is corrected by adding a new entry that cancels
+                    the old one and says why. Both stay on the record, so you
+                    can see what changed and when.
+                  </dd>
+                </div>
+                <div>
+                  <dt className="font-body-md text-body-md font-semibold text-on-surface">
+                    A cancelled entry is shown struck through
+                  </dt>
+                  <dd className="mt-space-xs font-body-sm text-body-sm text-on-surface-variant">
+                    It no longer counts towards the balance. The entry that
+                    cancelled it sits directly beneath, with its reason.
+                  </dd>
+                </div>
+                <div>
+                  <dt className="font-body-md text-body-md font-semibold text-on-surface">
+                    You can query any entry
+                  </dt>
+                  <dd className="mt-space-xs font-body-sm text-body-sm text-on-surface-variant">
+                    Raising a query records it permanently against the entry.
+                    It does not change the amount - only the committee can
+                    cancel an entry, and never alone.
+                  </dd>
+                </div>
+              </dl>
+            </Panel>
+
+            <Panel
+              title="Record check"
+              footnote="Tamper-evident, not tamper-proof: this shows whether the record has been changed, which is a different claim from being impossible to change."
+            >
+              <AwaitingData
+                what="The published record check is not connected yet."
+                contract="It will compare this ledger against the fingerprint published outside the committee's control, and report the two dates it compared rather than a single status word."
+              />
+            </Panel>
+          </>
+        }
+      />
+    </div>
   )
 }

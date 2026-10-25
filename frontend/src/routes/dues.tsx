@@ -5,7 +5,7 @@ import { BandFallback } from '../components/BandFallback'
 import { devDues } from '../lib/devData'
 import { canSeeAllDues, duesVisibilitySentence } from '../lib/identity'
 import { useViewerRole } from '../lib/viewer'
-import { isOutstanding, isUnreadableAmount } from '../lib/countable'
+import { classify } from '../lib/countable'
 import { Link } from '@tanstack/react-router'
 
 export const Route = createFileRoute('/dues')({
@@ -80,8 +80,12 @@ function Dues() {
    * figures that ARE readable still show: losing one flat's figure is
    * not a reason to withhold the other ninety-five.
    */
-  const owing = rows.filter((r) => isOutstanding(r.outstanding))
-  const unreadable = rows.filter((r) => isUnreadableAmount(r.outstanding))
+  const owing = rows.filter(
+    (r) => classify(r.outstanding).kind === 'positive',
+  )
+  const unreadable = rows.filter(
+    (r) => classify(r.outstanding).kind === 'unreadable',
+  )
 
   /*
    * Checked before any row is read, so a resident never reaches the
@@ -204,13 +208,13 @@ function Dues() {
                     {row.flat}
                   </th>
                   <td className="py-space-md pr-space-lg text-right">
-                    <Amount value={row.billed} />
+                    <Amount amount={row.billed} />
                   </td>
                   <td className="py-space-md pr-space-lg text-right">
-                    <Amount value={row.paid} />
+                    <Amount amount={row.paid} />
                   </td>
                   <td className="py-space-md text-right">
-                    {isUnreadableAmount(row.outstanding) ? (
+                    {classify(row.outstanding).kind === 'unreadable' ? (
                       /*
                        * --break, not --attention: this row is a fault
                        * in the record, not a flat that is behind. The
@@ -219,16 +223,16 @@ function Dues() {
                        * resident cannot tell which of the two it is.
                        */
                       <span className="text-on-error-container">Could not be read</span>
-                    ) : isOutstanding(row.outstanding) ? (
+                    ) : classify(row.outstanding).kind === 'positive' ? (
                       // --attention, not --break. Being behind on
                       // maintenance is something to chase, not a fault
                       // in the record.
                       <span className="text-on-tertiary-fixed-variant">
-                        <Amount value={row.outstanding} />
+                        <Amount amount={row.outstanding} />
                       </span>
                     ) : (
                       <span className="text-on-surface-variant">
-                        <Amount value={row.outstanding} />
+                        <Amount amount={row.outstanding} />
                       </span>
                     )}
                   </td>

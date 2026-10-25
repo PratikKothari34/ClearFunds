@@ -135,7 +135,7 @@ export function BalanceBand({
        */}
       <h2 className="font-tabular-currency-lg text-tabular-currency-lg font-medium leading-none m-0">
         <span className="cf-sr-only">Money the society holds: </span>
-        <Amount value={balance} />
+        <Amount amount={balance} />
       </h2>
       <p className="font-label-code-sm text-label-code-sm text-on-surface-variant mt-space-md">
         as of {formatDate(asOf)}

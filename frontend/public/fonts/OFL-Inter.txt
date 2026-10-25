@@ -1,29 +1,4 @@
-SIL Open Font License, Version 1.1
-==================================
-
-This file is the license and copyright notice required by OFL-1.1 clause 2
-for the font binaries redistributed in this directory. It is NOT the licence
-of ClearFunds itself - the project is GPL-3.0-or-later, see /LICENSE at the
-repository root. The two coexist: the fonts are an aggregate, separately
-licensed work shipped alongside the application.
-
-The five .woff2 files here are byte-for-byte copies of the files published in
-the @fontsource packages named in frontend/package.json. Nothing has been
-modified, and no font here declares a Reserved Font Name, so no renaming
-obligation arises.
-
-COPYRIGHT HOLDERS
------------------
-
-Source Sans 3 (source-sans-3-latin-400-normal.woff2,
-               source-sans-3-latin-500-normal.woff2)
-    Google Inc.
-
-Source Serif 4 (source-serif-4-latin-400-normal.woff2)
-    Google Inc.
-
-The licence text below is identical in both upstream packages and is
-reproduced verbatim from them.
+Copyright 2016 The Inter Project Authors (https://github.com/rsms/inter) Inter-Italic[opsz,wght].ttf: Copyright 2016 The Inter Project Authors (https://github.com/rsms/inter)
 
 This Font Software is licensed under the SIL Open Font License, Version 1.1.
 This license is copied below, and is also available with a FAQ at:

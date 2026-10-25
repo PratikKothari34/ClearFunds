@@ -101,7 +101,7 @@ export function AttentionBand({
                   className="flex items-baseline justify-between gap-space-md min-h-11 text-on-tertiary-fixed-variant underline decoration-1 underline-offset-2"
                 >
                   <span className="max-w-[68ch]">{item.label}</span>
-                  {item.amount && <Amount value={item.amount} />}
+                  {item.amount && <Amount amount={item.amount} />}
                 </Link>
               </li>
             ))}
