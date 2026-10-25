@@ -1,247 +1,115 @@
-import { createFileRoute } from '@tanstack/react-router'
-import { Amount } from '../components/Amount'
-import { Band } from '../components/Band'
-import { BandFallback } from '../components/BandFallback'
-import { devDues } from '../lib/devData'
-import { canSeeAllDues, duesVisibilitySentence } from '../lib/identity'
-import { useViewerRole } from '../lib/viewer'
-import { classify } from '../lib/countable'
-import { Link } from '@tanstack/react-router'
+import { useMemo, useState } from 'react'
+import { createFileRoute, Link } from '@tanstack/react-router'
+import { Check, Receipt } from 'lucide-react'
+import { useDues, useLedger, useSummary } from '../lib/api'
+import { useMeStrict, isCommittee } from '../lib/session'
+import { day, plural } from '../lib/format'
+import { parts, toInput } from '../lib/money'
+import { Amount, Button, Card, Failed, Loading, PageTitle, Segmented, Sheet, cx } from '../components/ui'
+import type { DuesRow } from '../lib/types'
 
-export const Route = createFileRoute('/dues')({
-  component: Dues,
-})
+export const Route = createFileRoute('/dues')({ component: Dues })
 
-/**
- * Maintenance dues by flat. Treasurer and secretary only.
- *
- * This is the one surface in the product where a resident's flat sits
- * next to a number they would not want published, so it is never part
- * of a resident payload at all — not hidden, absent. Residents see
- * their own position on their own flat page.
- *
- * THE ROLE CHECK IS NOT DECORATION. This page carried the sentence
- * "Residents see only their own flat" while having no check at all:
- * viewing it as a resident rendered every flat's arrears under a line
- * promising the opposite. `nav.ts` filters the menu, and says in its
- * own header that its filtering is cosmetic and nothing in it is a
- * permission check — a URL typed by hand skips the menu entirely.
- *
- * The client check is depth. The server must refuse the payload: a
- * resident who edits their own bundle still must not be able to make
- * the table arrive.
- *
- * A real table here, unlike the ledger: the rows are homogeneous, short
- * and compared column against column, which is exactly what a table is
- * for. The ledger is not that, which is why it is not one.
- *
- * Every figure is the server's. Outstanding is NOT billed minus paid
- * computed here — part payments, waivers and interest make that
- * subtraction wrong, and a wrong figure against a neighbour's flat
- * number is the worst kind to get wrong.
- */
 function Dues() {
-  const role = useViewerRole()
-  const rows = devDues()
-
-  /*
-   * Absent, not empty. An empty dues table means every flat has paid
-   * — the figure a treasurer chases arrears from. A failed read
-   * showing it would have the treasurer stop chasing.
-   *
-   * Checked AFTER the role gate below in intent but before any row is
-   * read, so the order here is: no data, then not permitted. Both
-   * return before the table is built.
-   */
-  if (rows === null) {
-    return (
-      <BandFallback
-        heading="Dues could not be loaded"
-        headingId="cf-dues-absent"
-        explanation="The by-flat dues did not load, so no figures are shown. This is NOT a statement that every flat has paid. Nothing has been recorded or marked paid."
-      />
-    )
-  }
-
-  /*
-   * PARTITIONED THREE WAYS, because `minor > 0` has two false answers
-   * and only one of them is "has paid".
-   *
-   * `NaN > 0` is false, so a flat whose outstanding figure arrived
-   * unreadable fell into the same bucket as a flat that has paid, and
-   * the sentence below then stated a LOWER arrears count than the
-   * truth. This file's own fallback comment above names that harm for
-   * the whole-table case - "a failed read showing it would have the
-   * treasurer stop chasing" - and the per-row case is the same harm at
-   * a smaller scale, which is worse for being plausible: 4 of 96 reads
-   * like a well-run society.
-   *
-   * So the unreadable rows are counted separately and disclosed. The
-   * figures that ARE readable still show: losing one flat's figure is
-   * not a reason to withhold the other ninety-five.
-   */
-  const owing = rows.filter(
-    (r) => classify(r.outstanding).kind === 'positive',
-  )
-  const unreadable = rows.filter(
-    (r) => classify(r.outstanding).kind === 'unreadable',
-  )
-
-  /*
-   * Checked before any row is read, so a resident never reaches the
-   * table-building code at all. Points at their own flat rather than
-   * reading as a dead end: the figure they actually want is one tap
-   * away, and a bare "not allowed" invites them to ask an admin to
-   * screenshot it.
-   */
-  if (!canSeeAllDues(role)) {
-    return (
-      <Band>
-        <h2 className="font-headline-md font-headline-md text-headline-md font-normal mt-0 mb-space-sm">
-          Dues by flat are not shown here
-        </h2>
-        <p className="m-0 text-on-surface-variant max-w-[68ch]">
-          What each flat owes is visible only to {duesVisibilitySentence()},
-          who collect it. Your own flat&rsquo;s position is on{' '}
-          <Link to="/my-flat" className="underline">
-            your flat page
-          </Link>
-          {'.'}
-        </p>
-      </Band>
-    )
-  }
+  const me = useMeStrict()
+  const dues = useDues()
+  const summary = useSummary()
+  const [show, setShow] = useState<'all' | 'owing'>('all')
+  const [open, setOpen] = useState<DuesRow | null>(null)
+  const wings = useMemo(() => {
+    const m = new Map<string, DuesRow[]>()
+    for (const d of dues.data ?? []) {
+      if (show === 'owing' && d.outstanding_minor <= 0) continue
+      const w = d.label.split('-')[0]!
+      m.set(w, [...(m.get(w) ?? []), d])
+    }
+    return [...m.entries()]
+  }, [dues.data, show])
 
   return (
-    <>
-      <Band>
-        <h2 className="font-headline-md font-headline-md text-headline-md font-normal mt-0 mb-space-sm">
-          Maintenance dues
-        </h2>
-        <p className="m-0 text-on-surface-variant max-w-[68ch]">
-          <span className="cf-tabular">{owing.length}</span> of{' '}
-          <span className="cf-tabular">{rows.length}</span>{' '}
-          {rows.length === 1 ? 'flat has' : 'flats have'} something
-          outstanding. Residents see only their own flat.
-        </p>
-        {/*
-         * THE GAP IS NAMED, not folded into either side of the count.
-         *
-         * Without this the sentence above is a claim the data does not
-         * support. Said plainly and without a number dressed up as a
-         * total, so a treasurer knows the figure is a floor rather
-         * than the answer.
-         */}
-        {unreadable.length > 0 && (
-          <p className="mt-space-md mb-0 font-label-code-sm text-label-code-sm text-on-error-container max-w-[68ch]">
-            <span className="cf-tabular">{unreadable.length}</span>{' '}
-            {unreadable.length === 1 ? 'flat' : 'flats'} could not be read, so
-            the count above is the least it could be, not the whole picture.
-            Those {unreadable.length === 1 ? 'row is' : 'rows are'} marked
-            below.
-          </p>
-        )}
-      </Band>
+    <div>
+      <PageTitle title="Dues" sub="Charged to each flat, against what each flat has paid."
+        action={isCommittee(me) && <Link to="/new" search={{ kind: 'charge' }}><Button tone="primary" icon={<Receipt className="size-4" />}>Bill flats</Button></Link>} />
 
-      <Band heading="By flat" headingId="cf-dues-table">
-        {/*
-          A SCROLLABLE REGION A KEYBOARD CANNOT REACH IS A HIDDEN
-          COLUMN. This was a bare `overflow-x-auto` div: on a narrow
-          phone the Outstanding column - the only column a treasurer
-          opens this page for - sits off the right edge, and a div with
-          no tab stop cannot be scrolled by keyboard at all. A mouse
-          user drags it, a touch user swipes it, a keyboard user is
-          simply told less.
-
-          `tabIndex={0}` with `role="region"` and a name, which is the
-          combination that makes it both reachable and announced; a tab
-          stop with no name is an unexplained stop on the way to the
-          table.
-
-          No focus class here: `index.css` already gives every
-          `:focus-visible` a 2px `--cf-anchor` outline, and a second
-          per-element rule is how the two drift apart.
-        */}
-        <div
-          className="overflow-x-auto"
-          tabIndex={0}
-          role="region"
-          aria-labelledby="cf-dues-table"
-        >
-          <table className="w-full border-collapse text-left">
-            <caption className="cf-sr-only">
-              Maintenance billed, paid and outstanding for each flat
-            </caption>
-            <thead>
-              <tr className="border-b border-outline-variant">
-                <th scope="col" className="py-space-sm pr-space-lg font-medium">
-                  Flat
-                </th>
-                <th
-                  scope="col"
-                  className="py-space-sm pr-space-lg font-medium text-right"
-                >
-                  Billed
-                </th>
-                <th
-                  scope="col"
-                  className="py-space-sm pr-space-lg font-medium text-right"
-                >
-                  Paid
-                </th>
-                <th
-                  scope="col"
-                  className="py-space-sm font-medium text-right"
-                >
-                  Outstanding
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr key={row.flat} className="border-b border-outline-variant last:border-b-0">
-                  {/* scope=row: the flat is what identifies the line. */}
-                  <th
-                    scope="row"
-                    className="py-space-md pr-space-lg font-normal cf-tabular whitespace-nowrap"
-                  >
-                    {row.flat}
-                  </th>
-                  <td className="py-space-md pr-space-lg text-right">
-                    <Amount amount={row.billed} />
-                  </td>
-                  <td className="py-space-md pr-space-lg text-right">
-                    <Amount amount={row.paid} />
-                  </td>
-                  <td className="py-space-md text-right">
-                    {classify(row.outstanding).kind === 'unreadable' ? (
-                      /*
-                       * --break, not --attention: this row is a fault
-                       * in the record, not a flat that is behind. The
-                       * amount is NOT rendered - `Amount` on a NaN
-                       * minor prints junk beside real figures, and a
-                       * resident cannot tell which of the two it is.
-                       */
-                      <span className="text-on-error-container">Could not be read</span>
-                    ) : classify(row.outstanding).kind === 'positive' ? (
-                      // --attention, not --break. Being behind on
-                      // maintenance is something to chase, not a fault
-                      // in the record.
-                      <span className="text-on-tertiary-fixed-variant">
-                        <Amount amount={row.outstanding} />
-                      </span>
-                    ) : (
-                      <span className="text-on-surface-variant">
-                        <Amount amount={row.outstanding} />
-                      </span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {summary.data && (
+        <div className="mb-6 grid grid-cols-2 gap-3">
+          <Card className="p-4">
+            <p className="text-[13px] text-ink-2">Outstanding</p>
+            <Amount minor={summary.data.outstanding_minor} size="lg" className="mt-1 block" />
+          </Card>
+          <Card className="p-4">
+            <p className="text-[13px] text-ink-2">Flats owing</p>
+            <p className="tnum mt-1 text-2xl font-semibold tracking-tight">{summary.data.flats_outstanding}<span className="text-base font-medium text-ink-2"> of {summary.data.flats}</span></p>
+          </Card>
         </div>
-      </Band>
-    </>
+      )}
+
+      <Segmented<'all' | 'owing'> className="mb-4" label="Show" value={show} onChange={setShow}
+        options={[{ value: 'all', label: 'Every flat' }, { value: 'owing', label: 'Owing' }]} />
+
+      {dues.isPending ? <Loading rows={3} /> : dues.isError ? <Failed error={dues.error} retry={() => dues.refetch()} /> : (
+        <div className="space-y-6">
+          {wings.map(([w, flats]) => (
+            <section key={w}>
+              <h2 className="mb-2 px-1 text-[13px] font-medium text-ink-2">Wing {w}</h2>
+              <div className="grid grid-cols-4 gap-2 sm:grid-cols-6 md:grid-cols-8">
+                {flats.map((d) => {
+                  const owes = d.outstanding_minor > 0
+                  return (
+                    <button key={d.flat_id} onClick={() => setOpen(d)}
+                      aria-label={`${d.label}, ${owes ? 'owes' : 'settled'}`}
+                      className={cx('flex aspect-square cursor-pointer flex-col items-center justify-center rounded-2xl border text-center transition-transform active:scale-95',
+                        owes ? 'border-debit/25 bg-debit-soft text-debit' : 'border-line bg-surface text-ink')}>
+                      <span className="tnum text-[13px] font-semibold">{d.label.split('-')[1]}</span>
+                      {owes ? <span className="tnum mt-0.5 text-[10.5px] font-medium">{parts(d.outstanding_minor, 'INR').whole}</span>
+                        : <Check className="mt-0.5 size-3.5 text-credit" strokeWidth={3} />}
+                    </button>
+                  )
+                })}
+              </div>
+            </section>
+          ))}
+          <p className="px-1 text-xs text-ink-2">Tiles show whole rupees owed. Tap a flat for the exact figure.</p>
+        </div>
+      )}
+      {open && <FlatSheet d={open} onClose={() => setOpen(null)} />}
+    </div>
+  )
+}
+
+export function FlatSheet({ d, onClose }: { d: DuesRow; onClose: () => void }) {
+  const me = useMeStrict()
+  const ledger = useLedger()
+  const paid = (ledger.data ?? []).filter((r) => r.flat_id === d.flat_id && r.origin_effect === 'receipt').slice(-6).toReversed()
+  return (
+    <Sheet open onClose={onClose} title={`Flat ${d.label}`}
+      footer={isCommittee(me) && d.outstanding_minor > 0 ? (
+        <Link to="/new" search={{ kind: 'receipt', flat: d.flat_id, amount: toInput(d.outstanding_minor) }}>
+          <Button tone="primary" className="w-full">Record a payment</Button>
+        </Link>
+      ) : undefined}>
+      <div className="grid grid-cols-3 gap-2 text-center">
+        {[['Charged', d.charged_minor], ['Paid', d.paid_minor], ['Owes', d.outstanding_minor]].map(([l, v]) => (
+          <div key={l as string} className="rounded-xl bg-sunken px-2 py-3">
+            <Amount minor={v as number} size="sm" className={cx('font-semibold', l === 'Owes' && (v as number) > 0 && 'text-debit')} />
+            <p className="text-xs text-ink-2">{l}</p>
+          </div>
+        ))}
+      </div>
+      <h3 className="mt-5 mb-1 text-[13px] font-medium text-ink-2">Recent payments</h3>
+      {paid.length ? (
+        <ul className="divide-y divide-line">
+          {paid.map((r) => (
+            <li key={r.seq}>
+              <Link to="/entry/$seq" params={{ seq: String(r.seq) }} className="flex items-center justify-between py-2.5 text-sm">
+                <span className={cx(r.reversed_by_seq !== null && 'line-through text-ink-2')}>{day(r.business_date, { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                <Amount minor={r.amount_minor} signed tone="auto" struck={!!r.reversed_by_seq} />
+              </Link>
+            </li>
+          ))}
+        </ul>
+      ) : <p className="text-sm text-ink-2">No payments recorded.</p>}
+      <p className="mt-4 text-xs text-ink-2">{plural(paid.length, 'payment')} shown. Charges follow each bill’s stored split.</p>
+    </Sheet>
   )
 }

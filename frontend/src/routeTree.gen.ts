@@ -11,23 +11,17 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApprovalsRouteImport } from './routes/approvals'
-import { Route as AuditRouteImport } from './routes/audit'
-import { Route as ChainRouteImport } from './routes/chain'
 import { Route as CommitteeRouteImport } from './routes/committee'
 import { Route as DisputesRouteImport } from './routes/disputes'
 import { Route as DuesRouteImport } from './routes/dues'
 import { Route as LedgerRouteImport } from './routes/ledger'
-import { Route as LoginRouteImport } from './routes/login'
-import { Route as MaintenanceRouteImport } from './routes/maintenance'
 import { Route as MyFlatRouteImport } from './routes/my-flat'
+import { Route as NewRouteImport } from './routes/new'
 import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as SignOffRouteImport } from './routes/sign-off'
 import { Route as VerifyRouteImport } from './routes/verify'
 import { Route as YearEndRouteImport } from './routes/year-end'
-import { Route as LedgerIndexRouteImport } from './routes/ledger.index'
-import { Route as LedgerEntryIdRouteImport } from './routes/ledger.$entryId'
-import { Route as LedgerFlaggedRouteImport } from './routes/ledger.flagged'
-import { Route as LedgerReversedRouteImport } from './routes/ledger.reversed'
+import { Route as EntrySeqRouteImport } from './routes/entry.$seq'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -37,16 +31,6 @@ const IndexRoute = IndexRouteImport.update({
 const ApprovalsRoute = ApprovalsRouteImport.update({
   id: '/approvals',
   path: '/approvals',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuditRoute = AuditRouteImport.update({
-  id: '/audit',
-  path: '/audit',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ChainRoute = ChainRouteImport.update({
-  id: '/chain',
-  path: '/chain',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CommitteeRoute = CommitteeRouteImport.update({
@@ -69,19 +53,14 @@ const LedgerRoute = LedgerRouteImport.update({
   path: '/ledger',
   getParentRoute: () => rootRouteImport,
 } as any)
-const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const MaintenanceRoute = MaintenanceRouteImport.update({
-  id: '/maintenance',
-  path: '/maintenance',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const MyFlatRoute = MyFlatRouteImport.update({
   id: '/my-flat',
   path: '/my-flat',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NewRoute = NewRouteImport.update({
+  id: '/new',
+  path: '/new',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ReportsRoute = ReportsRouteImport.update({
@@ -104,171 +83,120 @@ const YearEndRoute = YearEndRouteImport.update({
   path: '/year-end',
   getParentRoute: () => rootRouteImport,
 } as any)
-const LedgerIndexRoute = LedgerIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => LedgerRoute,
-} as any)
-const LedgerEntryIdRoute = LedgerEntryIdRouteImport.update({
-  id: '/$entryId',
-  path: '/$entryId',
-  getParentRoute: () => LedgerRoute,
-} as any)
-const LedgerFlaggedRoute = LedgerFlaggedRouteImport.update({
-  id: '/flagged',
-  path: '/flagged',
-  getParentRoute: () => LedgerRoute,
-} as any)
-const LedgerReversedRoute = LedgerReversedRouteImport.update({
-  id: '/reversed',
-  path: '/reversed',
-  getParentRoute: () => LedgerRoute,
+const EntrySeqRoute = EntrySeqRouteImport.update({
+  id: '/entry/$seq',
+  path: '/entry/$seq',
+  getParentRoute: () => rootRouteImport,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/approvals': typeof ApprovalsRoute
-  '/audit': typeof AuditRoute
-  '/chain': typeof ChainRoute
   '/committee': typeof CommitteeRoute
   '/disputes': typeof DisputesRoute
   '/dues': typeof DuesRoute
-  '/ledger': typeof LedgerRouteWithChildren
-  '/login': typeof LoginRoute
-  '/maintenance': typeof MaintenanceRoute
+  '/ledger': typeof LedgerRoute
   '/my-flat': typeof MyFlatRoute
+  '/new': typeof NewRoute
   '/reports': typeof ReportsRoute
   '/sign-off': typeof SignOffRoute
   '/verify': typeof VerifyRoute
   '/year-end': typeof YearEndRoute
-  '/ledger/$entryId': typeof LedgerEntryIdRoute
-  '/ledger/flagged': typeof LedgerFlaggedRoute
-  '/ledger/reversed': typeof LedgerReversedRoute
-  '/ledger/': typeof LedgerIndexRoute
+  '/entry/$seq': typeof EntrySeqRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/approvals': typeof ApprovalsRoute
-  '/audit': typeof AuditRoute
-  '/chain': typeof ChainRoute
   '/committee': typeof CommitteeRoute
   '/disputes': typeof DisputesRoute
   '/dues': typeof DuesRoute
-  '/login': typeof LoginRoute
-  '/maintenance': typeof MaintenanceRoute
+  '/ledger': typeof LedgerRoute
   '/my-flat': typeof MyFlatRoute
+  '/new': typeof NewRoute
   '/reports': typeof ReportsRoute
   '/sign-off': typeof SignOffRoute
   '/verify': typeof VerifyRoute
   '/year-end': typeof YearEndRoute
-  '/ledger/$entryId': typeof LedgerEntryIdRoute
-  '/ledger/flagged': typeof LedgerFlaggedRoute
-  '/ledger/reversed': typeof LedgerReversedRoute
-  '/ledger': typeof LedgerIndexRoute
+  '/entry/$seq': typeof EntrySeqRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/approvals': typeof ApprovalsRoute
-  '/audit': typeof AuditRoute
-  '/chain': typeof ChainRoute
   '/committee': typeof CommitteeRoute
   '/disputes': typeof DisputesRoute
   '/dues': typeof DuesRoute
-  '/ledger': typeof LedgerRouteWithChildren
-  '/login': typeof LoginRoute
-  '/maintenance': typeof MaintenanceRoute
+  '/ledger': typeof LedgerRoute
   '/my-flat': typeof MyFlatRoute
+  '/new': typeof NewRoute
   '/reports': typeof ReportsRoute
   '/sign-off': typeof SignOffRoute
   '/verify': typeof VerifyRoute
   '/year-end': typeof YearEndRoute
-  '/ledger/$entryId': typeof LedgerEntryIdRoute
-  '/ledger/flagged': typeof LedgerFlaggedRoute
-  '/ledger/reversed': typeof LedgerReversedRoute
-  '/ledger/': typeof LedgerIndexRoute
+  '/entry/$seq': typeof EntrySeqRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/approvals'
-    | '/audit'
-    | '/chain'
     | '/committee'
     | '/disputes'
     | '/dues'
     | '/ledger'
-    | '/login'
-    | '/maintenance'
     | '/my-flat'
+    | '/new'
     | '/reports'
     | '/sign-off'
     | '/verify'
     | '/year-end'
-    | '/ledger/$entryId'
-    | '/ledger/flagged'
-    | '/ledger/reversed'
-    | '/ledger/'
+    | '/entry/$seq'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/approvals'
-    | '/audit'
-    | '/chain'
     | '/committee'
     | '/disputes'
     | '/dues'
-    | '/login'
-    | '/maintenance'
+    | '/ledger'
     | '/my-flat'
+    | '/new'
     | '/reports'
     | '/sign-off'
     | '/verify'
     | '/year-end'
-    | '/ledger/$entryId'
-    | '/ledger/flagged'
-    | '/ledger/reversed'
-    | '/ledger'
+    | '/entry/$seq'
   id:
     | '__root__'
     | '/'
     | '/approvals'
-    | '/audit'
-    | '/chain'
     | '/committee'
     | '/disputes'
     | '/dues'
     | '/ledger'
-    | '/login'
-    | '/maintenance'
     | '/my-flat'
+    | '/new'
     | '/reports'
     | '/sign-off'
     | '/verify'
     | '/year-end'
-    | '/ledger/$entryId'
-    | '/ledger/flagged'
-    | '/ledger/reversed'
-    | '/ledger/'
+    | '/entry/$seq'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ApprovalsRoute: typeof ApprovalsRoute
-  AuditRoute: typeof AuditRoute
-  ChainRoute: typeof ChainRoute
   CommitteeRoute: typeof CommitteeRoute
   DisputesRoute: typeof DisputesRoute
   DuesRoute: typeof DuesRoute
-  LedgerRoute: typeof LedgerRouteWithChildren
-  LoginRoute: typeof LoginRoute
-  MaintenanceRoute: typeof MaintenanceRoute
+  LedgerRoute: typeof LedgerRoute
   MyFlatRoute: typeof MyFlatRoute
+  NewRoute: typeof NewRoute
   ReportsRoute: typeof ReportsRoute
   SignOffRoute: typeof SignOffRoute
   VerifyRoute: typeof VerifyRoute
   YearEndRoute: typeof YearEndRoute
+  EntrySeqRoute: typeof EntrySeqRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -285,20 +213,6 @@ declare module '@tanstack/react-router' {
       path: '/approvals'
       fullPath: '/approvals'
       preLoaderRoute: typeof ApprovalsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/audit': {
-      id: '/audit'
-      path: '/audit'
-      fullPath: '/audit'
-      preLoaderRoute: typeof AuditRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/chain': {
-      id: '/chain'
-      path: '/chain'
-      fullPath: '/chain'
-      preLoaderRoute: typeof ChainRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/committee': {
@@ -329,25 +243,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LedgerRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/maintenance': {
-      id: '/maintenance'
-      path: '/maintenance'
-      fullPath: '/maintenance'
-      preLoaderRoute: typeof MaintenanceRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/my-flat': {
       id: '/my-flat'
       path: '/my-flat'
       fullPath: '/my-flat'
       preLoaderRoute: typeof MyFlatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/new': {
+      id: '/new'
+      path: '/new'
+      fullPath: '/new'
+      preLoaderRoute: typeof NewRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/reports': {
@@ -378,70 +285,30 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof YearEndRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/ledger/': {
-      id: '/ledger/'
-      path: '/'
-      fullPath: '/ledger/'
-      preLoaderRoute: typeof LedgerIndexRouteImport
-      parentRoute: typeof LedgerRoute
-    }
-    '/ledger/$entryId': {
-      id: '/ledger/$entryId'
-      path: '/$entryId'
-      fullPath: '/ledger/$entryId'
-      preLoaderRoute: typeof LedgerEntryIdRouteImport
-      parentRoute: typeof LedgerRoute
-    }
-    '/ledger/flagged': {
-      id: '/ledger/flagged'
-      path: '/flagged'
-      fullPath: '/ledger/flagged'
-      preLoaderRoute: typeof LedgerFlaggedRouteImport
-      parentRoute: typeof LedgerRoute
-    }
-    '/ledger/reversed': {
-      id: '/ledger/reversed'
-      path: '/reversed'
-      fullPath: '/ledger/reversed'
-      preLoaderRoute: typeof LedgerReversedRouteImport
-      parentRoute: typeof LedgerRoute
+    '/entry/$seq': {
+      id: '/entry/$seq'
+      path: '/entry/$seq'
+      fullPath: '/entry/$seq'
+      preLoaderRoute: typeof EntrySeqRouteImport
+      parentRoute: typeof rootRouteImport
     }
   }
 }
 
-interface LedgerRouteChildren {
-  LedgerEntryIdRoute: typeof LedgerEntryIdRoute
-  LedgerFlaggedRoute: typeof LedgerFlaggedRoute
-  LedgerReversedRoute: typeof LedgerReversedRoute
-  LedgerIndexRoute: typeof LedgerIndexRoute
-}
-
-const LedgerRouteChildren: LedgerRouteChildren = {
-  LedgerEntryIdRoute: LedgerEntryIdRoute,
-  LedgerFlaggedRoute: LedgerFlaggedRoute,
-  LedgerReversedRoute: LedgerReversedRoute,
-  LedgerIndexRoute: LedgerIndexRoute,
-}
-
-const LedgerRouteWithChildren =
-  LedgerRoute._addFileChildren(LedgerRouteChildren)
-
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ApprovalsRoute: ApprovalsRoute,
-  AuditRoute: AuditRoute,
-  ChainRoute: ChainRoute,
   CommitteeRoute: CommitteeRoute,
   DisputesRoute: DisputesRoute,
   DuesRoute: DuesRoute,
-  LedgerRoute: LedgerRouteWithChildren,
-  LoginRoute: LoginRoute,
-  MaintenanceRoute: MaintenanceRoute,
+  LedgerRoute: LedgerRoute,
   MyFlatRoute: MyFlatRoute,
+  NewRoute: NewRoute,
   ReportsRoute: ReportsRoute,
   SignOffRoute: SignOffRoute,
   VerifyRoute: VerifyRoute,
   YearEndRoute: YearEndRoute,
+  EntrySeqRoute: EntrySeqRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

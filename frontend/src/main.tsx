@@ -1,14 +1,25 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { RouterProvider, createRouter } from '@tanstack/react-router'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { RouterProvider, createRouter } from '@tanstack/react-router'
 import { routeTree } from './routeTree.gen'
-import { initI18n } from './lib/i18n'
-import './index.css'
+import { AuthProvider } from './lib/session'
+import { ToastProvider } from './components/ui'
+import { Refused } from './lib/supabase'
+import './styles/app.css'
 
-initI18n()
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000,
+      refetchOnWindowFocus: true,
+      // A rule the server refused will refuse again.
+      retry: (n, e) => !(e instanceof Refused) && n < 2,
+    },
+  },
+})
 
-const router = createRouter({ routeTree })
+const router = createRouter({ routeTree, defaultPreload: 'intent', scrollRestoration: true })
 
 declare module '@tanstack/react-router' {
   interface Register {
@@ -16,29 +27,14 @@ declare module '@tanstack/react-router' {
   }
 }
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      /*
-       * The ledger is append-only, so a fetched page of history never
-       * changes. Refetching it on every window focus would spend a
-       * resident's data to receive identical bytes.
-       */
-      staleTime: 60_000,
-      refetchOnWindowFocus: false,
-    },
-  },
-})
-
-const rootElement = document.getElementById('root')
-if (!rootElement) {
-  throw new Error('index.html is missing #root; nothing can mount.')
-}
-
-createRoot(rootElement).render(
+createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
+      <AuthProvider>
+        <ToastProvider>
+          <RouterProvider router={router} />
+        </ToastProvider>
+      </AuthProvider>
     </QueryClientProvider>
   </StrictMode>,
 )

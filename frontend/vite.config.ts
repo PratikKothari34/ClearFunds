@@ -9,6 +9,7 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { tanstackRouter } from '@tanstack/router-plugin/vite'
 import { randomBytes } from 'node:crypto'
+import { loadEnv } from 'vite'
 
 /*
  * THE DEV SERVER RUNS THE REAL PRODUCTION CSP, SATISFIED BY A NONCE.
@@ -30,6 +31,13 @@ import { randomBytes } from 'node:crypto'
  */
 const DEV_NONCE = randomBytes(16).toString('base64')
 
+function origins(): string[] {
+  const env = loadEnv('development', process.cwd(), 'VITE_')
+  return [env.VITE_SUPABASE_URL, env.VITE_ANCHOR_URL]
+    .filter((u): u is string => !!u)
+    .map((u) => new URL(u.replace('{society}', 'x')).origin)
+}
+
 const DEV_CSP = [
   "default-src 'self'",
   `script-src 'self' 'nonce-${DEV_NONCE}'`,
@@ -37,7 +45,9 @@ const DEV_CSP = [
   "img-src 'self' data:",
   "font-src 'self'",
   // The dev client needs its HMR websocket; production has no ws: at all.
-  "connect-src 'self' ws: wss:",
+  // The Supabase API and the published-head anchor are the only other
+  // origins the app talks to.
+  `connect-src 'self' ws: wss: ${origins().join(' ')}`,
   "object-src 'none'",
   "base-uri 'none'",
   "frame-ancestors 'none'",

@@ -1,9 +1,9 @@
 {
   "compilerOptions": {
-    "target": "ES2022",
+    "target": "ES2024",
     "useDefineForClassFields": true,
     "lib": [
-      "ES2022",
+      "ES2024",
       "DOM",
       "DOM.Iterable"
     ],
@@ -25,14 +25,12 @@
     "exactOptionalPropertyTypes": true,
     "types": [
       "vitest/globals",
-      "@testing-library/jest-dom"
+      "@testing-library/jest-dom",
+      "node"
     ]
   },
   "include": [
     "src"
   ],
-  "exclude": [
-    "src/lib/csp.test.ts",
-    "src/lib/sample.test.ts"
-  ]
+  "exclude": []
 }

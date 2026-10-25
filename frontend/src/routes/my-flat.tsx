@@ -1,225 +1,52 @@
-import { Link, createFileRoute } from '@tanstack/react-router'
-import { Amount } from '../components/Amount'
-import { classify } from '../lib/countable'
-import { Band } from '../components/Band'
-import { BandFallback } from '../components/BandFallback'
-import { duesVisibilitySentence, isFromFlat } from '../lib/identity'
-import { useViewerFlat } from '../lib/viewer'
-import { formatDate } from '../lib/dates'
-import { devDues, devFlagLog } from '../lib/devData'
-import { resolvedOn } from '../lib/flags'
+import { createFileRoute, Link } from '@tanstack/react-router'
+import { Check, Eye } from 'lucide-react'
+import { useDues, useLedger } from '../lib/api'
+import { useMeStrict } from '../lib/session'
+import { longDay } from '../lib/format'
+import { Amount, Card, Caption, Empty, EntryIcon, Loading, PageTitle, cx } from '../components/ui'
 
-export const Route = createFileRoute('/my-flat')({
-  component: MyFlat,
-})
+export const Route = createFileRoute('/my-flat')({ component: MyFlat })
 
-/**
- * A resident's own flat: what they owe, and what they have asked.
- *
- * Their own position only. The by-flat dues table is a treasurer
- * surface and is not part of a resident payload — a resident cannot see
- * what a neighbour owes, and that is a payload boundary rather than a
- * rendering one.
- *
- * A tenant gets a sub-account under the owner, so the owner can see
- * what was raised from their flat. The questions listed here are the
- * flat's, not one person's, which is why the copy says "from this flat".
- */
 function MyFlat() {
-  /*
-   * Looked up BY FLAT NUMBER, never by array index.
-   *
-   * This was `devDues()[1]`, a fixed position in a list, which showed
-   * whichever flat happened to sit second rather than the one the
-   * session belongs to. So the page rendered a neighbour's billed,
-   * paid and outstanding amounts under the heading "Your flat", above
-   * the line "Other residents cannot see this." — the exact disclosure
-   * the page exists to rule out, stated and broken in the same band.
-   *
-   * The flat numbers are deliberately not named here. An earlier
-   * version of this comment named them, the placeholder moved, and the
-   * comment then described a mismatch that no longer existed while
-   * reading as a precise account of one.
-   *
-   * An index also cannot fail honestly: it returns SOMEBODY for any
-   * list long enough, so there is no mismatch to notice. A lookup
-   * returns undefined and falls into the "no flat is linked" band
-   * below, which is the truthful answer when the two do not agree.
-   *
-   * At cutover the constant is replaced by the session's own flat and
-   * this lookup is what the server's row is matched against, so the
-   * shape stays.
-   */
-  const myFlat = useViewerFlat()
-  const dues = devDues()
-  const log = devFlagLog()
-
-  /*
-   * Absent, and it must not collapse into "no flat is linked".
-   *
-   * Both reads are checked, because the band below says the account
-   * has no flat attached to it — an administrative fact a resident
-   * would act on by calling the society office. A failed read saying
-   * it sends them to argue about their own records.
-   */
-  if (dues === null || log === null) {
-    return (
-      <BandFallback
-        heading="Your flat could not be loaded"
-        headingId="cf-myflat-absent"
-        explanation="Your flat’s position did not load. This is not a statement about what you owe, and it does not mean no flat is linked to your account. Nothing has been changed."
-      />
-    )
-  }
-
-  /*
-   * THE SESSION'S FLAT, never a module constant.
-   *
-   * This read `PLACEHOLDER_FLAT` directly, which cannot be wrong about
-   * the ROLE because it never asked - it was wrong about the IDENTITY,
-   * the same class as the `devDues()[1]` bug below. Centralising the
-   * constant fixed the mismatch between two placeholders; it did not
-   * connect this page to the session, so the page had no slot for the
-   * session to go into and whoever did the cutover would have had to
-   * invent one.
-   *
-   * The flat is absent for every non-resident role by
-   * construction, so an auditor or a treasurer typing this URL falls
-   * through to the "no flat is linked" band rather than rendering some
-   * resident's arrears under the heading "Your flat".
-   */
-  const flat = myFlat ? dues.find((r) => r.flat === myFlat) : undefined
-  // isFromFlat, not `.includes(flat)`: a substring test matches 'B-40'
-  // against 'B-402' and would show this resident another flat's
-  // questions, on the page that promises the opposite.
-  const mine = Object.entries(log).flatMap(([entryId, items]) =>
-    items
-      .filter((item) => isFromFlat(item.authorHandle, flat?.flat))
-      .map((item) => ({ ...item, entryId })),
-  )
-
-  if (!flat) {
-    return (
-      <Band>
-        <p className="m-0 text-on-surface-variant max-w-[68ch]">
-          No flat is linked to this account yet. Ask the society office to link
-          it.
-        </p>
-      </Band>
-    )
-  }
+  const me = useMeStrict()
+  const dues = useDues()
+  const ledger = useLedger()
+  if (!me.tenure) return <Empty icon={<Eye className="size-5" />} title="No flat on your account" />
+  const d = dues.data?.find((x) => x.flat_id === me.tenure!.flat_id)
+  const mine = (ledger.data ?? []).filter((r) => r.flat_id === me.tenure!.flat_id).toReversed()
+  const owes = (d?.outstanding_minor ?? 0) > 0
 
   return (
-    <>
-      <Band>
-        <p className="m-0 font-label-code-sm text-label-code-sm text-on-surface-variant">Your flat</p>
-        <h2 className="font-headline-md font-headline-md text-headline-md font-normal mt-space-sm mb-0 cf-tabular">
-          {flat.flat}
-        </h2>
-      </Band>
+    <div>
+      <PageTitle title={`Flat ${me.tenure.flat}`} sub={me.tenure.kind === 'tenant' ? 'You are a tenant here.' : 'Your maintenance account.'} />
+      {!d ? <Loading rows={2} /> : (
+        <Card className={cx('rise p-5', owes ? 'border-debit/25' : '')}>
+          <p className="text-[13px] font-medium text-ink-2">{owes ? 'Outstanding' : 'Settled'}</p>
+          <div className="mt-2 flex items-center gap-3">
+            {owes ? <Amount minor={d.outstanding_minor} size="hero" className="text-debit" />
+              : <span className="flex items-center gap-3 text-4xl font-semibold tracking-tight"><span className="grid size-11 place-items-center rounded-full bg-credit-soft"><Check className="size-6 text-credit" strokeWidth={3} /></span>Nothing due</span>}
+          </div>
+          <div className="mt-5 grid grid-cols-2 gap-3 text-sm">
+            <div className="rounded-xl bg-sunken p-3"><p className="text-ink-2">Charged to date</p><Amount minor={d.charged_minor} className="mt-0.5 block" /></div>
+            <div className="rounded-xl bg-sunken p-3"><p className="text-ink-2">Paid to date</p><Amount minor={d.paid_minor} className="mt-0.5 block" /></div>
+          </div>
+          {owes && <p className="mt-4 text-[13px] text-ink-2">Pay the society’s bank account. The treasurer records it, and it shows here once approved.</p>}
+        </Card>
+      )}
 
-      <Band heading="Maintenance" headingId="cf-myflat-dues">
-        <dl className="grid grid-cols-[auto_1fr] gap-x-space-lg gap-y-space-sm m-0">
-          <dt className="text-on-surface-variant">Billed</dt>
-          <dd className="m-0">
-            <Amount amount={flat.billed} />
-          </dd>
-
-          <dt className="text-on-surface-variant">Paid</dt>
-          <dd className="m-0">
-            <Amount amount={flat.paid} />
-          </dd>
-
-          <dt className="text-on-surface-variant">Outstanding</dt>
-          <dd className="m-0">
-            {/*
-             * THREE WAYS, and the unreadable case shows no figure.
-             *
-             * Both branches used to render `Amount`, so an unreadable
-             * `minor` printed junk where this resident's own arrears
-             * belong - the single figure on this page they came to
-             * read, and one they may act on by paying. A wrong amount
-             * here is worse than no amount.
-             */}
-            {classify(flat.outstanding).kind === 'unreadable' ? (
-              <span className="text-on-error-container">
-                Could not be read. Ask the treasurer before paying.
-              </span>
-            ) : classify(flat.outstanding).kind === 'positive' ? (
-              <span className="text-on-tertiary-fixed-variant">
-                <Amount amount={flat.outstanding} />
-              </span>
-            ) : (
-              <Amount amount={flat.outstanding} />
-            )}
-          </dd>
-        </dl>
-
-        {/*
-          GENERATED FROM THE PREDICATE, not typed beside it.
-
-          This said "the society's committee can", which is wider than
-          the code allows: `committee` is its own role and
-          `canSeeAllDues` refuses it, so the page told a resident that
-          thirteen committee members read their arrears when three
-          office-bearers do. Overstating who sees this figure is the
-          costly direction — what a flat owes is the most socially
-          loaded number in the product, and a resident who believes the
-          whole committee reads it behaves as though they do.
-
-          `/dues` makes the same promise from the same function, so the
-          two pages cannot drift apart again.
-        */}
-        <p className="mt-space-md mb-0 font-label-code-sm text-label-code-sm text-on-surface-variant max-w-[68ch]">
-          As of {formatDate(flat.asOf)}. Other residents cannot see this. Of
-          the society&rsquo;s office-bearers, {duesVisibilitySentence()} can.
-        </p>
-      </Band>
-
-      <Band heading="Questions from this flat" headingId="cf-myflat-questions">
-        {mine.length === 0 ? (
-          <p className="m-0 text-on-surface-variant max-w-[68ch]">
-            You have not asked about any entry yet. Open any entry in the
-            history to ask about it.
-          </p>
-        ) : (
-          <ul className="list-none m-0 p-0 flex flex-col gap-space-lg">
-            {mine.map((item) => {
-              // Resolved once into a local: see FlagHistory for why a
-              // second call plus a cast is the thing to avoid.
-              const answeredOn = resolvedOn(item)
-              return (
-              <li
-                key={item.id}
-                className={`pl-space-md border-l-2 ${
-                  answeredOn === null ? 'border-tertiary-fixed' : 'border-outline-variant'
-                }`}
-              >
-                <p className="m-0 max-w-[68ch]">{item.question}</p>
-                {item.answer && (
-                  <p className="mt-space-sm mb-0 text-on-surface-variant max-w-[68ch]">
-                    {item.answer}
-                  </p>
-                )}
-                <p className="m-0 font-label-code-sm text-label-code-sm text-on-surface-variant">
-                  {answeredOn !== null
-                    ? `Answered ${formatDate(answeredOn)}`
-                    : 'Not answered yet'}
-                  {' · '}
-                  <Link
-                    to="/ledger/$entryId"
-                    params={{ entryId: item.entryId }}
-                    className="text-on-primary-fixed-variant underline decoration-1 underline-offset-2"
-                  >
-                    See the entry
-                  </Link>
-                </p>
-              </li>
-              )
-            })}
-          </ul>
-        )}
-      </Band>
-    </>
+      <Caption className="mt-6">Payments from this flat</Caption>
+      <Card className="p-1.5">
+        {ledger.isPending ? <Loading rows={3} /> : mine.length ? mine.map((r) => (
+          <Link key={r.seq} to="/entry/$seq" params={{ seq: String(r.seq) }} className="flex items-center gap-3 rounded-2xl px-3 py-3 hover:bg-sunken">
+            <EntryIcon category={r.category} effect={r.effect} />
+            <span className="min-w-0 flex-1">
+              <span className={cx('block truncate font-medium', r.reversed_by_seq !== null && 'line-through text-ink-2')}>{r.narration}</span>
+              <span className="block text-[13px] text-ink-2">{longDay(r.business_date)}</span>
+            </span>
+            <Amount minor={r.amount_minor} signed tone="auto" struck={!!r.reversed_by_seq} />
+          </Link>
+        )) : <p className="p-4 text-sm text-ink-2">No payments recorded yet.</p>}
+      </Card>
+    </div>
   )
 }

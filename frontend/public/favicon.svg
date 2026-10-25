@@ -1,23 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="ClearFunds">
-  <!--
-    A register's bound edge and its ruled lines, which is the visual system
-    this product is built on: a ledger is read, not a dashboard.
-
-    The bound edge is the heavy bar on the left. The three rules are entries.
-    The shortest rule is deliberately struck through - a cancelled entry stays
-    on the page in this product, and that is the one idea worth carrying at
-    16 pixels.
-
-    Colours are literals, not tokens: this file is fetched by the browser
-    before any stylesheet, so it cannot read a CSS variable. They match
-    `primary` and `on-surface-variant` in the light theme and stay legible on
-    a dark browser tab strip.
-  -->
-  <rect width="32" height="32" rx="7" fill="#1f6d4f" />
-  <rect x="7" y="6" width="2.5" height="20" rx="1.25" fill="#ffffff" />
-  <rect x="12.5" y="9" width="13" height="2.25" rx="1.125" fill="#ffffff" />
-  <rect x="12.5" y="15" width="9" height="2.25" rx="1.125" fill="#ffffff" opacity="0.55" />
-  <rect x="12.5" y="21" width="13" height="2.25" rx="1.125" fill="#ffffff" />
-  <!-- The strike across the shortest rule: a cancelled entry is still shown. -->
-  <rect x="11.5" y="15.5" width="11" height="1.25" rx="0.625" fill="#ffffff" />
+  <!-- Three ledger lines, each linked to the one above. Literals, not tokens:
+       the browser fetches this before any stylesheet. -->
+  <rect width="32" height="32" rx="8" fill="#0d1320"/>
+  <rect x="8" y="8" width="16" height="3" rx="1.5" fill="#ffffff"/>
+  <rect x="8" y="14.5" width="11" height="3" rx="1.5" fill="#93a4ff"/>
+  <rect x="8" y="21" width="16" height="3" rx="1.5" fill="#ffffff"/>
 </svg>

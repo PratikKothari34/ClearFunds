@@ -1,305 +1,79 @@
-import { Link, createFileRoute } from '@tanstack/react-router'
-import { Amount } from '../components/Amount'
-import { Band } from '../components/Band'
-import { PendingAction } from '../components/PendingAction'
-import { BandFallback } from '../components/BandFallback'
-import { formatMoney } from '../lib/money'
-import { isShowableCount, isUnreadableCount } from '../lib/countable'
-import {
-  hasUnplaceablePeriods,
-  oldestUnsigned,
-  waitingBehind,
-} from '../lib/signoff'
-import type { SignoffPeriod } from '../lib/types'
-import { devSignoff } from '../lib/devData'
+import { useState } from 'react'
+import { createFileRoute, Link } from '@tanstack/react-router'
+import { Check, PenLine } from 'lucide-react'
+import { useNames, useSignoff, useSignoffs, useSummary } from '../lib/api'
+import { Refused } from '../lib/supabase'
+import { useMeStrict } from '../lib/session'
+import { instant, month, todayIST } from '../lib/format'
+import { Amount, Button, Card, Chip, Field, Input, Loading, PageTitle, Sheet, useToast, cx } from '../components/ui'
+import { recentMonths } from '../components/Shell'
 
-export const Route = createFileRoute('/sign-off')({
-  component: SignOff,
-})
+export const Route = createFileRoute('/sign-off')({ component: SignOff })
 
-/**
- * The president's monthly sign-off on the expense sheet.
- *
- * ONE PERIOD AT A TIME, always the oldest unsigned one. A list of
- * months to sign invites signing the convenient one and leaving a gap,
- * and a gap in monthly sign-off is exactly what this surface exists to
- * prevent.
- *
- * Everything that should give the president pause is shown BEFORE the
- * button, never behind a link: unanswered questions, and payments to
- * one payee that individually stayed under the limit but together
- * crossed it. Structuring is made visible rather than blocked —
- * blocking teaches splitting across payees, which is harder to see.
- *
- * Signing off is not closing the year. Only an auditor closes a
- * financial year; this is the committee confirming a month's sheet.
- */
 function SignOff() {
-  /*
-   * The oldest unsigned period, not a list — and chosen by id rather
-   * than by trusting array order.
-   *
-   * Taking [0] assumed the server sends these oldest-first. That
-   * assumption is invisible when it holds and silent when it breaks:
-   * a payload ordered newest-first would put the president on the
-   * wrong month, with the right heading above it, and nothing on the
-   * screen would look wrong. The id is `s-YYYY-MM`, so it sorts
-   * lexicographically in calendar order.
-   */
-  const periods = devSignoff()
-
-  /*
-   * ABSENT IS NOT EMPTY, and here the empty copy is the sharpest false
-   * statement in the product: "Every month up to now has been signed
-   * off." is a compliance claim, read by a president deciding whether
-   * anything needs their signature. A failed read produced it
-   * verbatim, so an unsigned month would be invisible while the page
-   * said the books were current.
-   */
-  if (periods === null) {
-    return (
-      <BandFallback
-        heading="Sign-off could not be loaded"
-        headingId="cf-signoff-absent"
-        explanation="The months waiting for sign-off did not load. This does NOT mean every month has been signed off — it means the list was not reached. Nothing has been signed."
-      />
-    )
-  }
-
-  const period = oldestUnsigned(periods)
-
-  /*
-   * UNUSABLE IS NOT EMPTY EITHER, and this is the second half of the
-   * guard above rather than a new rule.
-   *
-   * `oldestUnsigned` rejects a period whose id it cannot place in the
-   * calendar, so a list where every id is malformed arrives here
-   * looking exactly like a list where nothing is waiting - and fell
-   * through to "Every month up to now has been signed off.", the
-   * compliance claim this page exists to keep honest. Months WERE
-   * listed; none of them could be read.
-   *
-   * It is checked before the all-clear and not merged into it, because
-   * the two have opposite meanings for the president: one says their
-   * signature is not needed, the other says we cannot tell.
-   */
-  if (hasUnplaceablePeriods(periods)) {
-    return (
-      <BandFallback
-        heading="Sign-off could not be read"
-        headingId="cf-signoff-unusable"
-        explanation="Months are listed as waiting for sign-off, but none of them could be read. This does NOT mean every month has been signed off. Nothing has been signed."
-      />
-    )
-  }
-
-  if (!period) {
-    return (
-      <Band>
-        <h2 className="font-headline-md font-headline-md text-headline-md font-normal mt-0 mb-space-sm">
-          Nothing to sign
-        </h2>
-        <p className="m-0 text-on-surface-variant max-w-[68ch]">
-          Every month up to now has been signed off.
-        </p>
-      </Band>
-    )
-  }
-
-  return <PeriodSignoff period={period} waiting={waitingBehind(periods)} />
-}
-
-function PeriodSignoff({
-  period,
-  waiting,
-}: {
-  readonly period: SignoffPeriod
-  /** Unsigned months behind this one. Disclosed, never listed as peers. */
-  readonly waiting: number
-}) {
-  /*
-   * AN UNREADABLE QUESTION COUNT BLOCKS, it does not clear.
-   *
-   * This was `period.openFlagCount > 0`, and `NaN > 0` is false - so a
-   * month whose question count arrived malformed told the president
-   * "Your sign-off is recorded in the history" with no mention of
-   * anything outstanding, AND suppressed the "Questions not yet
-   * answered" band that would have contradicted it. They would put
-   * their name to a month believing it clean, on the strength of a
-   * number nobody could read.
-   *
-   * Every other count in this product fails silent, because a display
-   * that cannot show a figure should not invent one. This one is a
-   * decision rather than a display, so it fails loud.
-   */
-  const flagsUnreadable = isUnreadableCount(period.openFlagCount)
-  const blocked =
-    flagsUnreadable ||
-    isShowableCount(period.openFlagCount) ||
-    period.structuring.length > 0
+  const me = useMeStrict()
+  const signoffs = useSignoffs()
+  const summary = useSummary()
+  const names = useNames()
+  const [open, setOpen] = useState<string | null>(null)
+  const cur = todayIST().slice(0, 7)
+  const months = recentMonths(cur, 12)
+  const done = new Map((signoffs.data ?? []).map((s) => [s.body.month, s]))
+  const totals = new Map((summary.data?.months ?? []).map((m) => [m.month, m]))
+  const president = me.seat?.role === 'president'
 
   return (
-    <>
-      <Band>
-        <p className="m-0 font-label-code-sm text-label-code-sm text-on-surface-variant">Oldest month not signed</p>
-        <h2 className="font-headline-md font-headline-md text-headline-md font-normal mt-space-sm mb-space-md">
-          {period.label}
-        </h2>
-
-        <dl className="grid grid-cols-[auto_1fr] gap-x-space-lg gap-y-space-sm m-0">
-          <dt className="text-on-surface-variant">Money in</dt>
-          <dd className="m-0">
-            <Amount amount={period.inflow} direction="in" />
-          </dd>
-
-          <dt className="text-on-surface-variant">Money out</dt>
-          <dd className="m-0">
-            <Amount amount={period.outflow} direction="out" />
-          </dd>
-
-          <dt className="text-on-surface-variant">Entries</dt>
-          {/*
-           * GUARDED WITH `isUnreadableCount`, NOT `isShowableCount`.
-           *
-           * Printed bare, this rendered the literal "NaN" beside the
-           * sign-off action while every figure around it was guarded -
-           * on the one screen where a president commits to a month.
-           *
-           * The guard has to be the unreadable one: zero entries in a
-           * month is legitimate here (a quiet month is still a month
-           * to sign), so `isShowableCount` - which is false for zero -
-           * would hide a true figure.
-           */}
-          <dd className="m-0 cf-tabular">
-            {isUnreadableCount(period.entryCount) ? (
-              <span className="text-on-error-container">Could not be read</span>
-            ) : (
-              period.entryCount
-            )}
-          </dd>
-        </dl>
-
-        {/*
-         * Months behind this one are DISCLOSED, not listed.
-         *
-         * A president three months behind must know the backlog exists
-         * — otherwise signing this month looks like finishing. But
-         * rendering the other months as siblings, each with their own
-         * button, is what invites signing the convenient one and
-         * leaving a gap. So: a count and a plain sentence, no links to
-         * jump ahead. The next month appears here once this one is
-         * signed.
-         */}
-        {waiting > 0 && (
-          <p className="mt-space-lg mb-0 font-label-code-sm text-label-code-sm text-on-surface-variant max-w-[68ch]">
-            <span className="cf-tabular">{waiting}</span> later{' '}
-            {waiting === 1 ? 'month is' : 'months are'} also waiting. They
-            become available in order, oldest first, as you sign.
-          </p>
-        )}
-      </Band>
-
-      {/*
-       * Unanswered questions first. The president is being asked to put
-       * their name to a month; an open question is the single most
-       * relevant fact about it.
-       */}
-      {(isShowableCount(period.openFlagCount) || flagsUnreadable) && (
-        <Band heading="Questions not yet answered" headingId="cf-signoff-flags">
-          {/*
-            COUNTS QUESTIONS, NOT ENTRIES. `openFlagCount` is the number
-            of unresolved flags in the period, and two residents can ask
-            about the same entry. "3 entries have a question" was a
-            sentence the number does not support: it would report three
-            entries where one entry had three questions, and the
-            president is signing on the strength of it.
-
-            The entry count is not derivable from here either — that
-            needs a distinct-entry figure from the server, which is not
-            in the payload. So the copy says the thing the number IS.
-          */}
-          <p className="m-0 max-w-[68ch] pl-space-md border-l-2 border-tertiary-fixed">
-            {/*
-              THE FIGURE DEGRADES, THE WARNING DOES NOT. A count nobody
-              can read is not a reason to stop telling the president
-              that questions may be outstanding - it is the reason to
-              tell them, because this is the screen where they put
-              their name to the month. No number is invented: the
-              sentence says the count could not be read, which is the
-              only honest thing it can say.
-            */}
-            {flagsUnreadable ? (
-              <>
-                How many questions residents have asked about this month could
-                not be read. Treat the month as having questions outstanding
-                until you have looked.{' '}
-              </>
-            ) : (
-              <>
-                <span className="cf-tabular">{period.openFlagCount}</span>{' '}
-                {period.openFlagCount === 1 ? 'question' : 'questions'} from
-                residents {period.openFlagCount === 1 ? 'has' : 'have'} not been
-                answered yet.{' '}
-              </>
-            )}
-            <Link
-              to="/ledger/flagged"
-              className="text-on-primary-fixed-variant underline decoration-1 underline-offset-2"
-            >
-              Read them
-            </Link>
-            {'.'}
-          </p>
-        </Band>
+    <div>
+      <PageTitle title="Monthly sign-off" sub="The president’s final say on each month’s expense sheet. It does not close the year." />
+      {signoffs.isPending ? <Loading /> : (
+        <Card className="divide-y divide-line">
+          {months.map((m) => {
+            const s = done.get(m)
+            const t = totals.get(m)
+            const due = president && !s && m < cur
+            return (
+              <div key={m} className={cx('flex items-center gap-3 px-4 py-3.5', due && 'bg-attention-soft/40')}>
+                <span className={cx('grid size-9 shrink-0 place-items-center rounded-xl', s ? 'bg-anchor-soft text-anchor' : due ? 'bg-attention-soft text-attention' : 'bg-sunken text-ink-2')}>
+                  {s ? <Check className="size-4" strokeWidth={2.5} /> : <PenLine className="size-4" />}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium">{month(m)}</p>
+                  <p className="truncate text-[13px] text-ink-2">
+                    {s ? `Signed by ${names.get(s.actor) ?? 'the president'}, ${instant(s.recorded_at)}` : m === cur ? 'In progress' : t ? 'Not signed' : 'No entries'}
+                  </p>
+                </div>
+                {t && <span className="hidden text-right text-xs sm:block"><Amount minor={t.out_minor} size="sm" className="text-debit" /><span className="block text-ink-2">spent</span></span>}
+                {due ? <Button size="sm" tone="primary" onClick={() => setOpen(m)}>Sign</Button> : s ? <Chip tone="anchor">Signed</Chip> : null}
+              </div>
+            )
+          })}
+        </Card>
       )}
+      {open && <SignSheet m={open} onClose={() => setOpen(null)} t={totals.get(open)} />}
+    </div>
+  )
+}
 
-      {period.structuring.length > 0 && (
-        <Band
-          heading="Payments worth looking at together"
-          headingId="cf-signoff-structuring"
-        >
-          <p className="m-0 mb-space-md text-on-surface-variant max-w-[68ch]">
-            These were each small enough to be approved by the treasurer and
-            secretary, but together they come to more than the
-            society&rsquo;s limit. That is not wrong by itself — it is worth
-            reading before you sign.
-          </p>
-          <ul className="list-none m-0 p-0 flex flex-col gap-space-md">
-            {period.structuring.map((group) => (
-              <li
-                key={group.payee}
-                className="pl-space-md border-l-2 border-tertiary-fixed"
-              >
-                <p className="m-0">
-                  {group.payee} — {formatMoney(group.total)} across{' '}
-                  <span className="cf-tabular">{group.entryIds.length}</span>{' '}
-                  payments
-                </p>
-                <p className="m-0 font-label-code-sm text-label-code-sm text-on-surface-variant">
-                  Within <span className="cf-tabular">{group.windowDays}</span>{' '}
-                  days
-                </p>
-              </li>
-            ))}
-          </ul>
-        </Band>
+function SignSheet({ m, onClose, t }: { m: string; onClose: () => void; t: { in_minor: number; out_minor: number; entries: number } | undefined }) {
+  const sign = useSignoff()
+  const toast = useToast()
+  const [note, setNote] = useState('')
+  return (
+    <Sheet open onClose={onClose} title={`Sign off ${month(m)}`}
+      footer={<Button tone="primary" className="w-full" busy={sign.isPending} onClick={async () => {
+        try { await sign.mutateAsync({ month: m, ...(note ? { note } : {}) }); toast(`${month(m)} signed off.`); onClose() }
+        catch (e) { toast(e instanceof Refused ? e.message : 'Could not sign.', 'error') }
+      }}>Sign in my name</Button>}>
+      {t && (
+        <div className="grid grid-cols-3 gap-2 text-center">
+          <div className="rounded-xl bg-sunken p-3"><Amount minor={t.in_minor} size="sm" className="font-semibold text-credit" /><p className="text-xs text-ink-2">In</p></div>
+          <div className="rounded-xl bg-sunken p-3"><Amount minor={t.out_minor} size="sm" className="font-semibold text-debit" /><p className="text-xs text-ink-2">Out</p></div>
+          <div className="rounded-xl bg-sunken p-3"><p className="tnum text-sm font-semibold">{t.entries}</p><p className="text-xs text-ink-2">Entries</p></div>
+        </div>
       )}
-
-      <Band>
-        {/*
-         * The button is never disabled by open questions. The president
-         * has the last say and may sign with a question outstanding;
-         * what the product owes them is that they saw it first. A
-         * disabled button would move the decision to whoever answers
-         * the question, which is not where the bye-laws put it.
-         */}
-        <PendingAction>Sign off {period.label}</PendingAction>
-        <p className="mt-space-md mb-0 font-label-code-sm text-label-code-sm text-on-surface-variant max-w-[68ch]">
-          {blocked
-            ? 'When signing works, you will be able to sign with a question outstanding: the sign-off is recorded with the date, and so is the question.'
-            : 'When signing works, your sign-off will be recorded in the history with the date. It cannot be removed, only corrected by a later entry.'}
-        </p>
-      </Band>
-    </>
+      <Link to="/ledger" className="mt-3 inline-block text-sm font-medium text-accent">Review the month in the ledger</Link>
+      <div className="mt-4"><Field label="Note (optional)" htmlFor="n"><Input id="n" value={note} onChange={(e) => setNote(e.target.value)} /></Field></div>
+      <p className="mt-3 text-[13px] text-ink-2">Your signature covers the record as it stands now, by its latest fingerprint.</p>
+    </Sheet>
   )
 }

@@ -1,286 +1,167 @@
+import { useEffect, useRef, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
-import { Band } from '../components/Band'
-import { comparedAnything, newestEntry } from '../lib/ledger'
-import type { AnchorStatus } from '../lib/types'
-import { formatDateTime } from '../lib/dates'
-import { devAnchor, devLedger } from '../lib/devData'
+import { AlertTriangle, Check, CircleDashed, Globe, Link2, Loader2, PenLine, Smartphone, X } from 'lucide-react'
+import { supabase } from '../lib/supabase'
+import { useSociety } from '../lib/api'
+import { useMeStrict } from '../lib/session'
+import { anchorUrl, lastCheck, runCheck, verdict, type Check as CheckT, type Step } from '../lib/verify'
+import { instant, plural } from '../lib/format'
+import { Button, Card, Caption, Fingerprint, PageTitle, Textarea, useToast, cx } from '../components/ui'
 
-export const Route = createFileRoute('/verify')({
-  component: Verify,
-})
+export const Route = createFileRoute('/verify')({ component: Verify })
 
-/**
- * Checking the society's record against the published copy.
- *
- * This page carries the product's central claim, so its wording is
- * fixed by decision and not open to tightening:
- *
- *   THE RECORD CANNOT BE CHANGED QUIETLY. Never that it cannot be
- *   forged by whoever runs the server. The page says what the check
- *   does prove and what it does not, because a verification screen
- *   that overstates itself is worse than none — a resident who
- *   believes it is proof stops asking the questions that are the real
- *   safeguard.
- *
- * It is NOT in the navigation for any role. It is reached from the
- * fingerprint band and from an entry's record section, because putting
- * it in the bar tells every resident on every screen that doubt is the
- * normal state.
- *
- * It ALWAYS returns a list, never a bare yes or no. A single word hides
- * which part of the record was compared, and a resident cannot act on
- * "verified".
- */
+type Live = Partial<Record<Step, [number, number]>>
+
 function Verify() {
-  const status: AnchorStatus = devAnchor()
-  // The highest sequence, NOT `devLedger()[0]`. Reading position 0 is
-  // only correct while the list happens to be sorted newest-first, and
-  // this page is the one place where naming the wrong entry as "newest
-  // here" misstates what was compared. Same bug class as the sign-off
-  // oldest-month read: derive the extreme, never trust the index.
-  const entries = devLedger() ?? []
-  const newest = newestEntry(entries)
+  const s = useSociety()
+  const [check, setCheck] = useState<CheckT | null>(() => lastCheck(s.id))
+  const [live, setLive] = useState<Live | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const started = useRef(false)
 
-  /*
-   * Whether anything was actually compared, passed to the result
-   * alongside the anchor state.
-   *
-   * The anchor status and the ledger are two INDEPENDENT reads, and
-   * nothing but this page couples them. With a `match` anchor and no
-   * entries — which is what a production build holds today — the
-   * page printed "Newest entry here: None" directly above the match
-   * sentence. Zero entries were compared, and the page stated the
-   * history matches, on the one surface carrying the product's central
-   * claim. (The match sentence has since been weakened from "nothing
-   * has been changed" to "no change has been found"; that is a
-   * separate fix and does not make this coupling safe.)
-   */
-  const compared = comparedAnything(entries)
+  const run = async () => {
+    setLive({})
+    setError(null)
+    try {
+      const c = await runCheck(s.id, (step, done, total) => setLive((l) => ({ ...l, [step]: [done, total] })))
+      setCheck(c)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'The check could not finish.')
+    } finally {
+      setLive(null)
+    }
+  }
+  useEffect(() => {
+    if (started.current) return
+    started.current = true
+    run()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const v = check && !live ? verdict(check) : null
 
   return (
-    <>
-      <Band>
-        <h2 className="font-headline-md font-headline-md text-headline-md font-normal mt-0 mb-space-md">
-          Checking this record
-        </h2>
-        <p className="m-0 max-w-[68ch]">
-          The society publishes a short reference for its whole history,
-          outside the committee&rsquo;s control. This page compares the record
-          on this device against that published copy.
-        </p>
-      </Band>
+    <div>
+      <PageTitle title="Check the record" sub="Your phone recomputes every fingerprint itself. It does not take the server's word."
+        action={<Button onClick={run} busy={!!live} disabled={!!live}>Run again</Button>} />
 
-      <Band heading="What was compared" headingId="cf-verify-compared">
-        <dl className="grid grid-cols-[auto_1fr] gap-x-space-lg gap-y-space-sm m-0 max-w-[68ch]">
-          <dt className="text-on-surface-variant">Published copy</dt>
-          {/*
-           * Both fields are absent when the published record could not
-           * be reached at all, so this row says so rather than
-           * rendering "undefined, Invalid Date" — which is what a
-           * confident read of these two fields produced before
-           * AnchorStatus became a union. On the one page whose job is
-           * to show what was compared, "could not be reached" is the
-           * answer; a blank or a broken date is not.
-           */}
-          <dd className="m-0">
-            {status.publishedAt && status.publishedSource ? (
-              <>
-                {status.publishedSource}, {formatDateTime(status.publishedAt)}
-              </>
-            ) : (
-              'Could not be reached, so nothing was compared against it'
+      {v && (
+        <Card className={cx('rise mb-6 flex items-start gap-4 p-5',
+          v.tone === 'ok' && 'border-anchor/30 bg-anchor-soft', v.tone === 'break' && 'border-break/30 bg-break-soft')}>
+          <span className={cx('grid size-11 shrink-0 place-items-center rounded-2xl',
+            v.tone === 'ok' ? 'bg-anchor text-surface' : v.tone === 'break' ? 'bg-break text-surface' : 'bg-sunken text-ink-2')}>
+            {v.tone === 'break' ? <AlertTriangle className="size-5" /> : v.tone === 'ok' ? <Globe className="size-5" /> : <Smartphone className="size-5" />}
+          </span>
+          <div className="min-w-0">
+            <p className={cx('text-[17px] font-semibold tracking-tight', v.tone === 'break' && 'text-break')}>{v.line}</p>
+            <p className="mt-1 text-sm text-ink-2">{plural(check!.entries, 'entry', 'entries')} checked {instant(check!.at)}</p>
+          </div>
+        </Card>
+      )}
+      {error && <Card className="mb-6 p-5 text-sm text-break">{error}</Card>}
+
+      <Caption>Steps</Caption>
+      <Card className="divide-y divide-line">
+        <Row icon={<Link2 className="size-4" />} title="Every entry links to the one before"
+          live={live?.fingerprints ?? live?.download} running={!!live && !live.signatures}
+          result={check && !live ? (check.chain === 'ok'
+            ? { ok: true, text: `${plural(check.entries, 'fingerprint')} recomputed. No gaps, no broken links.` }
+            : { ok: false, text: check.chain.failed }) : null} />
+        <Row icon={<PenLine className="size-4" />} title="Every approval is signed by its approver"
+          live={live?.signatures} running={!!live?.signatures && !live.device}
+          result={check && !live ? (check.signatures.failed.length === 0
+            ? { ok: true, text: `${plural(check.signatures.checked, 'signature')} match the keys registered in the record.` }
+            : { ok: false, text: `Entries ${check.signatures.failed.slice(0, 5).join(', ')}${check.signatures.failed.length > 5 ? '…' : ''} do not match.` }) : null} />
+        <Row icon={<Smartphone className="size-4" />} title="Nothing this phone saw has changed"
+          running={!!live?.device && !live.anchor}
+          result={check && !live ? (check.device === 'first'
+            ? { ok: null, text: 'First check on this phone. Nothing earlier to compare against yet.' }
+            : check.device === 'consistent'
+              ? { ok: true, text: 'Everything seen on earlier checks is unchanged.' }
+              : { ok: false, text: `Entry ${check.device.changed} is different from what this phone saw before.` }) : null} />
+        <Row icon={<Globe className="size-4" />} title="Matches the fingerprint published outside the committee"
+          running={!!live?.anchor}
+          result={check && !live ? (check.anchor === 'matches'
+            ? { ok: true, text: `Published ${instant(check.anchorHead!.as_of)} at entry ${check.anchorHead!.highest_sequence}.` }
+            : check.anchor === 'unpublished'
+              ? { ok: null, text: 'No fingerprint is published outside the committee yet. Until one is, this check cannot show that nothing was left out.' }
+              : check.anchor === 'unreachable'
+                ? { ok: null, text: 'The published record could not be reached from this phone.' }
+                : check.anchor === 'behind'
+                  ? { ok: false, text: `More entries were published (${check.anchorHead!.highest_sequence}) than the server sent (${check.head.seq}).` }
+                  : { ok: false, text: 'The published fingerprint differs from the record the server sent.' }) : null} />
+      </Card>
+
+      {check && !live && (
+        <>
+          <Caption className="mt-6">Where the record stands</Caption>
+          <Card className="space-y-3 p-5 text-sm">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-ink-2">Latest entry</span><span className="tnum font-medium">#{check.head.seq}</span>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-ink-2">Its fingerprint</span><Fingerprint value={check.head.hash} />
+            </div>
+            {anchorUrl(s.id) && (
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-ink-2">Published at</span>
+                <a className="truncate text-accent" href={anchorUrl(s.id)!} target="_blank" rel="noreferrer">{new URL(anchorUrl(s.id)!).host}</a>
+              </div>
             )}
-          </dd>
-
-          <dt className="text-on-surface-variant">This device last checked</dt>
-          <dd className="m-0">
-            {status.lastComparedAt
-              ? formatDateTime(status.lastComparedAt)
-              : 'Not yet — this is the first check on this device'}
-          </dd>
-
-          <dt className="text-on-surface-variant">Newest entry here</dt>
-          <dd className="m-0">
-            {newest ? (
-              <>
-                <span className="cf-tabular">#{newest.sequence}</span>,{' '}
-                {formatDateTime(newest.postedAt)}
-              </>
-            ) : (
-              'None'
-            )}
-          </dd>
-        </dl>
-      </Band>
-
-      <Band heading="Result" headingId="cf-verify-result">
-        <Result status={status} compared={compared} />
-      </Band>
-
-      <Band heading="What this does and does not show" headingId="cf-verify-limits">
-        {/*
-         * Both halves, always, in this order. Shipping only the first
-         * half is the overstatement the decision forbids.
-         */}
-        <ul className="list-disc pl-space-lg m-0 max-w-[68ch] flex flex-col gap-space-sm">
-          <li>
-            {/*
-              "WOULD BE VISIBLE", NEVER "IS NOT POSSIBLE".
-              This said "a quiet change to the history is not possible",
-              which is a tamper-PROOF claim. Whoever runs the server can
-              re-sign a whole chain; what they cannot do is make the
-              change agree with a copy published outside their control.
-              The product's claim is that a change cannot be made
-              QUIETLY - that it becomes visible - and the absolute form
-              is the one sentence a reader would be right to call a lie.
-            */}
-            If any past entry were altered, the references would stop matching,
-            and this check would show it. A change to the history cannot be
-            made quietly.
-          </li>
-          <li>
-            A match does not mean an entry is correct. It means the entry has
-            not changed since it was recorded. Whether the payment was right is
-            what the committee, the questions on each entry and the auditor are
-            for.
-          </li>
-          <li>
-            {/*
-              "SHOWS", NOT "PROVES". The header of this page forbids
-              language that leaves a resident believing the check is
-              proof, and this bullet - the one about the chain's real
-              limit - used the banned word twice.
-            */}
-            A match cannot show you an expense that was never entered at all.
-            The record shows that nothing was changed; it cannot show that
-            nothing is missing.
-          </li>
-        </ul>
-      </Band>
-
-      {/*
-        THE OFL REQUIRES THE NOTICE TO TRAVEL WITH THE FONTS, and a
-        file nothing links to does not travel. `public/fonts/OFL.txt`
-        was shipped with no reference anywhere in the app, the HTML or
-        either font stylesheet, so a resident served the five .woff2
-        files had no way to reach the licence they are served under -
-        which is the one thing clause 2 asks for. A CSS comment does
-        not discharge it; a comment is not served to a reader.
-
-        Placed on this page rather than in a footer on every screen.
-        This is the page about where the record and the app come from,
-        so provenance belongs here, and a footer under the balance
-        would compete with the one figure most of this product's
-        audience opens the app to read.
-
-        A plain anchor, not a Link: the target is a static file in
-        `public/`, not a route, and routing it would 404.
-      */}
-      <Band heading="Licences" headingId="cf-verify-licences">
-        <p className="m-0 max-w-[68ch] text-on-surface-variant">
-          ClearFunds is free software under the GNU General Public License,
-          version 3 or later. The typefaces it uses are separate works,
-          redistributed unchanged under the{' '}
-          <a href="/fonts/OFL.txt" className="underline">
-            SIL Open Font License
-          </a>
-          {'.'}
-        </p>
-      </Band>
-    </>
+          </Card>
+          <p className="mt-4 px-1 text-[13px] text-ink-2">
+            Tamper-evident, not tamper-proof: a change cannot be made quietly, but whoever runs the server could rebuild the whole record. The published fingerprint is what catches that.
+          </p>
+          {verdict(check).tone === 'break' && <ReportMismatch check={check} />}
+        </>
+      )}
+    </div>
   )
 }
 
-function Result({
-  status,
-  compared,
-}: {
-  readonly status: AnchorStatus
-  /**
-   * Whether this device held any entry to compare. False makes every
-   * reassuring sentence below unsayable regardless of the anchor
-   * state, because a comparison over nothing has no result.
-   */
-  readonly compared: boolean
+function Row({ icon, title, live, running, result }: {
+  icon: React.ReactNode
+  title: string
+  live?: [number, number] | undefined
+  running?: boolean
+  result: { ok: boolean | null; text: string } | null
 }) {
-  /*
-   * NOTHING COMPARED OUTRANKS EVERY ANCHOR STATE.
-   *
-   * Checked before the switch, not as a case inside it, because it is
-   * true of all four states at once: a `match` over zero entries is
-   * not a weaker match, it is not a match at all. Styled as
-   * `--ink-quiet` with a plain rule, the same as `first-visit` —
-   * this is neither reassurance nor alarm, it is the absence of a
-   * result, and colouring it green or amber would make it one.
-   */
-  if (!compared) {
-    return (
-      <p className="m-0 max-w-[68ch] pl-space-md border-l-2 border-outline-variant text-on-surface-variant">
-        There is nothing on this device to compare yet, so this check has no
-        result. Open the history first; the comparison runs against the
-        entries this device holds.
-      </p>
-    )
-  }
+  return (
+    <div className="flex items-start gap-3 p-4">
+      <span className={cx('grid size-8 shrink-0 place-items-center rounded-full',
+        result?.ok === true ? 'bg-anchor-soft text-anchor' : result?.ok === false ? 'bg-break-soft text-break' : 'bg-sunken text-ink-2')}>
+        {running ? <Loader2 className="size-4 animate-spin" /> : result?.ok === true ? <Check className="size-4" strokeWidth={2.5} /> : result?.ok === false ? <X className="size-4" strokeWidth={2.5} /> : result ? <CircleDashed className="size-4" /> : icon}
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-[15px] font-medium">{title}</p>
+        {running && live && <p className="tnum mt-0.5 text-[13px] text-ink-2">{live[0].toLocaleString('en-IN')}{live[1] > live[0] ? ` of ${live[1].toLocaleString('en-IN')}` : ''}</p>}
+        {result && <p className={cx('mt-0.5 text-[13px]', result.ok === false ? 'text-break' : 'text-ink-2')}>{result.text}</p>}
+      </div>
+    </div>
+  )
+}
 
-  switch (status.state) {
-    case 'match':
-      return (
-        <p className="m-0 max-w-[68ch] pl-space-md border-l-2 border-secondary">
-          {/*
-            "NO CHANGE HAS BEEN FOUND", not "nothing has been changed".
-            The check compares this device's copy against the published
-            one; a match is the absence of a found difference, which is
-            not the same as a fact about everything that happened. The
-            unqualified form is the strongest sentence in the product
-            and the one a lawyer or auditor would quote back.
-          */}
-          The record on this device matches the published copy. No change to
-          the history has been found since it was published.
-        </p>
-      )
-
-    case 'first-visit':
-      // Deliberately not reassuring and deliberately not alarming. There
-      // is nothing earlier to compare against, which is a fact about
-      // this device, not about the society.
-      return (
-        <p className="m-0 max-w-[68ch] pl-space-md border-l-2 border-outline-variant text-on-surface-variant">
-          This is the first check on this device, so there is nothing earlier to
-          compare against. From now on this page will tell you whether anything
-          in the history has changed since your last visit.
-        </p>
-      )
-
-    case 'unreachable':
-      // --ink-quiet, NOT --break. The published copy being unreachable
-      // is a network problem; colouring it as a failure teaches
-      // residents to read a flaky connection as tampering, and then to
-      // ignore the real signal when it appears.
-      return (
-        <p className="m-0 max-w-[68ch] pl-space-md border-l-2 border-outline-variant text-on-surface-variant">
-          The published copy could not be reached just now, so no comparison
-          was made. This usually means a network problem rather than a problem
-          with the record. Try again later; the last successful check is shown
-          above.
-        </p>
-      )
-
-    case 'mismatch':
-      // The one state that is loud, and the only one that tells the
-      // resident to do something outside the app.
-      return (
-        <div className="max-w-[68ch] pl-space-md border-l-2 border-error-container text-on-error-container">
-          <p className="m-0 font-medium">
-            The record on this device does not match the published copy.
-          </p>
-          <p className="mt-space-sm mb-0">
-            Something in the history differs from what was published. Show this
-            screen to the committee and to the society&rsquo;s auditor, and ask
-            for an explanation in writing. Do not rely on the figures in this
-            app until that is answered.
-          </p>
-        </div>
-      )
-  }
+/** One open report per resident, updated rather than duplicated. */
+function ReportMismatch({ check }: { check: CheckT }) {
+  const me = useMeStrict()
+  const s = useSociety()
+  const toast = useToast()
+  const [note, setNote] = useState('')
+  const [busy, setBusy] = useState(false)
+  if (!me.tenure) return null
+  return (
+    <Card className="mt-6 space-y-3 p-5">
+      <p className="font-medium">Tell the society</p>
+      <p className="text-sm text-ink-2">Your report is recorded with what your phone saw. Other residents see how many reported, not who.</p>
+      <Textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Anything to add (optional)" />
+      <Button tone="danger" busy={busy} onClick={async () => {
+        setBusy(true)
+        const { error } = await supabase.rpc('api_report_mismatch', {
+          p_society: s.id, p_anchor_hash: check.anchorHead?.hash ?? '', p_anchor_seq: check.anchorHead?.highest_sequence ?? 0,
+          p_served_hash: check.head.hash, p_note: note,
+        })
+        setBusy(false)
+        toast(error ? error.message : 'Reported.', error ? 'error' : 'ok')
+      }}>Report mismatch</Button>
+    </Card>
+  )
 }

@@ -2,8 +2,9 @@
  * ASSERTS THAT index.html CONTAINS NO INLINE <script> AT ALL.
  *
  * This script used to print the SHA-256 of the one inline script, which ran
- * before first paint to apply the stored dark/light theme. There is now a
- * single light theme, so that script is gone and there is nothing to hash.
+ * before first paint to apply the stored dark/light theme. That script is now
+ * the external file public/theme.js, allowed by script-src 'self', so there
+ * is nothing inline to hash.
  *
  * That is a STRONGER position, not a weaker one: a `script-src` with no
  * 'sha256-...' entry permits strictly less than one with it, and the value
