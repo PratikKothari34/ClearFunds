@@ -20,6 +20,13 @@ export type Check = {
   entries: number
   head: { seq: number; hash: string }
   chain: 'ok' | { failed: string }
+  /*
+   * Sequences this build has no layout for, so it could not recompute them.
+   * Not a failure and never reported as one - a newer backend shipping a new
+   * kind puts every un-updated phone here. The screen says what it could not
+   * check rather than implying the record is sound or that it is broken.
+   */
+  unchecked: number[]
   signatures: { checked: number; failed: number[] }
   device: 'first' | 'consistent' | { changed: number }
   anchor: 'unpublished' | 'unreachable' | 'matches' | 'behind' | { mismatch: Head }
@@ -72,9 +79,12 @@ export async function runCheck(society: string, onStep: OnStep = () => {}): Prom
   const entries = await fetchChain(society, (n) => onStep('download', n, n))
   const at = Date.now()
   let hashes: string[] = []
+  let unchecked: number[] = []
   let chain: Check['chain'] = 'ok'
   try {
-    hashes = await walk(entries, (n) => onStep('fingerprints', n, entries.length))
+    const walked = await walk(entries, (n) => onStep('fingerprints', n, entries.length))
+    hashes = walked.hashes
+    unchecked = walked.unchecked
   } catch (e) {
     chain = { failed: e instanceof ChainError ? e.message : 'the record could not be read' }
   }
@@ -105,7 +115,7 @@ export async function runCheck(society: string, onStep: OnStep = () => {}): Prom
   else anchor = hashes[a.highest_sequence - 1] === a.hash ? 'matches' : { mismatch: a }
 
   const check: Check = {
-    at, entries: entries.length, head: { seq: headSeq, hash: headHash }, chain, signatures, device, anchor,
+    at, entries: entries.length, head: { seq: headSeq, hash: headHash }, chain, unchecked, signatures, device, anchor,
     ...(typeof a === 'object' ? { anchorHead: a } : {}),
   }
   write(checkKey(society), check)
@@ -146,6 +156,22 @@ export function verdict(c: Check): { tone: 'ok' | 'warn' | 'break'; line: string
   if (typeof c.device === 'object') return { tone: 'break', line: `Entry ${c.device.changed} changed since this phone last checked.` }
   if (c.anchor === 'behind' || typeof c.anchor === 'object') return { tone: 'break', line: 'The record differs from the published fingerprint.' }
   if (c.signatures.failed.length) return { tone: 'break', line: `${c.signatures.failed.length} signatures do not match their keys.` }
+  /*
+   * Everything checkable held. If some entries were not checkable, say so
+   * before any reassurance: a resident must not read "matches" and believe
+   * it covered entries it could not cover. It stays 'warn', never 'break' -
+   * nothing here is evidence against the record.
+   */
+  if (c.unchecked.length) {
+    const n = c.unchecked.length
+    return {
+      tone: 'warn',
+      line:
+        n === 1
+          ? `Entry ${c.unchecked[0]} is a newer kind this app version cannot check. Everything else held.`
+          : `${n} entries are a newer kind this app version cannot check. Everything else held.`,
+    }
+  }
   if (c.anchor === 'matches') return { tone: 'ok', line: 'Matches the published fingerprint.' }
   return { tone: 'warn', line: 'Consistent on this phone. Not yet compared with a published fingerprint.' }
 }
