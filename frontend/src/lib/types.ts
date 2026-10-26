@@ -29,13 +29,19 @@ export type Me = {
   last_seen_seq: number | null
 }
 
+/*
+ * The money columns are nullable here for the same reason DuesRow's are: the
+ * view types every column nullable, nothing validated the response, and a
+ * raw nullable reaching a comparison is what hid a flat that owed money.
+ * Read them through countable.ts; never compare or arithmetic one directly.
+ */
 export type LedgerRow = {
   seq: number
   recorded_at: number
   fingerprint: string
   effect: Effect
   origin_effect: Effect
-  amount_minor: number
+  amount_minor: number | null
   currency: string
   proposal_seq: number
   action: Action
@@ -48,13 +54,13 @@ export type LedgerRow = {
   flat_set: string | null
   tier: 'pair' | 'committee'
   required: number
-  limit_minor: number
+  limit_minor: number | null
   reverses_seq: number | null
   replaces_seq: number | null
   reason: string | null
   reversed_by_seq: number | null
   is_cash: boolean
-  balance_minor: number
+  balance_minor: number | null
 }
 
 export type Approval = {
@@ -189,4 +195,41 @@ export type Report = {
   structuring: Structuring[]
   opinions: Pick<Year, 'fy' | 'closed' | 'headline' | 'headline_seq' | 'history'>
   signoffs: { month: string; seq: number; through_seq: number; recorded_at: number }[]
+}
+
+export type Summary = {
+  balance_minor: number
+  entries: number
+  head_seq: number
+  as_of: number
+  fy: string
+  months: { month: string; in_minor: number; out_minor: number; charged_minor: number; entries: number }[]
+  fy_spend: { category: string; amount_minor: number }[]
+  fy_spend_total_minor: number
+  outstanding_minor: number
+  flats_outstanding: number
+  flats: number
+}
+
+/* A month sign-off as it is read back from the chain. */
+export type SignoffEntry = {
+  sequence: number
+  recorded_at: number
+  actor: string
+  body: { month: string; through_seq: number }
+}
+
+/* api_resolve_handle: null when the handle is unknown, which is an answer. */
+export type ResolvedHandle = { name: string; flat: string; kind: string; ended: string | null }
+
+/* api_preview_charge: what each flat would be charged, before it is posted. */
+export type ChargePreview = { flats: number; base_minor: number; extra_flats: number; remainder_labels: string[] }
+
+/* A chain entry that sets or changes the approval limit. Two kinds carry it
+ * under different names; the reader picks by kind. */
+export type LimitEntry = {
+  sequence: number
+  kind: 'society_opened' | 'posting'
+  recorded_at: number
+  body: { approval_limit_minor: number | null; limit_minor: number | null }
 }

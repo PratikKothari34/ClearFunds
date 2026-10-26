@@ -7,6 +7,7 @@ import { supabase, unwrap, bytea, Refused } from '../lib/supabase'
 import { useMeStrict, isCommittee } from '../lib/session'
 import { categoryLabel, instant, longDay, plural, roleLabel, rowTitle, tierLabel, actionLabel } from '../lib/format'
 import { format, parse } from '../lib/money'
+import { countable } from '../lib/countable'
 import {
   Amount, Avatar, Button, Card, Caption, Chip, EntryIcon, Facts, Field, Fingerprint, Loading, MoneyInput, Sheet, Textarea, useToast, cx,
 } from '../components/ui'
@@ -49,6 +50,7 @@ function Detail({ r, p }: { r: LedgerRow; p: ProposalRow }) {
   const reversedBy = r.reversed_by_seq ? byseq.get(r.reversed_by_seq) : undefined
   const reverses = r.reverses_seq ? byseq.get(r.reverses_seq) : undefined
   const nonCash = r.effect === 'charge' || r.effect === 'charge_reversal'
+  const direction = countable(r.amount_minor)
 
   const entry = useQuery({
     queryKey: ['entry', s.id, r.seq],
@@ -72,7 +74,9 @@ function Detail({ r, p }: { r: LedgerRow; p: ProposalRow }) {
             <Amount minor={r.amount_minor} currency={r.currency} signed={!nonCash} size="hero" tone={nonCash ? 'muted' : 'auto'} struck={!!reversedBy} />
           </div>
           <div className="mt-3 flex flex-wrap gap-1.5">
-            {nonCash ? <Chip>Billed to flats, not cash</Chip> : <Chip tone={r.amount_minor < 0 ? 'debit' : 'credit'}>{r.amount_minor < 0 ? 'Money out' : 'Money in'}</Chip>}
+            {nonCash ? <Chip>Billed to flats, not cash</Chip> : direction.readable
+              ? <Chip tone={direction.minor < 0 ? 'debit' : 'credit'}>{direction.minor < 0 ? 'Money out' : 'Money in'}</Chip>
+              : <Chip tone="break">Direction could not be read</Chip>}
             {reversedBy && <Chip tone="break">Reversed</Chip>}
             {flagged.some((d) => d.is_open) && <Chip tone="break" icon={<Flag className="size-3" />}>Disputed</Chip>}
           </div>
@@ -191,13 +195,14 @@ function Allocation({ r }: { r: LedgerRow }) {
   const { body, flats } = q.data
   const mine = me.tenure ? body.flat_ids.indexOf(me.tenure.flat_id) : -1
   const extra = new Set(body.remainder_flats)
+  const splitSign = countable(r.amount_minor)
   return (
     <section>
       <Caption>Split across flats</Caption>
       <Card className="p-5">
         <div className="grid grid-cols-3 gap-3 text-center">
           <Stat label="Flats" value={body.flat_ids.length.toString()} />
-          <Stat label="Each" value={format(Math.min(...body.line_amounts.map(Math.abs)) * Math.sign(r.amount_minor))} />
+          <Stat label="Each" value={splitSign.readable ? format(Math.min(...body.line_amounts.map(Math.abs)) * Math.sign(splitSign.minor)) : 'Not available'} />
           <Stat label="+1 paisa" value={plural(body.remainder_flats.length, 'flat')} />
         </div>
         {mine >= 0 && (
@@ -243,8 +248,18 @@ function ReverseSheet({ open, onClose, r, p }: { open: boolean; onClose: () => v
   const [amount, setAmount] = useState('')
   const [error, setError] = useState<string | null>(null)
   const repl = replace ? parse(amount) : null
-  const lim = limit.data?.current.limit_minor ?? 0
-  const committee = p.tier === 'committee' || Math.abs(r.amount_minor) > lim || (repl ?? 0) > lim
+  /*
+   * The tier must never be decided from a figure nobody could read. An
+   * unreadable amount, or an unreadable limit, forces the HIGHER tier: a
+   * reversal approved by two people when it needed the committee is the
+   * laundering path 0004 closed, and `Math.abs(null) > lim` is false, which
+   * would have chosen the lower one silently.
+   */
+  const limNow = countable(limit.data?.current.limit_minor)
+  const mine = countable(r.amount_minor)
+  const committee =
+    p.tier === 'committee' || !limNow.readable || !mine.readable ||
+    Math.abs(mine.minor) > limNow.minor || (repl ?? 0) > limNow.minor
 
   const submit = async () => {
     setError(null)
