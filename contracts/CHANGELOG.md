@@ -11,3 +11,4 @@ Append-only. One line per contract PR:
 2026-10-26 | api.v1 | ADD sign-in by ClearFunds ID and email OTP, ID formats and lifecycle, enrolment mail, api_my_ids | #11 | additive
 2026-10-26 | chain-entry.v1 | ADD kinds payment_claim, claim_closed; vectors claims-kinds.v1.json | #12 | new, additive
 2026-10-26 | api.v1 | ADD payment claims: api_claim_payment, payment_claims, api_reject_claim, claim_seq on /propose, api_claims_unreviewed | #12 | additive
+2026-10-27 | chain-entry.v1 | ADD flat_set value flat (one-flat charge) and category opening (committee tier); no layout change | #50 | additive
