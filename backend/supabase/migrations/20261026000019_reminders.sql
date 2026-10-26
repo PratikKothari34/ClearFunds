@@ -60,6 +60,11 @@ begin
   perform cf.lock(p_society);
   perform cf.require_task(p_society, cf.require_person(auth.uid(), p_society), 'send_dues_reminders');
   select * into soc from public.societies where id = p_society;
+  -- null > 0 would skip a flat silently and the run would look complete.
+  -- The cell is never null, so a null is a fault: send nothing (contract #57).
+  if exists (select 1 from public.flat_dues where society_id = p_society and outstanding_minor is null) then
+    perform cf.err('A flat''s dues could not be read, so no reminders were sent.');
+  end if;
   for d in select * from public.flat_dues where society_id = p_society and outstanding_minor > 0 order by ordinal loop
     if exists (select 1 from private.dues_reminders where society_id = p_society and flat_id = d.flat_id
                 and sent_at > now() - interval '7 days') then

@@ -1,7 +1,7 @@
 -- Dues reminders (#56): only the task holder sends them, each resident of an
 -- owing flat hears about that flat alone, and no flat is chased twice a week.
 begin;
-select plan(11);
+select plan(13);
 
 select is(cf.money_text(12345678, 'INR'), '₹1,23,456.78', 'rupees use Indian grouping');
 select is(cf.money_text(5, 'INR'), '₹0.05', 'paise keep their leading zero');
@@ -54,6 +54,19 @@ select is((select array_agg(to_email order by to_email) from private.mail_outbox
 select ok((select bool_and(body like '%Flat A-1 owes ₹2,500.00%') from private.mail_outbox), 'the amount is written in rupees');
 select ok((select bool_and(body not like '%A-2%' and body not like '%Pat%') from private.mail_outbox),
   'a reminder names no other flat or resident');
+
+-- A dues figure that cannot be read stops the run: the view is replaced in
+-- this transaction only, to serve a null for one flat.
+create or replace view public.flat_dues as
+  select society_id, id as flat_id, label, ordinal, has_parking, 0::bigint as charged_minor, 0::bigint as paid_minor,
+         case when label = 'A-2' then null else 100::bigint end as outstanding_minor
+    from public.flats;
+delete from private.dues_reminders;
+delete from private.mail_outbox;
+select set_config('request.jwt.claims', json_build_object('sub', (select id from u where k = 'sec'), 'role', 'authenticated')::text, true);
+select throws_like($$select api_send_dues_reminders('soc_r')$$, '%could not be read, so no reminders were sent%',
+  'one unreadable flat refuses the whole run');
+select is((select count(*)::int from private.mail_outbox), 0, 'and nothing was sent to the readable flats either');
 
 select * from finish();
 rollback;
