@@ -223,9 +223,17 @@ Deno.serve(async (req) => {
         p_user: user, p_society: society, p_draft_id: Number(body.draft_id) }));
     }
 
+    if (route === "/ballot") {
+      return json(await rpc(admin, "api_ballot", { p_user: user, p_society: society,
+        p_vote_seq: Number(body.vote_seq), p_options: Array.isArray(body.options) ? body.options.map(Number) : [] }));
+    }
+
     if (route === "/propose") {
+      // A cited vote travels beside the proposal (contracts/api/v1.md).
+      const p = { ...(body.proposal ?? {}),
+        ...(body.vote_seq != null ? { vote_seq: Number(body.vote_seq), vote_option: Number(body.vote_option) } : {}) };
       const made = await rpc<{ seq: number }>(admin, "api_propose", {
-        p_user: user, p_society: society, p: body.proposal ?? {} });
+        p_user: user, p_society: society, p });
       // The proposer's own approval, when their seat lets it count.
       let status = "open";
       try {
