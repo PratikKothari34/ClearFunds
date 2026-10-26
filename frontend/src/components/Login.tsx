@@ -59,7 +59,9 @@ export function Login() {
     <div className="grid min-h-dvh lg:grid-cols-[1.05fr_1fr]">
       <aside className="relative hidden overflow-hidden bg-ink p-12 text-bg lg:flex lg:flex-col lg:justify-between">
         <div className="flex items-center gap-2.5">
-          <Logo className="size-9 [&_rect:first-child]:fill-bg [&_rect:not(:first-child):not(:nth-child(3))]:fill-ink" />
+          {/* No inversion classes: the mark is a raster and carries its own
+              plate, so it reads on this dark panel as-is. */}
+          <Logo className="size-13" />
           <span className="text-lg font-semibold">ClearFunds</span>
         </div>
         <ChainArt />
@@ -73,7 +75,7 @@ export function Login() {
         <div className="absolute top-4 right-4"><ThemeSwitch /></div>
         <div className="mx-auto w-full max-w-sm">
           <div className="mb-8 flex items-center gap-2.5 lg:hidden">
-            <Logo className="size-9" />
+            <Logo className="size-13" />
             <span className="text-lg font-semibold">ClearFunds</span>
           </div>
           <h1 className="text-2xl font-semibold tracking-tight">{sent ? 'Check your email' : 'Sign in'}</h1>
