@@ -218,6 +218,11 @@ Deno.serve(async (req) => {
       return json({ head: await rpc(asUser, "api_head", { p_society: society }) });
     }
 
+    if (route === "/publish-notice") {
+      return json(await rpc(admin, "api_publish_notice", {
+        p_user: user, p_society: society, p_draft_id: Number(body.draft_id) }));
+    }
+
     if (route === "/propose") {
       const made = await rpc<{ seq: number }>(admin, "api_propose", {
         p_user: user, p_society: society, p: body.proposal ?? {} });
