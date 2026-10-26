@@ -26,6 +26,15 @@
  * is the frontend's existing record of the read models. Any field marked
  * required here that is legitimately null will fail its query loudly rather
  * than show a wrong number - the safe direction, and a one-word fix.
+ *
+ * The four money cells were checked against the migrations and the contract
+ * now states they are never null: ledger shows only postings that move money,
+ * balance_minor is a running sum, limit_minor is required in the proposal
+ * layout, and outstanding_minor is coalesced. They stay `nullable` anyway.
+ * The contract saying a value is never null is a statement about a correct
+ * server, and this parser's job is the incorrect one - a server fault here
+ * discloses one unreadable figure instead of blanking the screen, which is
+ * the whole point of countable.ts.
  */
 import { array, bool, int, nullable, object, oneOf, required, ShapeError, str } from './parse'
 import type { Parser } from './parse'
