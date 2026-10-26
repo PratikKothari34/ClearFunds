@@ -175,6 +175,11 @@ begin
      or (cf.active_seat(p_society, d.author)).role is distinct from 'president' then
     perform cf.err('only the president attaches files, to their own unpublished draft');
   end if;
+  -- A draft's files together stay openable on mobile data (contract #60).
+  if coalesce((select sum(size_bytes) from private.notice_attachments where draft_id = d.id and sha256 <> coalesce(p->>'sha256', '')), 0)
+     + coalesce((p->>'size_bytes')::bigint, 0) > 20971520 then
+    perform cf.err('a notice''s files together must be at most 20 MB');
+  end if;
   -- Without a path this is the check the edge function makes before storing.
   if p->>'path' is null then
     return;

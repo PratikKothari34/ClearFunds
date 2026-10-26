@@ -2,7 +2,7 @@
 -- draft, the list is part of the approved revision, publishing chains it,
 -- and residents read a draft's files only once it is published.
 begin;
-select plan(11);
+select plan(12);
 
 create temp table u (k text primary key, id uuid);
 insert into u values ('pres', gen_random_uuid()), ('tre', gen_random_uuid()), ('sec', gen_random_uuid()), ('res', gen_random_uuid());
@@ -37,6 +37,8 @@ select lives_ok($$select api_notice_attachment_store(pg_temp.uid('pres'), 'soc_a
   'the check before storing passes for the president');
 select is((select count(*)::int from private.notice_attachments), 0, 'and records nothing');
 select api_notice_attachment_store(pg_temp.uid('pres'), 'soc_a', (select id from d), pg_temp.file(repeat('ab', 32)));
+select throws_like($$select api_notice_attachment_store(pg_temp.uid('pres'), 'soc_a', (select id from d),
+  '{"sha256":"ef","size_bytes":20969473}')$$, '%at most 20 MB%', 'a draft''s files together stay under 20 MB');
 
 set local role authenticated;
 select pg_temp.as_('pres');

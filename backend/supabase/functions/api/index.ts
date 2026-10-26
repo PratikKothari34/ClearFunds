@@ -43,6 +43,11 @@ async function seed(label: string): Promise<Uint8Array> {
 
 const MINUTES_MAX = 10 * 1024 * 1024;
 const ATTACHMENT_TYPES = ["application/pdf", "image/png", "image/jpeg"];
+const MAGIC: Record<string, number[]> = {
+  "application/pdf": [0x25, 0x50, 0x44, 0x46, 0x2d],
+  "image/png": [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a],
+  "image/jpeg": [0xff, 0xd8, 0xff],
+};
 const minutesPath = (society: string) => `${society}/election-minutes.pdf`;
 const sha256 = async (b: Uint8Array<ArrayBuffer>) => hex(new Uint8Array(await crypto.subtle.digest("SHA-256", b)));
 
@@ -217,15 +222,19 @@ Deno.serve(async (req) => {
       }
       const type = req.headers.get("Content-Type") ?? "";
       if (!ATTACHMENT_TYPES.includes(type)) return json({ error: "Attach a PDF, PNG or JPEG." }, 400);
+      // Limits count the bytes received, never a declared Content-Length.
       const bytes = new Uint8Array(await req.arrayBuffer());
       if (bytes.length === 0 || bytes.length > MINUTES_MAX) return json({ error: "A file must be at most 10 MB." }, 400);
+      // The declared type must match the leading bytes; the header alone is not trusted.
+      if (!MAGIC[type]?.every((b, i) => bytes[i] === b)) return json({ error: "That file is not the type it says it is." }, 400);
       const sha = await sha256(bytes);
       const path = `${society}/notices/${q.get("draft_id")}/${sha}`;
       const draft = Number(q.get("draft_id"));
       const meta = { sha256: sha, size_bytes: bytes.length, media_type: type, path,
         file_name: (req.headers.get("X-File-Name") ?? "attachment").normalize("NFC").slice(0, 200) };
-      // Refuse before storing: only the president's own unpublished draft takes files.
-      await rpc(admin, "api_notice_attachment_store", { p_user: user, p_society: society, p_draft_id: draft, p: {} });
+      // Refuse before storing: the president's own unpublished draft, within its size budget.
+      await rpc(admin, "api_notice_attachment_store", { p_user: user, p_society: society, p_draft_id: draft,
+        p: { sha256: sha, size_bytes: bytes.length } });
       const up = await admin.storage.from("society-docs").upload(path, bytes, { contentType: type, upsert: true });
       if (up.error) throw up.error;
       await rpc(admin, "api_notice_attachment_store", { p_user: user, p_society: society, p_draft_id: draft, p: meta });
