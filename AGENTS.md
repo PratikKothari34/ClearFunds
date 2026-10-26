@@ -406,9 +406,11 @@ rather than picking a default.
   directory ownership, issues, branches, PRs and contracts.** In short:
   every change starts from an issue in your lane; branch
   `<area>/<issue>-<slug>` and open the PR, squash-merged after the other
-  person approves. Nobody merges without the other person's approval, and
-  pushing new commits dismisses existing approvals, so push before asking for
-  review, not after.
+  person approves. `main` takes no direct pushes, and nobody, the admin
+  included, merges without the other person's approval (the live ruleset
+  still lets the admin bypass; see `CONTRIBUTING.md` §3.4). Pushing new
+  commits dismisses existing approvals, so push before asking for review, not
+  after.
   **Target your PR at `main`:** there is no `dev` branch today. The `dev` and
   promote-PR model in `CONTRIBUTING.md` §3 is the target, not the live
   setup — that file's own table marks which rules are live, and it is the
