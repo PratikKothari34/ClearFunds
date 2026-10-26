@@ -1,8 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="ClearFunds">
-  <!-- Three ledger lines, each linked to the one above. Literals, not tokens:
-       the browser fetches this before any stylesheet. -->
-  <rect width="32" height="32" rx="8" fill="#0d1320"/>
-  <rect x="8" y="8" width="16" height="3" rx="1.5" fill="#ffffff"/>
-  <rect x="8" y="14.5" width="11" height="3" rx="1.5" fill="#93a4ff"/>
-  <rect x="8" y="21" width="16" height="3" rx="1.5" fill="#ffffff"/>
-</svg>

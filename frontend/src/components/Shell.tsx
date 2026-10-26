@@ -98,8 +98,8 @@ export function Shell({ children }: { children: ReactNode }) {
     <div className="min-h-dvh lg:pl-64 print:!pl-0">
       {/* Desktop rail: same items, never collapses. */}
       <aside className="fixed inset-y-0 left-0 hidden w-64 print:!hidden flex-col border-r border-line bg-surface lg:flex">
-        <div className="flex h-16 items-center gap-2.5 px-5">
-          <Logo className="size-8" />
+        <div className="flex h-20 items-center gap-2.5 px-5">
+          <Logo className="size-12" />
           <div className="min-w-0">
             <p className="text-[15px] leading-tight font-semibold">ClearFunds</p>
             <p className="truncate text-xs text-ink-2">{me.society.name}</p>
@@ -120,9 +120,9 @@ export function Shell({ children }: { children: ReactNode }) {
       </aside>
 
       {/* Mobile header */}
-      <header className="sticky top-0 z-30 flex h-14 print:hidden items-center justify-between gap-2 border-b border-line/70 bg-bg/85 px-4 backdrop-blur-md lg:hidden">
+      <header className="sticky top-0 z-30 flex h-16 print:hidden items-center justify-between gap-2 border-b border-line/70 bg-bg/85 px-4 backdrop-blur-md lg:hidden">
         <Link to="/" className="flex min-w-0 items-center gap-2">
-          <Logo className="size-7" />
+          <Logo className="size-11" />
           <span className="truncate text-[15px] font-semibold">{me.society.name}</span>
         </Link>
         <div className="flex items-center">
