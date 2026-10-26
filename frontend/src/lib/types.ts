@@ -119,9 +119,17 @@ export type DuesRow = {
   label: string
   ordinal: number
   has_parking: boolean
-  charged_minor: number
-  paid_minor: number
-  outstanding_minor: number
+  /*
+   * Nullable on purpose, against the contract's "never null" guarantee.
+   * Every view column is typed nullable in database.types.ts, api.ts casts
+   * rather than validates, and declaring these plain `number` here made the
+   * compiler assert something nothing enforced - which is how `null <= 0`
+   * reached a comparison and hid a flat that owed money. Read them through
+   * countable.ts, never directly.
+   */
+  charged_minor: number | null
+  paid_minor: number | null
+  outstanding_minor: number | null
 }
 
 export type Seat = { person_id: string; role: Role; derived: boolean; seated_seq: number; unseated_seq: number | null }
