@@ -99,6 +99,24 @@ Deno.serve(async (req) => {
                     public_key: hex(await ed.getPublicKeyAsync(sk)) });
     }
 
+    // Platform admin: creates societies and registers presidents, nothing more.
+    if (route.startsWith("/platform/")) {
+      const { data: plat } = await admin.from("platform_admins").select("auth_user_id").eq("auth_user_id", user);
+      if (!plat?.length) return json({ error: "Only a ClearFunds platform admin can do this." }, 403);
+      if (req.method === "GET" && route === "/platform/societies") {
+        return json(await rpc(admin, "api_platform_list", { p_user: user }));
+      }
+      const body = await req.json().catch(() => ({}));
+      if (req.method === "POST" && route === "/platform/societies") {
+        return json({ society: await rpc<string>(admin, "api_platform_create", { p_user: user, p: body }) });
+      }
+      const m = route.match(/^\/platform\/societies\/(soc_[a-z0-9]+)\/president$/);
+      if (req.method === "POST" && m) {
+        return json(await rpc(admin, "api_platform_president", { p_user: user, p_society: m[1], p: body }));
+      }
+      return json({ error: "Not found." }, 404);
+    }
+
     if (req.method !== "POST") return json({ error: "Not found." }, 404);
     const body = await req.json().catch(() => ({}));
     const society = String(body.society ?? "");
