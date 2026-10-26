@@ -46,6 +46,14 @@ const rnd = () => ((s = (s * 1103515245 + 12345) % 2147483648) / 2147483648);
 const pick = <T>(a: T[]) => a[Math.floor(rnd() * a.length)];
 
 // ---------------------------------------------------------------- people
+// The defaults the setup wizard offers. The secretary proposes expenses too
+// in this society.
+const TASKS: Record<string, string[]> = {
+  president: [],
+  treasurer: ["propose_expenses", "raise_monthly_charges", "review_payment_claims"],
+  secretary: ["manage_residents", "propose_expenses", "respond_to_flags", "send_dues_reminders"],
+  member: [],
+};
 
 const committee = [
   { key: "president", name: "Anjali Deshpande", role: "president", flat: "A-801" },
@@ -84,7 +92,9 @@ await authUser("tenant");
 await rpc("api_open_society", { p: {
   id: SOC, name: "Gulmohar Heights CHS", city: "Pune", fy_start_month: 4,
   approval_limit_minor: 25_000_00,
-  committee: committee.map((c) => ({ name: c.name, email: email(c.key), role: c.role })),
+  committee: committee.map((c) => ({ name: c.name, email: email(c.key), role: c.role, tasks: TASKS[c.role] })),
+  minutes: { file_name: "AGM 2025 election minutes.pdf", media_type: "application/pdf", size_bytes: 1,
+    sha256: hex(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode("demo minutes")))) },
 } });
 
 const flats: { id: string; label: string }[] = [];

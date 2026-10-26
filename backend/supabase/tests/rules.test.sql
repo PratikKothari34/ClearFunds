@@ -15,10 +15,13 @@ insert into auth.users (id, email, instance_id, aud, role)
 select lives_ok($$select api_open_society(jsonb_build_object('id', 'soc_t', 'name', 'Test CHS',
   'approval_limit_minor', 1000000, 'committee', jsonb_build_array(
     jsonb_build_object('name', 'P', 'email', 'pres@t.test', 'role', 'president'),
-    jsonb_build_object('name', 'T', 'email', 'tre@t.test', 'role', 'treasurer'),
+    jsonb_build_object('name', 'T', 'email', 'tre@t.test', 'role', 'treasurer',
+      'tasks', jsonb_build_array('propose_expenses', 'raise_monthly_charges')),
     jsonb_build_object('name', 'S', 'email', 'sec@t.test', 'role', 'secretary'),
     jsonb_build_object('name', 'M1', 'email', 'm1@t.test'),
-    jsonb_build_object('name', 'M2', 'email', 'm2@t.test'))))$$, 'a society opens with its committee');
+    jsonb_build_object('name', 'M2', 'email', 'm2@t.test')),
+  'minutes', jsonb_build_object('file_name', 'minutes.pdf', 'media_type', 'application/pdf',
+    'size_bytes', 1, 'sha256', repeat('ab', 32))))$$, 'a society opens with its committee');
 
 insert into public.flats (society_id, ordinal, label, has_parking, joined_on)
   select 'soc_t', g, 'A-' || (100 + g), g % 2 = 0, '2020-01-01' from generate_series(1, 10) g;
