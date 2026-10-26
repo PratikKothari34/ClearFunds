@@ -34,6 +34,7 @@ Mail sent locally (sign-in codes) lands in Mailpit at http://127.0.0.1:54324.
 | `…09_platform.sql` | Platform admins, creating a society in draft with its president, the setup draft's table |
 | `…10_setup.sql` | The president's setup draft and its problems, opening from the draft (flats, tenures), the `society-docs` bucket |
 | `…11_ids.sql` | ClearFunds IDs that follow posts and tenures, and the enrolment mail they queue |
+| `…12_codes.sql` | Code-request limits, the mail queue's sender functions and its cron job |
 | `supabase/functions/api/` | The signing boundary: authenticates, derives the admin's Ed25519 key, registers it, signs |
 | `supabase/tests/` | pgTAP. `chain_vectors.test.sql` is generated from the contract vectors |
 | `scripts/seed.ts` | Local demo data, driven through the real rule functions |
@@ -52,6 +53,24 @@ They create the society at `POST /api/platform/societies`; its president then
 works through the setup draft (`api_setup_get`/`api_setup_save`), uploads the
 election minutes at `PUT /api/setup/minutes`, and opens it at
 `POST /api/open-society`. The routes are in `contracts/api/v1.md`.
+
+## Sign-in and mail
+
+Everyone signs in with a ClearFunds ID and a code emailed by Supabase Auth
+(`templates/magic_link.html`). Enrolment mail is queued in
+`private.mail_outbox` and sent by the edge function: straight after
+`/open-society`, and every minute by a `pg_cron` job once the project's Vault
+holds where to call and the shared secret:
+
+```sql
+select vault.create_secret('https://<ref>.supabase.co/functions/v1/api/mail/flush', 'clearfunds_mailer_url');
+select vault.create_secret('<same value as CLEARFUNDS_MAILER_SECRET>', 'clearfunds_mailer_secret');
+```
+
+SMTP settings are function secrets (`CLEARFUNDS_SMTP_*`, see
+`functions/.env.example`); for Gmail that is `smtp.gmail.com`, port 465 and an
+app password. The same Gmail account goes in the dashboard under Auth → SMTP
+for the sign-in codes. Without SMTP settings mail stays queued, never lost.
 
 ## How the rules are enforced
 

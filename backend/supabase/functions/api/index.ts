@@ -13,6 +13,7 @@
 import "@supabase/functions-js/edge-runtime.d.ts";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import * as ed from "@noble/ed25519";
+import nodemailer from "nodemailer";
 
 const URL_ = Deno.env.get("SUPABASE_URL")!;
 const ANON = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -21,7 +22,7 @@ const MASTER = Deno.env.get("CLEARFUNDS_SIGNING_SECRET");
 
 const cors = {
   "Access-Control-Allow-Origin": Deno.env.get("CLEARFUNDS_ALLOWED_ORIGIN") ?? "*",
-  "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info, x-file-name",
+  "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info, x-file-name, x-mailer-secret",
   "Access-Control-Allow-Methods": "GET, POST, PUT, OPTIONS",
 };
 
@@ -71,6 +72,34 @@ async function sign(admin: SupabaseClient, user: string, society: string, intent
   return { keySeq, signature };
 }
 
+// Sends what the database queued (enrolment mail). Without SMTP settings
+// the mail stays queued; nothing is lost.
+async function flushMail(admin: SupabaseClient) {
+  const host = Deno.env.get("CLEARFUNDS_SMTP_HOST");
+  if (!host) return;
+  const port = Number(Deno.env.get("CLEARFUNDS_SMTP_PORT") ?? 465);
+  const user = Deno.env.get("CLEARFUNDS_SMTP_USER");
+  const from = Deno.env.get("CLEARFUNDS_SMTP_FROM") ?? user;
+  const batch = await rpc<{ id: number; to_email: string; subject: string; body: string }[]>(admin, "api_mail_take", {});
+  if (!batch.length) return;
+  // nodemailer resolves names with DNS queries the edge runtime does not
+  // answer ("queryA UNKNOWN"). A plain connect resolves the way the system
+  // does, so take the address from it and keep the name for TLS.
+  const probe = await Deno.connect({ hostname: host, port });
+  const address = (probe.remoteAddr as Deno.NetAddr).hostname;
+  probe.close();
+  const mailer = nodemailer.createTransport({ host: address, port, secure: port === 465,
+    tls: { servername: host }, auth: user ? { user, pass: Deno.env.get("CLEARFUNDS_SMTP_PASS") } : undefined });
+  for (const m of batch) {
+    try {
+      await mailer.sendMail({ from, to: m.to_email, subject: m.subject, text: m.body });
+      await rpc(admin, "api_mail_done", { p_id: m.id, p_error: null });
+    } catch (e) {
+      await rpc(admin, "api_mail_done", { p_id: m.id, p_error: String(e).slice(0, 500) });
+    }
+  }
+}
+
 async function cast(admin: SupabaseClient, user: string, society: string, seq: number, decision: string) {
   const intent = await rpc<Intent>(admin, "api_cast_intent", {
     p_user: user, p_society: society, p_seq: seq, p_decision: decision });
@@ -86,6 +115,41 @@ Deno.serve(async (req) => {
 
   try {
     const admin = createClient(URL_, SERVICE, { auth: { persistSession: false } });
+
+    // Sign-in needs no session. Every ID gets the same answer (contracts/api/v1.md).
+    if (req.method === "POST" && route.startsWith("/auth/")) {
+      const body = await req.json().catch(() => ({}));
+      const id = String(body.clearfunds_id ?? "");
+      const anon = createClient(URL_, ANON, { auth: { persistSession: false } });
+      if (route === "/auth/request-code") {
+        const email = await rpc<string | null>(admin, "api_auth_request", { p_id: id });
+        if (email) {
+          const { error } = await anon.auth.signInWithOtp({ email, options: { shouldCreateUser: true } });
+          if (error) console.error("otp", error.message);
+        }
+        return json({ sent: true });
+      }
+      if (route === "/auth/verify-code") {
+        const email = await rpc<string | null>(admin, "api_auth_verify", { p_id: id });
+        const { data, error } = email
+          ? await anon.auth.verifyOtp({ email, token: String(body.code ?? ""), type: "email" })
+          : { data: null, error: true };
+        await rpc(admin, "api_auth_result", { p_id: id, p_ok: !error });
+        if (error || !data?.session) return json({ error: "That code is wrong or has expired." }, 400);
+        const { access_token, refresh_token, expires_at } = data.session;
+        return json({ access_token, refresh_token, expires_at });
+      }
+      return json({ error: "Not found." }, 404);
+    }
+
+    // The cron job's call (cf.kick_mailer), authenticated by a shared secret.
+    if (req.method === "POST" && route === "/mail/flush") {
+      const secret = Deno.env.get("CLEARFUNDS_MAILER_SECRET");
+      if (!secret || req.headers.get("X-Mailer-Secret") !== secret) return json({ error: "Not found." }, 404);
+      await flushMail(admin);
+      return json({ ok: true });
+    }
+
     const auth = req.headers.get("Authorization") ?? "";
     const asUser = createClient(URL_, ANON, {
       auth: { persistSession: false }, global: { headers: { Authorization: auth } } });
@@ -150,6 +214,7 @@ Deno.serve(async (req) => {
       const bytes = new Uint8Array(await file.data.arrayBuffer());
       await rpc(admin, "api_setup_open", { p_user: user, p_society: society, p_confirm: String(body.confirm ?? ""),
         p_minutes: { sha256: await sha256(bytes) } });
+      await flushMail(admin).catch((e) => console.error("mail", e));
       return json({ head: await rpc(asUser, "api_head", { p_society: society }) });
     }
 
