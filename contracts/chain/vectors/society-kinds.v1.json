@@ -1,0 +1,156 @@
+{
+ "spec": "contracts/chain/kinds/society.v1.md",
+ "format_version": 1,
+ "hash_alg": "sha256",
+ "notes": "Entries 2-5 form one chain. Sequence 1 (society_opened) is not included; prev_hash of entry 2 is SHA-256 of the ASCII string 'clearfunds/example society_opened', standing in for it. All ids are synthetic.",
+ "layouts": {
+  "document_attached": [
+   [
+    "purpose",
+    "text"
+   ],
+   [
+    "file_name",
+    "text"
+   ],
+   [
+    "media_type",
+    "text"
+   ],
+   [
+    "size_bytes",
+    "int"
+   ],
+   [
+    "sha256",
+    "bytes"
+   ]
+  ],
+  "tasks_set": [
+   [
+    "post_id",
+    "text"
+   ],
+   [
+    "post_title",
+    "text"
+   ],
+   [
+    "seat_role",
+    "text"
+   ],
+   [
+    "holder",
+    "text?"
+   ],
+   [
+    "tasks",
+    "list<text>"
+   ]
+  ]
+ },
+ "entries": [
+  {
+   "name": "election minutes at sequence 2",
+   "entry": {
+    "format_version": 1,
+    "society_id": "soc_7f3k9q",
+    "sequence": 2,
+    "prev_hash": "8126110da91ede963f71c3e1fbb93d32f2caba650690d1c33ffb533829185876",
+    "kind": "document_attached",
+    "recorded_at": 1793520000000,
+    "actor": "4b1c2d3e-0000-4000-8000-000000000001",
+    "body": {
+     "purpose": "election_minutes",
+     "file_name": "AGM 2026 — निर्वाचन.pdf",
+     "media_type": "application/pdf",
+     "size_bytes": 482113,
+     "sha256": "d7d1e7c4ef08d626670f2a48eb7c7ab05600b828f18d10fda8bd41fd934dd729"
+    }
+   },
+   "preimage_hex": "0200000016636c65617266756e64732f636861696e2d656e74727901000000080000000000000001020000000a736f635f3766336b39710100000008000000000000000203000000208126110da91ede963f71c3e1fbb93d32f2caba650690d1c33ffb5338291858760200000011646f63756d656e745f61747461636865640100000008000001a1961f5c00020000002434623163326433652d303030302d343030302d383030302d30303030303030303030303105000000890200000010656c656374696f6e5f6d696e75746573020000002941474d203230323620e2809420e0a4a8e0a4bfe0a4b0e0a58de0a4b5e0a4bee0a49ae0a4a82e706466020000000f6170706c69636174696f6e2f70646601000000080000000000075b410300000020d7d1e7c4ef08d626670f2a48eb7c7ab05600b828f18d10fda8bd41fd934dd729",
+   "entry_hash": "4b04f845c5fd44b4596bd34ce2ffc2828e13ea7d787581e09f12f98648bc515a"
+  },
+  {
+   "name": "treasurer post with three tasks, ascending",
+   "entry": {
+    "format_version": 1,
+    "society_id": "soc_7f3k9q",
+    "sequence": 3,
+    "prev_hash": "4b04f845c5fd44b4596bd34ce2ffc2828e13ea7d787581e09f12f98648bc515a",
+    "kind": "tasks_set",
+    "recorded_at": 1793520000001,
+    "actor": "4b1c2d3e-0000-4000-8000-000000000001",
+    "body": {
+     "post_id": "pst_a1b2c3d4",
+     "post_title": "Treasurer",
+     "seat_role": "treasurer",
+     "holder": "4b1c2d3e-0000-4000-8000-000000000002",
+     "tasks": [
+      "propose_expenses",
+      "raise_monthly_charges",
+      "review_payment_claims"
+     ]
+    }
+   },
+   "preimage_hex": "0200000016636c65617266756e64732f636861696e2d656e74727901000000080000000000000001020000000a736f635f3766336b39710100000008000000000000000303000000204b04f845c5fd44b4596bd34ce2ffc2828e13ea7d787581e09f12f98648bc515a02000000097461736b735f7365740100000008000001a1961f5c01020000002434623163326433652d303030302d343030302d383030302d30303030303030303030303105000000a4020000000c7073745f613162326333643402000000095472656173757265720200000009747265617375726572020000002434623163326433652d303030302d343030302d383030302d3030303030303030303030320500000049020000001070726f706f73655f657870656e736573020000001572616973655f6d6f6e74686c795f6368617267657302000000157265766965775f7061796d656e745f636c61696d73",
+   "entry_hash": "a1da74ab24615a465f357597cf5756dfbaacce889452958df1575980f767d57d"
+  },
+  {
+   "name": "custom post over a member seat",
+   "entry": {
+    "format_version": 1,
+    "society_id": "soc_7f3k9q",
+    "sequence": 4,
+    "prev_hash": "a1da74ab24615a465f357597cf5756dfbaacce889452958df1575980f767d57d",
+    "kind": "tasks_set",
+    "recorded_at": 1793520000002,
+    "actor": "4b1c2d3e-0000-4000-8000-000000000001",
+    "body": {
+     "post_id": "pst_k9m8n7p6",
+     "post_title": "Joint Secretary",
+     "seat_role": "member",
+     "holder": "4b1c2d3e-0000-4000-8000-000000000005",
+     "tasks": [
+      "manage_residents"
+     ]
+    }
+   },
+   "preimage_hex": "0200000016636c65617266756e64732f636861696e2d656e74727901000000080000000000000001020000000a736f635f3766336b3971010000000800000000000000040300000020a1da74ab24615a465f357597cf5756dfbaacce889452958df1575980f767d57d02000000097461736b735f7365740100000008000001a1961f5c02020000002434623163326433652d303030302d343030302d383030302d3030303030303030303030310500000073020000000c7073745f6b396d386e377036020000000f4a6f696e742053656372657461727902000000066d656d626572020000002434623163326433652d303030302d343030302d383030302d303030303030303030303035050000001502000000106d616e6167655f7265736964656e7473",
+   "entry_hash": "bb198d98f365aa0faad5bfa9ddf2baec2912abf7ca769e3c319668a4b7b2ece3"
+  },
+  {
+   "name": "vacant post, no tasks; actor absent after an unseat",
+   "entry": {
+    "format_version": 1,
+    "society_id": "soc_7f3k9q",
+    "sequence": 5,
+    "prev_hash": "bb198d98f365aa0faad5bfa9ddf2baec2912abf7ca769e3c319668a4b7b2ece3",
+    "kind": "tasks_set",
+    "recorded_at": 1793520000003,
+    "actor": null,
+    "body": {
+     "post_id": "pst_k9m8n7p6",
+     "post_title": "Joint Secretary",
+     "seat_role": "member",
+     "holder": null,
+     "tasks": []
+    }
+   },
+   "preimage_hex": "0200000016636c65617266756e64732f636861696e2d656e74727901000000080000000000000001020000000a736f635f3766336b3971010000000800000000000000050300000020bb198d98f365aa0faad5bfa9ddf2baec2912abf7ca769e3c319668a4b7b2ece302000000097461736b735f7365740100000008000001a1961f5c030000000000050000003a020000000c7073745f6b396d386e377036020000000f4a6f696e742053656372657461727902000000066d656d62657200000000000500000000",
+   "entry_hash": "97df49094dc38452c7abd36b3a4d177fe22bea83aecdab88827309a6512290de"
+  }
+ ],
+ "must_differ": [
+  {
+   "name": "tasks in a different order hash differently; the server must sort before appending",
+   "a": "a1da74ab24615a465f357597cf5756dfbaacce889452958df1575980f767d57d",
+   "b": "fa6b21c545b7b9b910499b24bc03e99bd9940c64c97075e513f95a00cd8b9600"
+  },
+  {
+   "name": "a vacant holder (absent) differs from an empty-string holder",
+   "a": "97df49094dc38452c7abd36b3a4d177fe22bea83aecdab88827309a6512290de",
+   "b": "03fe9c8d049a81239b586ddb2dcaca22a9c4df00a17771a522247195b366e563"
+  }
+ ]
+}
