@@ -66,7 +66,7 @@ select is(pg_temp.rel(pg_temp.seq('post'), 'flagged_by'), 1, 'a posting links to
 select is(pg_temp.rel(pg_temp.seq('flag'), 'about'), 1, 'and the dispute back to it');
 select is(pg_temp.rel(pg_temp.seq('p') + 2, 'signed_with'), 1, 'an approval links to the key that signed it');
 select is((select jsonb_agg(x->>'screen' order by x->>'screen') from jsonb_array_elements(api_entry_context('soc_l', pg_temp.seq('post'))->'appears_in') x),
-  '["ledger", "year"]'::jsonb, 'an expense posting appears in the ledger and its year');
+  '["ledger", "year_close"]'::jsonb, 'an expense posting appears in the ledger and its year');
 select is(api_entry_context('soc_l', pg_temp.seq('p'))->'entry'->>'entry_hash', pg_temp.hash(pg_temp.seq('p')),
   'the raw entry comes back for the client to recompute');
 

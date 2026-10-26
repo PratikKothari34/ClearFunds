@@ -116,7 +116,7 @@ begin
       shown := shown || '[{"screen":"ledger"}]';
     end if;
     if pr.body->>'business_date' is not null then
-      shown := shown || jsonb_build_array(jsonb_build_object('screen', 'year',
+      shown := shown || jsonb_build_array(jsonb_build_object('screen', 'year_close',
         'fy', cf.fy_of(p_society, (pr.body->>'business_date')::date)));
     end if;
   elsif e.kind in ('proposal', 'approval', 'proposal_closed', 'proposal_ref') then
@@ -131,7 +131,7 @@ begin
     flat := coalesce(b->>'flat_id', (select body->>'flat_id' from public.chain_entries
                                      where society_id = p_society and sequence = (b->>'claim_seq')::bigint));
   elsif e.kind in ('month_signoff', 'year_close') then
-    shown := jsonb_build_array(jsonb_build_object('screen', 'year', 'fy', b->>'fy'));
+    shown := jsonb_build_array(jsonb_build_object('screen', 'year_close', 'fy', b->>'fy'));
   else
     shown := '[{"screen":"committee"}]';
   end if;
