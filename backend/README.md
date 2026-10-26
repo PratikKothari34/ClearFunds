@@ -32,6 +32,7 @@ Mail sent locally (sign-in codes) lands in Mailpit at http://127.0.0.1:54324.
 | `…07_society.sql` | Society status (`draft`/`setup`/`open`), opening with the minutes and one `tasks_set` per post, the posts projection |
 | `…08_tasks.sql` | Task checks in front of the existing writes, `api_set_post`, the tour flag, `api_me` posts |
 | `…09_platform.sql` | Platform admins, creating a society in draft with its president, the setup draft's table |
+| `…10_setup.sql` | The president's setup draft and its problems, opening from the draft (flats, tenures), the `society-docs` bucket |
 | `supabase/functions/api/` | The signing boundary: authenticates, derives the admin's Ed25519 key, registers it, signs |
 | `supabase/tests/` | pgTAP. `chain_vectors.test.sql` is generated from the contract vectors |
 | `scripts/seed.ts` | Local demo data, driven through the real rule functions |
@@ -46,8 +47,10 @@ insert into public.platform_admins (auth_user_id)
   select id from auth.users where email = '<staff email>';
 ```
 
-They create the society at `POST /api/platform/societies`. The routes are in
-`contracts/api/v1.md`.
+They create the society at `POST /api/platform/societies`; its president then
+works through the setup draft (`api_setup_get`/`api_setup_save`), uploads the
+election minutes at `PUT /api/setup/minutes`, and opens it at
+`POST /api/open-society`. The routes are in `contracts/api/v1.md`.
 
 ## How the rules are enforced
 
