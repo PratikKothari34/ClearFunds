@@ -25,6 +25,29 @@ const css = readdirSync(join(ROOT, 'src', 'styles'))
   .map((f) => readFileSync(join(ROOT, 'src', 'styles', f), 'utf8'))
   .join('\n')
 
+/*
+ * Components reference public/ assets too - the logo is an <img src="/brand/
+ * ...">, not an import - and those are invisible to a scan of index.html.
+ * A rename there is the same silent 404 as a missing favicon, except it
+ * blanks the mark on every screen in the app rather than one browser tab.
+ *
+ * Vite does NOT catch this: a root-absolute src is a plain string to the
+ * bundler, never resolved at build time, so it builds green and breaks in
+ * the browser.
+ */
+function sourceFiles(dir) {
+  const out = []
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const path = join(dir, entry.name)
+    if (entry.isDirectory()) out.push(...sourceFiles(path))
+    else if (/\.(tsx?|jsx?)$/.test(entry.name) && !entry.name.includes('.test.')) out.push(path)
+  }
+  return out
+}
+const sources = sourceFiles(join(ROOT, 'src'))
+  .map((f) => readFileSync(f, 'utf8'))
+  .join('\n')
+
 let failed = false
 
 /*
@@ -34,9 +57,41 @@ let failed = false
  * one that fails silently.
  */
 const referenced = new Set()
-for (const source of [html, css]) {
-  for (const m of source.matchAll(/["'(](\/[A-Za-z0-9._\-/]+\.[a-z0-9]{2,5})["')]/g)) {
+for (const source of [html, css, sources]) {
+  for (const m of source.matchAll(/["'(](\/[A-Za-z0-9._\-/]+\.[a-z0-9]{2,12})["')]/g)) {
     referenced.add(m[1])
+  }
+}
+
+/*
+ * The manifest's icons are references too, and nothing else would catch
+ * them. They are named inside a JSON file rather than in the head, so the
+ * scan above cannot see them: an icon deleted or renamed would 404 only on
+ * an install or an add-to-home-screen, which is exactly the path nobody
+ * exercises before shipping.
+ *
+ * The extension bound above is 12, not 5, so that "webmanifest" matches at
+ * all. A tighter bound silently skipped this file and reported success.
+ */
+const manifestRef = [...referenced].find((r) => r.endsWith('.webmanifest'))
+if (manifestRef) {
+  const manifestPath = join(PUBLIC, manifestRef)
+  if (existsSync(manifestPath)) {
+    let manifest
+    try {
+      manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
+    } catch (err) {
+      console.error(
+        `assets: FAIL  ${manifestRef} is not valid JSON (${err.message}).\n` +
+          '  A browser ignores a malformed manifest silently.',
+      )
+      failed = true
+    }
+    for (const icon of manifest?.icons ?? []) {
+      if (typeof icon?.src === 'string' && icon.src.startsWith('/')) {
+        referenced.add(icon.src)
+      }
+    }
   }
 }
 

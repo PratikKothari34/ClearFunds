@@ -30,7 +30,7 @@ function Splash() {
   return (
     <div className="fade-in grid min-h-dvh place-items-center" role="status">
       <div className="flex flex-col items-center gap-4">
-        <Logo className="size-12" />
+        <Logo className="size-16" />
         <p className="text-sm text-ink-2">Opening the ledger</p>
       </div>
     </div>
@@ -41,7 +41,7 @@ function NoAccount({ email }: { email: string }) {
   return (
     <div className="grid min-h-dvh place-items-center p-6">
       <div className="max-w-sm text-center">
-        <Logo className="mx-auto mb-5 size-12" />
+        <Logo className="mx-auto mb-5 size-16" />
         <h1 className="text-xl font-semibold">No society account for {email}</h1>
         <p className="mt-2 text-sm text-ink-2">Your committee adds residents. Ask them to add this email.</p>
         <Button className="mt-6" onClick={() => supabase.auth.signOut()}>Use another email</Button>
