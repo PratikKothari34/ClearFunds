@@ -2,13 +2,21 @@
  "spec": "contracts/chain/kinds/notices.v1.md",
  "format_version": 1,
  "hash_alg": "sha256",
- "notes": "Entries 100-106 form one chain; prev_hash of entry 100 is SHA-256 of 'clearfunds/example entry 99'. Flat tokens use the test salt below; a real salt is never published. Ids are synthetic; entry 106 cites a vote from entry 101, and entry 106's own ballot belongs to a vote at 200 to exercise the named form.",
- "flat_token": {
-  "society_salt": "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a",
-  "vote_seq": 101,
-  "flat_id": "flt_a1b2c3d4e5",
-  "token": "70ee87b766a022cd092156cd27053f225d2d9fa5f8e9116020e58baaa0c9841f"
- },
+ "notes": "Entries 100-107 form one chain; prev_hash of entry 100 is SHA-256 of 'clearfunds/example entry 99'. Flat tokens use the test salt below; a real salt is never published. Ids are synthetic; entry 106 cites a vote from entry 101, and entry 106's own ballot belongs to a vote at 200 to exercise the named form. Entries 102 and 107 are the same flat's anonymous ballots in votes 101 and 102; flat_token lists both derivations so a verifier recomputes each token from the salt, vote and flat.",
+ "flat_token": [
+  {
+   "society_salt": "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a",
+   "vote_seq": 101,
+   "flat_id": "flt_a1b2c3d4e5",
+   "token": "70ee87b766a022cd092156cd27053f225d2d9fa5f8e9116020e58baaa0c9841f"
+  },
+  {
+   "society_salt": "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a",
+   "vote_seq": 102,
+   "flat_id": "flt_a1b2c3d4e5",
+   "token": "bc820b718659cc73b568e02e91cd89d579629479b973a0e561064f2e73480a1f"
+  }
+ ],
  "layouts": {
   "notice": [
    [
@@ -287,11 +295,33 @@
    },
    "preimage_hex": "0200000016636c65617266756e64732f636861696e2d656e74727901000000080000000000000001020000000a736f635f3766336b39710100000008000000000000006a03000000205042d3b07be55996777b08808b937d5881223386b5aec7aa85d48a179206de20020000000662616c6c6f740100000008000001a1ba2eed4000000000000500000044010000000800000000000000c8020000000e666c745f613162326333643465350000000000050000001a0100000008000000000000000001000000080000000000000002",
    "entry_hash": "fb41e125c733f497602986da0593dd00e78f1be21f5c593d30102656f441bfb3"
+  },
+  {
+   "name": "the same flat's anonymous ballot in another vote (102)",
+   "entry": {
+    "format_version": 1,
+    "society_id": "soc_7f3k9q",
+    "sequence": 107,
+    "prev_hash": "fb41e125c733f497602986da0593dd00e78f1be21f5c593d30102656f441bfb3",
+    "kind": "ballot",
+    "recorded_at": 1794125060000,
+    "actor": null,
+    "body": {
+     "vote_seq": 102,
+     "flat_id": null,
+     "flat_token": "bc820b718659cc73b568e02e91cd89d579629479b973a0e561064f2e73480a1f",
+     "options": [
+      0
+     ]
+    }
+   },
+   "preimage_hex": "0200000016636c65617266756e64732f636861696e2d656e74727901000000080000000000000001020000000a736f635f3766336b39710100000008000000000000006b0300000020fb41e125c733f497602986da0593dd00e78f1be21f5c593d30102656f441bfb3020000000662616c6c6f740100000008000001a1ba2fd7a0000000000005000000490100000008000000000000006600000000000300000020bc820b718659cc73b568e02e91cd89d579629479b973a0e561064f2e73480a1f050000000d01000000080000000000000000",
+   "entry_hash": "ee0c01ea27aa81cb65f99f04a9100d592b3ad03b489dec08704e1e3fdd952598"
   }
  ],
  "must_differ": [
   {
-   "name": "the same flat's token differs between votes",
+   "name": "the same flat's token differs between votes: recompute both from flat_token[0] and [1], which entries 102 and 107 carry",
    "a": "70ee87b766a022cd092156cd27053f225d2d9fa5f8e9116020e58baaa0c9841f",
    "b": "bc820b718659cc73b568e02e91cd89d579629479b973a0e561064f2e73480a1f"
   },

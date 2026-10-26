@@ -58,7 +58,9 @@ SHA-256( field(bytes, society_salt) || field(int, vote_seq) || field(text, flat_
 ```
 
 with the §2 field encoding, the same per-society salt as pseudonyms, never
-published or served. Anyone can check that no token appears twice in a vote;
+published or served. Because `vote_seq` is part of the input, **the same flat's
+token differs in every vote**, so ballots cannot be linked across votes; the
+vectors carry one flat's token in two votes to pin this. Anyone can check that no token appears twice in a vote;
 without the salt nobody can tell which flat a token is.
 
 ### `vote_closed` (actor: absent)
