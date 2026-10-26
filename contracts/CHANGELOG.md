@@ -9,3 +9,5 @@ Append-only. One line per contract PR:
 2026-10-26 | chain-entry.v1 | ADD kinds document_attached, tasks_set; task catalogue; order at open; vectors society-kinds.v1.json | #10 | new, additive
 2026-10-26 | api.v1 | ADD society lifecycle, platform admin routes, setup draft, minutes upload, open-society, api_set_post, api_tour_done; task checks on existing writes | #10 | additive; existing committee writes now also need a task
 2026-10-26 | api.v1 | ADD sign-in by ClearFunds ID and email OTP, ID formats and lifecycle, enrolment mail, api_my_ids | #11 | additive
+2026-10-26 | chain-entry.v1 | ADD kinds payment_claim, claim_closed; vectors claims-kinds.v1.json | #12 | new, additive
+2026-10-26 | api.v1 | ADD payment claims: api_claim_payment, payment_claims, api_reject_claim, claim_seq on /propose, api_claims_unreviewed | #12 | additive
