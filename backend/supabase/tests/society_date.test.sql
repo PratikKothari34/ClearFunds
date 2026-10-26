@@ -1,7 +1,11 @@
 -- Tenures are open by the society's date, not the database's (#53). Between
--- 00:00 and 05:30 IST cf.today() is a day ahead of UTC's current_date; these
--- checks fail without the fix whenever the suite runs in that window, and the
--- last one pins the definitions so they fail at any hour.
+-- 00:00 and 05:30 IST cf.today() is a day ahead of UTC's current_date.
+--
+-- Only the FOURTH assertion tests the fix at every hour: it reads the live
+-- definitions and fails if either function or the starts_on default uses
+-- current_date. The first three fail without the fix only when the suite runs
+-- in that window, so a green run at 14:00 proves nothing on its own. Do not
+-- trim the fourth as redundant with them.
 begin;
 select plan(4);
 
