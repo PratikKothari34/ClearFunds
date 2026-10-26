@@ -42,6 +42,7 @@ async function seed(label: string): Promise<Uint8Array> {
 }
 
 const MINUTES_MAX = 10 * 1024 * 1024;
+const ATTACHMENT_TYPES = ["application/pdf", "image/png", "image/jpeg"];
 const minutesPath = (society: string) => `${society}/election-minutes.pdf`;
 const sha256 = async (b: Uint8Array<ArrayBuffer>) => hex(new Uint8Array(await crypto.subtle.digest("SHA-256", b)));
 
@@ -201,6 +202,35 @@ Deno.serve(async (req) => {
       const minutes = { file_name: fileName, size_bytes: bytes.length, sha256: await sha256(bytes) };
       await rpc(admin, "api_setup_minutes", { p_user: user, p_society: society, p_minutes: minutes });
       return json(minutes);
+    }
+
+    // Notice attachments: stored and hashed here, read through a short signed link.
+    if (route === "/notices/attachment" && (req.method === "PUT" || req.method === "GET")) {
+      const q = new URL(req.url).searchParams;
+      const society = q.get("society") ?? "";
+      if (req.method === "GET") {
+        const f = await rpc<{ path: string; file_name: string; media_type: string }>(admin,
+          "api_notice_attachment_find", { p_user: user, p_society: society, p_sha256: q.get("sha256") ?? "" });
+        const signed = await admin.storage.from("society-docs").createSignedUrl(f.path, 300);
+        if (signed.error) throw signed.error;
+        return json({ url: signed.data.signedUrl, file_name: f.file_name, media_type: f.media_type });
+      }
+      const type = req.headers.get("Content-Type") ?? "";
+      if (!ATTACHMENT_TYPES.includes(type)) return json({ error: "Attach a PDF, PNG or JPEG." }, 400);
+      const bytes = new Uint8Array(await req.arrayBuffer());
+      if (bytes.length === 0 || bytes.length > MINUTES_MAX) return json({ error: "A file must be at most 10 MB." }, 400);
+      const sha = await sha256(bytes);
+      const path = `${society}/notices/${q.get("draft_id")}/${sha}`;
+      const draft = Number(q.get("draft_id"));
+      const meta = { sha256: sha, size_bytes: bytes.length, media_type: type, path,
+        file_name: (req.headers.get("X-File-Name") ?? "attachment").normalize("NFC").slice(0, 200) };
+      // Refuse before storing: only the president's own unpublished draft takes files.
+      await rpc(admin, "api_notice_attachment_store", { p_user: user, p_society: society, p_draft_id: draft, p: {} });
+      const up = await admin.storage.from("society-docs").upload(path, bytes, { contentType: type, upsert: true });
+      if (up.error) throw up.error;
+      await rpc(admin, "api_notice_attachment_store", { p_user: user, p_society: society, p_draft_id: draft, p: meta });
+      const { path: _p, ...out } = meta;
+      return json(out);
     }
 
     if (req.method !== "POST") return json({ error: "Not found." }, 404);
