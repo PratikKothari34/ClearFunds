@@ -201,10 +201,11 @@ export type Progress = (done: number) => void
  * would be told the whole record was broken on the strength of one entry
  * added by a newer backend.
  *
- * Trusting a reported hash is a real concession and it is confined to
- * exactly those entries: every other link is still recomputed, so a tampered
- * KNOWN entry is still caught, and the uncheckable ones are named to the
- * resident rather than silently absorbed.
+ * Trusting a reported hash is a real concession, confined to exactly those
+ * entries: every entry with a known kind is still recomputed. It is not
+ * sufficient on its own - see the note at the catch below - so verify.ts
+ * decides which unchecked sequences are an honest version gap and which are
+ * an entry this phone had already verified, which is tampering.
  */
 export async function walk(
   entries: Entry[],
@@ -224,8 +225,19 @@ export async function walk(
       if (!(err instanceof UnknownKindError)) throw err
       /*
        * Cannot recompute this one. Take the server's hash so the NEXT entry's
-       * prev_hash still has something to link against; if the server lied
-       * here, the following entry's link check fails and we catch it there.
+       * prev_hash still has something to link against.
+       *
+       * This does NOT catch a server that lies about the body: it reports the
+       * entry's true hash, so every later link still resolves and the head,
+       * the anchor and this phone's memory all agree. The link check cannot
+       * see it. What catches it is verify.ts comparing the unchecked
+       * sequences against the highest sequence this phone has already
+       * recomputed (Memory.checkedThrough): a genuinely new kind can only
+       * appear above that line, so anything at or below it is a relabel of an
+       * entry already verified here, and is reported as tampering. On a
+       * phone with no memory of this society there is nothing to compare
+       * against, which is why the wording for an unrecognised kind says its
+       * contents were not checked rather than implying it is merely new.
        */
       if (typeof e.entry_hash !== 'string' || !/^(?:[0-9a-f]{2})*$/.test(e.entry_hash) || e.entry_hash.length !== 64) {
         throw new ChainError(`entry ${e.sequence} cannot be checked and carries no usable fingerprint`)

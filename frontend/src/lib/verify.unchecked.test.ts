@@ -60,19 +60,16 @@ describe('an entry this build cannot check', () => {
     expect(unchecked).toEqual([2])
   })
 
-  it('still recomputes every entry whose kind IS known', async () => {
+  it('still rejects a tampered KNOWN entry sitting after an unknown one', async () => {
     /*
-     * The concession is confined to the unknown entry. Tamper with a known
-     * one after it and the link check must still fail - otherwise an unknown
-     * kind would become a place to hide a change.
+     * The concession is confined to the unknown entry. Change the body of a
+     * KNOWN entry and the chain must fail outright - not merely hash
+     * differently - or an unknown kind becomes cover for editing its
+     * neighbours. Entry 4 is what links to the tampered entry 3.
      */
-    const entries = await chainOf([known, futureKind, known])
+    const entries = await chainOf([known, futureKind, known, known])
     entries[2]!.body = { proposal_seq: 1, outcome: 'rejected' }
-    const tampered = await chainOf([known, futureKind, known])
-    tampered[2]!.body = { proposal_seq: 1, outcome: 'rejected' }
-    const { hashes } = await walk(tampered)
-    const honest = await walk(await chainOf([known, futureKind, known]))
-    expect(hashes[2]).not.toBe(honest.hashes[2])
+    await expect(walk(entries)).rejects.toThrow(/does not link/)
   })
 
   it('refuses an uncheckable entry with no usable fingerprint', async () => {
@@ -104,11 +101,14 @@ describe('an entry this build cannot check', () => {
   })
 })
 
+/** Everything checkable held; vary one field per test. */
+const base: Check = {
+  at: 0, entries: 3, head: { seq: 3, hash: 'a'.repeat(64) }, chain: 'ok',
+  unchecked: [], regressed: [], signatures: { checked: 3, failed: [] },
+  device: 'consistent', anchor: 'matches',
+}
+
 describe('what the resident is told', () => {
-  const base: Check = {
-    at: 0, entries: 3, head: { seq: 3, hash: 'a'.repeat(64) }, chain: 'ok',
-    unchecked: [], signatures: { checked: 3, failed: [] }, device: 'consistent', anchor: 'matches',
-  }
 
   it('never says the record is broken because of an unknown kind', () => {
     const v = verdict({ ...base, unchecked: [2] })
@@ -118,7 +118,7 @@ describe('what the resident is told', () => {
 
   it('says what it could not check, rather than only that things matched', () => {
     const v = verdict({ ...base, unchecked: [2] })
-    expect(v.line).toMatch(/cannot check/)
+    expect(v.line).toMatch(/not checked/)
     // The reassuring line must not stand alone while something was unchecked.
     expect(v.line).not.toBe(verdict(base).line)
   })
@@ -145,5 +145,55 @@ describe('what the resident is told', () => {
   it('still breaks on a signature that does not match its key', () => {
     const v = verdict({ ...base, unchecked: [2], signatures: { checked: 3, failed: [2] } })
     expect(v.tone).toBe('break')
+  })
+})
+
+/*
+ * The forgery this guards against, and the reason an unreadable entry cannot
+ * simply be excused.
+ *
+ * The server decides what `kind` says. So it can take an entry a phone has
+ * already verified, relabel it to something this build does not know, change
+ * the body, and report the entry's ORIGINAL hash. Every later hash still
+ * matches, so the head, the anchor and the device memory all agree - and if
+ * the entry was an approval or a sign-off it also drops out of
+ * checkSignatures, which filters by kind. Nothing but the record of what this
+ * phone had already recomputed can tell that apart from an honest new kind.
+ */
+describe('an entry that was checked here before', () => {
+  it('breaks, and is not excused as an unrecognised kind', () => {
+    const v = verdict({ ...base, unchecked: [2], regressed: [2] })
+    expect(v.tone).toBe('break')
+    expect(v.line).toMatch(/checked on this phone before/)
+    expect(v.line).not.toMatch(/does not recognise/)
+  })
+
+  it('outranks the unrecognised-kind notice when both are present', () => {
+    // Entry 2 is a relabel; entry 9 is honestly new. The relabel decides.
+    const v = verdict({ ...base, unchecked: [2, 9], regressed: [2] })
+    expect(v.tone).toBe('break')
+  })
+
+  it('does not fire for a new kind above what this phone had checked', () => {
+    const v = verdict({ ...base, unchecked: [9], regressed: [] })
+    expect(v.tone).toBe('warn')
+  })
+})
+
+describe('the wording for an unrecognised kind', () => {
+  const base2: Check = { ...base, unchecked: [2] }
+
+  it('does not claim the kind is newer, which this build cannot know', () => {
+    /*
+     * "a newer kind" asserts the entry came from a later backend. All this
+     * build knows is that it has no layout for it - a relabel looks the same.
+     */
+    expect(verdict(base2).line).not.toMatch(/newer/i)
+  })
+
+  it('says the contents were not checked, rather than implying they are fine', () => {
+    const line = verdict(base2).line
+    expect(line).toMatch(/not checked/)
+    expect(line).not.toMatch(/everything else held/i)
   })
 })
