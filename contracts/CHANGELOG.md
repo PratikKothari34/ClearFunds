@@ -8,3 +8,5 @@ Append-only. One line per contract PR:
 2026-10-26 | api.v1 | ADD read views, RPCs and the signing edge function | revamp | new
 2026-10-26 | chain-entry.v1 | ADD kinds document_attached, tasks_set; task catalogue; order at open; vectors society-kinds.v1.json | #10 | new, additive
 2026-10-26 | api.v1 | ADD society lifecycle, platform admin routes, setup draft, minutes upload, open-society, api_set_post, api_tour_done; task checks on existing writes | #10 | additive; existing committee writes now also need a task
+2026-10-26 | api.v1 | CLARIFY api_setup_save returns draft; flat_dues and ledger amounts never null | #45 | not breaking
+2026-10-27 | chain-entry.v1 | ADD flat_set value flat (one-flat charge) and category opening (committee tier); no layout change | #50 | additive
