@@ -9,6 +9,7 @@ these files. Neither side's code defines the contract.
 | [`chain/vectors/`](chain/vectors/) | Test vectors. **Both implementations must reproduce them byte for byte** |
 | [`chain/kinds/ledger.v1.md`](chain/kinds/ledger.v1.md) | Every ledger kind's body layout, the pseudonym, and the signed messages |
 | [`chain/kinds/society.v1.md`](chain/kinds/society.v1.md) | Kinds written at open and on task changes: `document_attached`, `tasks_set`, the task catalogue |
+| [`chain/kinds/claims.v1.md`](chain/kinds/claims.v1.md) | Residents' payment claims: `payment_claim`, `claim_closed` |
 | [`api/v1.md`](api/v1.md) | Reads, writes and the signing edge function |
 | [`CHANGELOG.md`](CHANGELOG.md) | One line per contract change, append-only |
 
