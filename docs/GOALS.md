@@ -574,6 +574,17 @@ words, exactly what went into it, and everything linked to it. If nothing
 matches, the product says that nothing in the record it was given matches —
 not that the fingerprint is fake, because a record can be incomplete.
 
+**Money that was already owed comes in through the committee, not the
+setup.** Almost every society arrives with a bank balance and a list of flats
+already behind on their maintenance, and those figures decide what each
+resident sees as owing on day one. They are entered after the ledger opens, as
+ordinary proposals needing the committee's approval, marked as carried over
+from before. Nobody can type an arrears figure against a neighbour's flat
+during setup and have it stand as the record: the same vote is needed for a
+balance brought forward as for money spent next month. A resident who
+disagrees with the figure their flat opened with can flag it, like any other
+entry, and the committee's correction stays visible beside it.
+
 **Still open: who vouches for an officer's email.** With codes sent by email
 and no password, an officer's mailbox is the only thing between someone else
 and their approvals. The president types those addresses in during setup, so a
