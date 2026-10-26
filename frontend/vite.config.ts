@@ -9,7 +9,7 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { tanstackRouter } from '@tanstack/router-plugin/vite'
 import { randomBytes } from 'node:crypto'
-import { loadEnv } from 'vite'
+import { loadEnv, type PluginOption } from 'vite'
 
 /*
  * THE DEV SERVER RUNS THE REAL PRODUCTION CSP, SATISFIED BY A NONCE.
@@ -54,6 +54,124 @@ const DEV_CSP = [
   "form-action 'self'",
 ].join('; ')
 
+/*
+ * THE DEV SERVER STOPS ITSELF WHEN NOTHING IS WATCHING IT.
+ *
+ * IDLE MEANS NO BROWSER IS ATTACHED - not "no request arrived recently".
+ * Those differ, and the difference is the whole design: a tab left open on
+ * the ledger sends no HTTP request for minutes at a time while someone
+ * reads it. Shutting down under them because the network went quiet would
+ * be a bug, not a feature.
+ *
+ * Vite holds an HMR websocket to every open tab, so `server.ws.clients.size`
+ * is the honest signal. The countdown starts when the LAST client goes away
+ * and is cancelled the moment one connects, so:
+ *
+ *   - a tab open and idle for an hour  -> stays up (someone is reading)
+ *   - every tab closed                 -> stops after the grace period
+ *   - started and never opened         -> stops after the grace period
+ *
+ * That last case is deliberate: a server nobody ever pointed a browser at
+ * is the most common way one is left running for days.
+ *
+ * `apply: 'serve'` is what keeps this out of production. The plugin is not
+ * merely inert during `vite build` - it is never constructed, so no deploy
+ * (Vercel included) can carry a timer that kills a server.
+ */
+const IDLE_GRACE_MS = 2 * 60 * 1000
+
+function devIdleShutdown(): PluginOption {
+  return {
+    name: 'cf-dev-idle-shutdown',
+    apply: 'serve',
+    configureServer(server) {
+      /*
+       * Opt out for a session that must outlive its browser - a long test
+       * run, a tunnel, a machine left building. Any value but '0'/'false'
+       * keeps the server up forever.
+       */
+      const raw = process.env.CF_DEV_IDLE_SHUTDOWN
+      if (raw !== undefined && raw !== '1' && raw.toLowerCase() !== 'true') {
+        return
+      }
+
+      let timer: NodeJS.Timeout | undefined
+
+      const stop = () => {
+        /*
+         * Re-check at the moment of firing rather than trusting the timer.
+         * A client can connect in the last millisecond before it fires, and
+         * closing the server out from under a browser that just attached is
+         * exactly the surprise this must not produce.
+         */
+        if (server.ws.clients.size > 0) {
+          schedule()
+          return
+        }
+        server.config.logger.info(
+          `\n  no browser attached for ${IDLE_GRACE_MS / 1000}s - stopping the dev server.` +
+            `\n  set CF_DEV_IDLE_SHUTDOWN=0 to keep it running.\n`,
+        )
+        /*
+         * `close()` releases the port and the file watchers; exiting after
+         * it is what frees the port for the next start. Without the exit the
+         * process can linger holding nothing, which is the state that makes
+         * `--strictPort` fail on an apparently-free port.
+         */
+        void server.close().then(
+          () => process.exit(0),
+          () => process.exit(1),
+        )
+      }
+
+      const schedule = () => {
+        if (timer) clearTimeout(timer)
+        timer = setTimeout(stop, IDLE_GRACE_MS)
+        /*
+         * Do not hold the event loop open on this timer's account. Without
+         * unref the process would stay alive for the grace period even after
+         * everything else finished.
+         */
+        timer.unref?.()
+      }
+
+      const cancel = () => {
+        if (timer) clearTimeout(timer)
+        timer = undefined
+      }
+
+      /*
+       * The disconnect has to be hooked on the SOCKET, not on server.ws.
+       *
+       * `server.ws.on('close')` reads like "a client closed" and is not:
+       * it is the server's own websocket shutting down, so it fires once,
+       * at exit. Listening there instead of here is a silent failure with
+       * a nasty shape - the server stays up correctly while a tab is open,
+       * then never starts the countdown after the last tab closes, so it
+       * runs forever once anything has ever connected to it - the first
+       * version of this plugin had exactly that bug, and it only showed up
+       * by attaching a websocket, letting it go, and watching the clock.
+       *
+       * At socket-close time `clients.size` is already decremented, so the
+       * count is read directly. No next-tick deferral is needed, and
+       * adding one would only widen the window for a reconnect to be
+       * missed.
+       */
+      server.ws.on('connection', (socket) => {
+        cancel()
+        socket.on('close', () => {
+          if (server.ws.clients.size === 0) schedule()
+        })
+      })
+
+      /* Started and not yet opened is idle too. */
+      server.httpServer?.once('listening', () => {
+        schedule()
+      })
+    },
+  }
+}
+
 export default defineConfig({
   plugins: [
     tanstackRouter({ target: 'react', autoCodeSplitting: true }),
@@ -69,6 +187,7 @@ export default defineConfig({
         })
       },
     },
+    devIdleShutdown(),
   ],
   html: { cspNonce: DEV_NONCE },
   build: {
