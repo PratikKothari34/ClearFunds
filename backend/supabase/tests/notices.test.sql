@@ -1,7 +1,7 @@
 -- Notices (#18): the president drafts, the committee reviews like a pull
 -- request, and only ceil(2M/3) approvals of the current revision publish it.
 begin;
-select plan(18);
+select plan(19);
 
 create temp table u (k text primary key, id uuid);
 insert into u values ('pres', gen_random_uuid()), ('tre', gen_random_uuid()), ('sec', gen_random_uuid()),
@@ -102,6 +102,15 @@ reset role;
 update public.committee_seats set unseated_seq = 999 where society_id = 'soc_n' and person_id = pg_temp.pid('m2');
 select is((select required from cf.notice_state((select id from d where k = 'n2'))), 4,
   'four seated would need 3, but the draft keeps the 4 it started with');
+
+-- A notice with no vote publishes too, and opens none.
+set local role authenticated;
+select pg_temp.as_('tre'); select api_notice_review('soc_n', (select id from d where k = 'n2'), 1, 'approve', null);
+select pg_temp.as_('sec'); select api_notice_review('soc_n', (select id from d where k = 'n2'), 1, 'approve', null);
+select pg_temp.as_('m1'); select api_notice_review('soc_n', (select id from d where k = 'n2'), 1, 'approve', null);
+reset role;
+select is((api_publish_notice(pg_temp.uid('pres'), 'soc_n', (select id from d where k = 'n2'))->>'vote_seq'), null,
+  'a notice without a vote publishes, and opens no vote');
 
 select * from finish();
 rollback;
