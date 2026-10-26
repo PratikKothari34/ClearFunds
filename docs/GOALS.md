@@ -574,10 +574,13 @@ words, exactly what went into it, and everything linked to it. If nothing
 matches, the product says that nothing in the record it was given matches —
 not that the fingerprint is fake, because a record can be incomplete.
 
-**Still open: who vouches for an officer's email.** With codes sent by email
-and no password, an officer's mailbox is the only thing between someone else
-and their approvals. The president types those addresses in during setup, so a
-president who typed an address they control for the treasurer could approve as
-both, and the rule that no one person moves money would be quietly gone. Some
-check that does not rest on the president's word is needed before officers
-are enrolled for real — the same problem as the auditor's identity above.
+**Settled 2026-10-26, with a risk accepted: the president enters officers'
+emails.** Each officer gets a mail telling them their ClearFunds ID, their post
+and what it involves. Nothing else checks that the address really is theirs.
+With codes sent by email and no password, that mailbox is the only thing
+between someone else and their approvals, so a president who typed in an
+address they control for the treasurer could approve as both, and the rule that
+no one person moves money would be quietly gone. The warning sign is an officer
+who never received their mail; the product must never describe enrolment as
+having checked anyone. A check that does not rest on the president's word
+remains worth adding — the same problem as the auditor's identity above.
