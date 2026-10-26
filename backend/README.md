@@ -39,6 +39,7 @@ Mail sent locally (sign-in codes) lands in Mailpit at http://127.0.0.1:54324.
 | `…14_notices.sql` | Notice drafts and the committee's review, publishing with ceil(2M/3) approvals, opening a vote |
 | `…15_votes.sql` | One ballot per flat (named or anonymous), closing votes on a schedule, citing a carried option |
 | `…16_lookup.sql` | Finding an entry by fingerprint, prefix, number or id, and everything linked to it |
+| `…17_society_date.sql` | Whether a tenure is open is decided by the society's date (IST), not the database's UTC date |
 | `supabase/functions/api/` | The signing boundary: authenticates, derives the admin's Ed25519 key, registers it, signs |
 | `supabase/tests/` | pgTAP. `chain_vectors.test.sql` is generated from the contract vectors |
 | `scripts/seed.ts` | Local demo data, driven through the real rule functions |
