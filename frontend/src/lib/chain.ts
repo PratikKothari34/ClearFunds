@@ -31,6 +31,15 @@ export const KINDS: Record<string, [string, FieldType][]> = {
     ['key_seq', 'int'], ['signature', 'bytes']],
   year_close: [['fy', 'text'], ['opinion', 'text'], ['statement', 'text'], ['appointment_seq', 'int'],
     ['through_seq', 'int'], ['through_hash', 'bytes'], ['key_seq', 'int'], ['signature', 'bytes']],
+  // contracts/chain/kinds/society.v1.md. Written when a society opens.
+  document_attached: [['purpose', 'text'], ['file_name', 'text'], ['media_type', 'text'],
+    ['size_bytes', 'int'], ['sha256', 'bytes']],
+  // The full state of one post; the latest for a post_id is the one in force.
+  // 'holder' is text? - absent when vacant, which does NOT encode the same as
+  // an empty string (0x00 vs a zero-length text field). society-kinds.v1.json
+  // pins that difference in must_differ[1].
+  tasks_set: [['post_id', 'text'], ['post_title', 'text'], ['seat_role', 'text'],
+    ['holder', 'text?'], ['tasks', 'list<text>']],
 }
 
 /** Exists only for the contract's vectors; a real chain carrying it fails. */
@@ -124,11 +133,37 @@ export type Entry = {
   recorded_at: number
   actor: string | null
   body: Record<string, unknown>
+  /*
+   * What the API claims this entry's hash is. The verifier recomputes and
+   * ignores it (spec 2.2, 6); it is used only for an entry whose kind this
+   * build cannot encode, where there is nothing to recompute from.
+   */
+  entry_hash?: string
+}
+
+/**
+ * Thrown for an entry whose kind this build has no layout for.
+ *
+ * This is NOT evidence of tampering and must never be reported as such. The
+ * backend ships a new kind with its contract; a resident on an older build
+ * then holds a chain it cannot fully check. Treating that as a broken record
+ * would accuse an honest committee - and it is the likelier cause by far,
+ * because every new contract creates this window on every un-updated phone.
+ */
+export class UnknownKindError extends ChainError {
+  // Plain fields, not parameter properties: erasableSyntaxOnly rejects those.
+  readonly sequence: number
+  readonly unknownKind: string
+  constructor(sequence: number, unknownKind: string) {
+    super(`entry ${sequence} is a '${unknownKind}', which this version cannot check`)
+    this.sequence = sequence
+    this.unknownKind = unknownKind
+  }
 }
 
 export function preimage(e: Entry, layout = KINDS[e.kind]): Uint8Array {
   if (e.format_version !== 1) throw new ChainError(`unknown format_version ${e.format_version}`)
-  if (!layout) throw new ChainError(`unknown kind ${e.kind}: cannot be checked`)
+  if (!layout) throw new UnknownKindError(e.sequence, e.kind)
   return concat([
     field(2, enc.encode('clearfunds/chain-entry')),
     field(1, int64(e.format_version)),
@@ -155,20 +190,66 @@ export type Progress = (done: number) => void
  * every entry, by sequence. Throws ChainError on the first failure: a gap,
  * a broken link, an unknown kind, or anything outside the encoding.
  */
-export async function walk(entries: Entry[], onProgress?: Progress): Promise<string[]> {
+/**
+ * Recompute every entry's hash and confirm each links to the one before it.
+ *
+ * Returns the hash of every entry, plus the sequences this build could not
+ * check because it has no layout for their kind. Those are NOT failures: see
+ * UnknownKindError. The walk continues past them using the entry_hash the
+ * server reported for that one entry, so a single unknown kind cannot stop
+ * the chain from being checked - which it otherwise would, and the resident
+ * would be told the whole record was broken on the strength of one entry
+ * added by a newer backend.
+ *
+ * Trusting a reported hash is a real concession, confined to exactly those
+ * entries: every entry with a known kind is still recomputed. It is not
+ * sufficient on its own - see the note at the catch below - so verify.ts
+ * decides which unchecked sequences are an honest version gap and which are
+ * an entry this phone had already verified, which is tampering.
+ */
+export async function walk(
+  entries: Entry[],
+  onProgress?: Progress,
+): Promise<{ hashes: string[]; unchecked: number[] }> {
   const hashes: string[] = []
+  const unchecked: number[] = []
   let prev = ZERO
   for (let i = 0; i < entries.length; i++) {
     const e = entries[i]!
     if (e.sequence !== i + 1) throw new ChainError(`entry ${i + 1} is missing: the sequence has a gap`)
     if (e.prev_hash !== prev) throw new ChainError(`entry ${e.sequence} does not link to entry ${e.sequence - 1}`)
     if (e.kind === 'test_vector') throw new ChainError(`entry ${e.sequence} has a reserved kind`)
-    prev = hex(await sha256(preimage(e)))
+    try {
+      prev = hex(await sha256(preimage(e)))
+    } catch (err) {
+      if (!(err instanceof UnknownKindError)) throw err
+      /*
+       * Cannot recompute this one. Take the server's hash so the NEXT entry's
+       * prev_hash still has something to link against.
+       *
+       * This does NOT catch a server that lies about the body: it reports the
+       * entry's true hash, so every later link still resolves and the head,
+       * the anchor and this phone's memory all agree. The link check cannot
+       * see it. What catches it is verify.ts comparing the unchecked
+       * sequences against the highest sequence this phone has already
+       * recomputed (Memory.checkedThrough): a genuinely new kind can only
+       * appear above that line, so anything at or below it is a relabel of an
+       * entry already verified here, and is reported as tampering. On a
+       * phone with no memory of this society there is nothing to compare
+       * against, which is why the wording for an unrecognised kind says its
+       * contents were not checked rather than implying it is merely new.
+       */
+      if (typeof e.entry_hash !== 'string' || !/^(?:[0-9a-f]{2})*$/.test(e.entry_hash) || e.entry_hash.length !== 64) {
+        throw new ChainError(`entry ${e.sequence} cannot be checked and carries no usable fingerprint`)
+      }
+      unchecked.push(e.sequence)
+      prev = e.entry_hash
+    }
     hashes.push(prev)
     if (onProgress && i % 200 === 0) onProgress(i + 1)
   }
   onProgress?.(entries.length)
-  return hashes
+  return { hashes, unchecked }
 }
 
 // ---------------------------------------------------------------- signatures
