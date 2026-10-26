@@ -224,7 +224,7 @@ begin
     perform cf.err(format('%s of %s approvals so far', cardinality(st.approvers), st.required));
   end if;
   select content into c from private.notice_revisions where draft_id = d.id and revision = cf.current_revision(d.id);
-  v := c->'vote';
+  v := nullif(c->'vote', 'null'::jsonb);  -- a draft without a vote stores JSON null
   if v is not null and (v->>'closes_at')::bigint < extract(epoch from now() + interval '1 hour') * 1000 then
     perform cf.err('the vote must close at least an hour after publishing');
   end if;
