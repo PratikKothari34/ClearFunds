@@ -3,6 +3,7 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import { ArrowRight, CheckCheck, Flag, Gavel, PenLine, Plus, Wallet, Sparkles } from 'lucide-react'
 import { useDisputes, useDues, useLedger, useNames, useProposals, useSignoffs, useSummary, useTenantFlags, useYears } from '../lib/api'
 import { useMeStrict, isCommittee } from '../lib/session'
+import { owing } from '../lib/countable'
 import { categoryLabel, instant, month, plural, proposalTitle, todayIST } from '../lib/format'
 import { Amount, Button, Caption, Card, Facts, Skeleton, cx } from '../components/ui'
 import { EntryRow } from '../components/EntryRow'
@@ -152,7 +153,12 @@ function NeedsYou({ me }: { me: Me }) {
   }
   if (me.tenure) {
     const own = (dues.data ?? []).find((d) => d.flat_id === me.tenure!.flat_id)
-    if (own && own.outstanding_minor > 0) {
+    /*
+     * `owing()` is false for an unreadable amount, so a resident is not told
+     * their flat owes money on the strength of a figure nobody could read.
+     * The dues screen discloses it instead, which is where the detail lives.
+     */
+    if (own && owing(own.outstanding_minor)) {
       items.push({ key: 'dues', icon: Wallet, title: `Flat ${own.label} owes`, sub: 'Maintenance outstanding', to: '/my-flat' })
     }
     for (const d of disputes.data ?? []) {
