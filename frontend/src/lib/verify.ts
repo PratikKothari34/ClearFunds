@@ -13,13 +13,36 @@ import { fetchChain } from './api'
 
 export type Head = { hash: string; highest_sequence: number; entry_count: number; as_of: number; format_version: number }
 
-export type Memory = { seq: number; hash: string; at: number }
+/*
+ * What this phone established on an earlier visit.
+ *
+ * checkedThrough is the highest sequence at or below which this phone has
+ * FULLY recomputed every entry. It exists to stop an unrecognised kind being
+ * used to rewrite history: the server chooses what `kind` says, so without
+ * this it could relabel an entry this phone had already verified, change the
+ * body, report the original hash, and be waved through as merely unreadable.
+ * Optional because older clients stored no such field.
+ */
+export type Memory = { seq: number; hash: string; at: number; checkedThrough?: number }
 
 export type Check = {
   at: number
   entries: number
   head: { seq: number; hash: string }
   chain: 'ok' | { failed: string }
+  /*
+   * Sequences this build has no layout for, so it could not recompute them.
+   * Not a failure and never reported as one - a newer backend shipping a new
+   * kind puts every un-updated phone here. The screen says what it could not
+   * check rather than implying the record is sound or that it is broken.
+   */
+  unchecked: number[]
+  /*
+   * Entries this phone had fully recomputed before and now cannot. Real
+   * evidence of tampering, never a version gap: a genuinely new kind can
+   * only ever appear ABOVE what this phone has already checked.
+   */
+  regressed: number[]
   signatures: { checked: number; failed: number[] }
   device: 'first' | 'consistent' | { changed: number }
   anchor: 'unpublished' | 'unreachable' | 'matches' | 'behind' | { mismatch: Head }
@@ -72,9 +95,12 @@ export async function runCheck(society: string, onStep: OnStep = () => {}): Prom
   const entries = await fetchChain(society, (n) => onStep('download', n, n))
   const at = Date.now()
   let hashes: string[] = []
+  let unchecked: number[] = []
   let chain: Check['chain'] = 'ok'
   try {
-    hashes = await walk(entries, (n) => onStep('fingerprints', n, entries.length))
+    const walked = await walk(entries, (n) => onStep('fingerprints', n, entries.length))
+    hashes = walked.hashes
+    unchecked = walked.unchecked
   } catch (e) {
     chain = { failed: e instanceof ChainError ? e.message : 'the record could not be read' }
   }
@@ -89,12 +115,38 @@ export async function runCheck(society: string, onStep: OnStep = () => {}): Prom
     const now = hashes[mem.seq - 1]
     device = now === mem.hash ? 'consistent' : { changed: mem.seq }
   }
+
+  /*
+   * An entry this phone already recomputed must never become unreadable.
+   *
+   * The server chooses what `kind` says, so an unrecognised kind is the one
+   * place a rewrite could hide: relabel a verified entry, change the body,
+   * report its original hash, and every later hash still matches - the head,
+   * the anchor and the device memory all agree, and the entry also drops out
+   * of checkSignatures, which filters by kind. Splitting the sequences on
+   * what this phone had already covered is what separates an honest version
+   * gap (always ABOVE checkedThrough) from that rewrite (at or below it).
+   */
+  const coveredBefore = mem?.checkedThrough ?? 0
+  const regressed = unchecked.filter((n) => n <= coveredBefore)
+
   const headSeq = hashes.length
   const headHash = hashes.at(-1) ?? ''
+  /*
+   * Only sequences below the first unchecked entry are fully recomputed this
+   * visit. Never let it go backwards: a phone that once checked through 50
+   * keeps that, so a later relabel of entry 20 is still caught.
+   */
+  const firstUnchecked = unchecked.length ? Math.min(...unchecked) : Infinity
+  const checkedNow = Math.min(headSeq, firstUnchecked - 1)
+  const checkedThrough = Math.max(coveredBefore, Math.max(0, checkedNow))
+
   if (chain === 'ok' && device !== 'first' && typeof device === 'object') {
     // Keep the old memory: the evidence of a change must not overwrite itself.
+  } else if (chain === 'ok' && regressed.length) {
+    // Same reason: this is evidence, so it must not overwrite what proves it.
   } else if (chain === 'ok' && headSeq) {
-    write(memKey(society), { seq: headSeq, hash: headHash, at } satisfies Memory)
+    write(memKey(society), { seq: headSeq, hash: headHash, at, checkedThrough } satisfies Memory)
   }
 
   onStep('anchor', 0, 1)
@@ -105,7 +157,8 @@ export async function runCheck(society: string, onStep: OnStep = () => {}): Prom
   else anchor = hashes[a.highest_sequence - 1] === a.hash ? 'matches' : { mismatch: a }
 
   const check: Check = {
-    at, entries: entries.length, head: { seq: headSeq, hash: headHash }, chain, signatures, device, anchor,
+    at, entries: entries.length, head: { seq: headSeq, hash: headHash }, chain, unchecked, regressed,
+    signatures, device, anchor,
     ...(typeof a === 'object' ? { anchorHead: a } : {}),
   }
   write(checkKey(society), check)
@@ -144,8 +197,33 @@ async function checkSignatures(entries: Entry[], onProgress: (n: number, total: 
 export function verdict(c: Check): { tone: 'ok' | 'warn' | 'break'; line: string } {
   if (c.chain !== 'ok') return { tone: 'break', line: 'The record does not hold together. Do not rely on these figures.' }
   if (typeof c.device === 'object') return { tone: 'break', line: `Entry ${c.device.changed} changed since this phone last checked.` }
+  /*
+   * An entry this phone had already recomputed can no longer be read. A new
+   * kind cannot do that - it would be above what was checked - so this is a
+   * relabel, and it is evidence, not a version gap.
+   */
+  if (c.regressed.length) {
+    const n = c.regressed[0]!
+    return { tone: 'break', line: `Entry ${n} was checked on this phone before and now cannot be. Do not rely on these figures.` }
+  }
   if (c.anchor === 'behind' || typeof c.anchor === 'object') return { tone: 'break', line: 'The record differs from the published fingerprint.' }
   if (c.signatures.failed.length) return { tone: 'break', line: `${c.signatures.failed.length} signatures do not match their keys.` }
+  /*
+   * Everything checkable held. If some entries were not checkable, say so
+   * before any reassurance: a resident must not read "matches" and believe
+   * it covered entries it could not cover. It stays 'warn', never 'break' -
+   * nothing here is evidence against the record.
+   */
+  if (c.unchecked.length) {
+    const n = c.unchecked.length
+    return {
+      tone: 'warn',
+      line:
+        n === 1
+          ? `Entry ${c.unchecked[0]} is of a kind this app version does not recognise, so its contents were not checked. Update the app to check it.`
+          : `${n} entries are of a kind this app version does not recognise, so their contents were not checked. Update the app to check them.`,
+    }
+  }
   if (c.anchor === 'matches') return { tone: 'ok', line: 'Matches the published fingerprint.' }
   return { tone: 'warn', line: 'Consistent on this phone. Not yet compared with a published fingerprint.' }
 }
