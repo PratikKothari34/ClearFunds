@@ -228,8 +228,11 @@ Deno.serve(async (req) => {
       // The declared type must match the leading bytes; the header alone is not trusted.
       if (!MAGIC[type]?.every((b, i) => bytes[i] === b)) return json({ error: "That file is not the type it says it is." }, 400);
       const sha = await sha256(bytes);
-      const path = `${society}/notices/${q.get("draft_id")}/${sha}`;
       const draft = Number(q.get("draft_id"));
+      if (!Number.isSafeInteger(draft) || draft <= 0) return json({ error: "Name the draft to attach to." }, 400);
+      // The path is the checked draft and the hash of these bytes, so "05" and
+      // "5" cannot file one draft's uploads in two places.
+      const path = `${society}/notices/${draft}/${sha}`;
       const meta = { sha256: sha, size_bytes: bytes.length, media_type: type, path,
         file_name: (req.headers.get("X-File-Name") ?? "attachment").normalize("NFC").slice(0, 200) };
       // Refuse before storing: the president's own unpublished draft, within its size budget.
