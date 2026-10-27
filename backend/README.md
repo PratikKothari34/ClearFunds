@@ -35,6 +35,14 @@ Mail sent locally (sign-in codes) lands in Mailpit at http://127.0.0.1:54324.
 | `…10_setup.sql` | The president's setup draft and its problems, opening from the draft (flats, tenures), the `society-docs` bucket |
 | `…11_ids.sql` | ClearFunds IDs that follow posts and tenures, and the enrolment mail they queue |
 | `…12_codes.sql` | Code-request limits, the mail queue's sender functions and its cron job |
+| `…13_claims.sql` | Residents' payment claims, their link to a receipt proposal, and closing them when it posts |
+| `…14_notices.sql` | Notice drafts and the committee's review, publishing with ceil(2M/3) approvals, opening a vote |
+| `…15_votes.sql` | One ballot per flat (named or anonymous), closing votes on a schedule, citing a carried option |
+| `…16_lookup.sql` | Finding an entry by fingerprint, prefix, number or id, and everything linked to it |
+| `…17_society_date.sql` | Whether a tenure is open is decided by the society's date (IST), not the database's UTC date |
+| `…18_opening.sql` | Opening balances and arrears go to the committee; a charge can name one flat |
+| `…19_reminders.sql` | Dues reminders to the residents of each owing flat, at most weekly; amounts written with the currency's own exponent |
+| `…20_attachments.sql` | Files attached to notice drafts, part of the approved revision, readable by residents once published |
 | `supabase/functions/api/` | The signing boundary: authenticates, derives the admin's Ed25519 key, registers it, signs |
 | `supabase/tests/` | pgTAP. `chain_vectors.test.sql` is generated from the contract vectors |
 | `scripts/seed.ts` | Local demo data, driven through the real rule functions |
