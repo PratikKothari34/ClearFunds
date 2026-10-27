@@ -1,7 +1,7 @@
 -- Bank statements (#73): credits stored in exact minor units, matched to
 -- claims by UTR when read, visible to the committee only, and nothing chained.
 begin;
-select plan(15);
+select plan(17);
 
 create temp table u (k text primary key, id uuid);
 insert into u values ('pres', gen_random_uuid()), ('tre', gen_random_uuid()), ('sec', gen_random_uuid()),
@@ -56,9 +56,11 @@ select throws_like($$select pg_temp.store('tre', '[]')$$, '%no credit lines%', '
 select is(pg_temp.store('tre', jsonb_build_array(
     pg_temp.line(2, '12500.75', null, 'UPI/412345678901/A-1 maintenance'),
     pg_temp.line(3, '5000', 'hdfcn52026102700123', 'NEFT from R2'),
-    pg_temp.line(4, '999.5', 'XYZ', 'Hall booking')))->>'credits', '3', 'a statement is stored');
+    pg_temp.line(4, '999.5', 'XYZ', 'Hall booking'),
+    pg_temp.line(5, '12500.75', null, 'IMPS-412345678901@okhdfc'),
+    pg_temp.line(6, '12500.75', null, 'IMPS 94123456789012 A-1')))->>'credits', '5', 'a statement is stored');
 
-select is((select string_agg(amount_minor::text, ',' order by line_no) from private.statement_lines), '1250075,500000,99950',
+select is((select string_agg(amount_minor::text, ',' order by line_no) from private.statement_lines), '1250075,500000,99950,1250075,1250075',
   'amounts become exact integer paise');
 select is((select count(*)::int from public.chain_entries where society_id = 'soc_b'), (select n::int from chained),
   'an import chains nothing');
@@ -72,6 +74,10 @@ select is((select (match->>'claim_seq')::bigint from statement_lines where line_
 select is((select match->>'status' from statement_lines where line_no = 2), 'rejected',
   'a claim the committee rejected but the bank shows paid surfaces, matched by reference whatever its case');
 select is((select match from statement_lines where line_no = 3), null, 'a credit with no claim is unmatched');
+select is((select match->>'status' from statement_lines where line_no = 4), 'open',
+  'any character but a letter or digit bounds a token, so a UTR before an @handle matches');
+select is((select match from statement_lines where line_no = 5), null,
+  'a UTR inside a longer number is not a token, and never matches');
 select pg_temp.as_('r1');
 select is((select count(*)::int from statement_lines), 0, 'a resident sees no statement lines');
 reset role;
