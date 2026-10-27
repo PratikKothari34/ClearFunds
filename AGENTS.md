@@ -393,6 +393,88 @@ Settled, and binding on backend work:
    open report per resident, updated rather than duplicated, so the displayed
    figure counts distinct residents.
 
+12. **A society is set up as a draft and chained only when it opens.** A
+   platform admin (ClearFunds staff) creates the society and registers its
+   president; the platform admin holds **no seat, no tenure and no key**, and
+   has **no write path into an open society**. The president's setup — posts,
+   committee, flats, residents, limit, tasks — is a draft, and **nothing is
+   chained until "Open the ledger"**, which writes `society_opened` with the
+   **whole founding committee** in one transaction. Seating them one by one
+   after a president-only genesis would flag every one of them derived
+   (item 6). **Opening requires the election minutes**; their SHA-256 is
+   chained as `document_attached` at sequence 2.
+
+   **Custom posts are display titles over the `member` seat.** The four seat
+   roles and every approval rule are unchanged by them.
+
+   **Tasks are a fixed catalogue the president assigns to posts, and they
+   never complete a money movement.** A task lets someone start or prepare
+   work — propose an expense, review a payment claim, manage residents — and
+   is checked server-side. Who approves stays exactly as item 6 fixes it. The
+   president changes assignments alone, but **every change is chained**
+   (`tasks_set`).
+
+   **An opening balance and pre-existing arrears enter after open as ordinary
+   proposals** with category `opening`, needing the committee vote. There is
+   no import path that bypasses approval.
+
+13. **Everyone signs in with a ClearFunds ID plus a one-time code emailed to
+   their personal address. No passwords.** The ID (`treasurer@<society>.com`,
+   `riya.a101@<society>.com`) is a reference only: **no mail is ever sent to
+   it**. An officer's ID belongs to the post and is **relinked to the new
+   holder on handover**, ending the old holder's sessions; a resident's ID is
+   **one per person per tenure, closes with the tenure and is never
+   reissued** — reusing it hands a buyer the seller's history (item 11). Keys
+   and approvals stay keyed by person, never by post. **The president never
+   handles anyone else's code.** SMTP credentials live in the Supabase
+   dashboard only; this repository is public.
+
+   **The president enters officers' personal emails, and nothing independent
+   checks them** (settled 2026-10-26). Each officer receives an enrolment mail
+   naming their ClearFunds ID, their post and what that post does. This is an
+   **accepted risk, not a solved one**: the mailbox is the only sign-in factor,
+   so a president who entered an address they control could approve as that
+   officer, and the two-approver rule would be gone without a trace in the
+   chain. The only signal is an officer who never received their mail. Do not
+   describe enrolment as verifying anyone, and do not remove this paragraph
+   without a check that does not rest on the president's word.
+
+14. **A resident's "I've paid" claim is chained, and becomes money only
+   through a receipt proposal.** `payment_claim` carries the flat, amount,
+   date, method and reference — online methods only (`upi`,
+   `bank_transfer`), with the UTR mandatory. **Its actor is absent and it
+   never carries the claimant's pseudonym**: a pseudonym beside a flat id in a
+   public entry maps that pseudonym to a flat and unmasks every flag it
+   raised. Who claimed is held server-side. A reviewer turns a claim into a
+   `receipt` proposal, which needs the approvals of item 6, or rejects it with
+   a mandatory reason; both outcomes are chained (`claim_closed`), and a
+   declined or withdrawn receipt reopens the claim. A claim open more than 7
+   days is shown as unreviewed.
+
+15. **Notices are reviewed by the committee before they are published, and a
+   vote is evidence, never an approval.** The president drafts; committee
+   members approve or request changes. Publishing needs `ceil(2M/3)` approvals
+   **of the current revision** — an edit clears earlier approvals — snapshotted
+   at first submission and only ever raised, as in item 6.
+
+   **Votes are one per flat**, cast by any owner or by the resident tenant;
+   the first ballot counts, and the eligible flats are snapshotted when the
+   vote opens. The committee chooses **named** or **anonymous** per vote, and
+   may allow more than one pick. A named ballot carries the `flat_id`; an
+   anonymous one carries `H(society_salt || vote_seq || flat_id)`. **A ballot
+   never carries a person or a pseudonym**, for the reason in item 14.
+
+   **A proposal may cite a closed vote, and still needs its own approvals.**
+   The citation is a separate `proposal_ref` entry, not a field on
+   `proposal`: every layout field is in the preimage, so **adding a field to
+   an existing kind rehashes every entry of that kind**. Link records through
+   new kinds, never by widening old ones.
+
+16. **Any member can look up any hash**, and a miss reads "no entry in the
+   chain this server sent you has this hash" — never "invalid" or "fake",
+   because absence from a served chain proves nothing on its own (item 9).
+   The lookup returns nothing a member could not already read.
+
 If your work requires one of the unsettled decisions resolved, say so and ask
 rather than picking a default.
 

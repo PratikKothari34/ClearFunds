@@ -135,7 +135,10 @@ promise.
 - Searchable transaction history
 - UPI and bank statement import, matched against recorded payments
 - Flag / dispute mechanism for residents
-- Committee member role management
+- "I've paid" claims from residents, recorded only through the normal approvals
+- Committee member role management, with custom posts and assignable tasks
+- Notice board, reviewed by the committee before publishing, with per-flat votes
+- Look up any fingerprint the product shows and see what it refers to
 - Recurring expense templates
 
 ### Reporting
@@ -160,7 +163,8 @@ on phones.
   and those are the ones a resident most needs in their own language. Until
   a catalogue lands, no reach or accessibility claim may assume a resident
   can read the ledger in anything but English
-- Onboarding and training for committee members
+- Onboarding and training for committee members — a guided setup for the
+  president and a short tour for everyone on first sign-in
 - WhatsApp integration — **future scope, not a current delivery channel.**
   Nothing in the product reaches a resident through WhatsApp today, so no
   reach or onboarding claim may assume it
@@ -519,3 +523,75 @@ as evidence is that the file exists and what it contains.
 
 Whoever holds that account must not be a member of the committee. Otherwise the
 one property the whole arrangement exists to provide is gone.
+
+## From purchase to a working ledger
+
+**Settled 2026-10-26.** A society buys ClearFunds; it does not sign up for
+it. Someone at ClearFunds creates the society and registers its president,
+and from then on has no way to write anything into it. The president works
+through a setup — the society's posts, who holds them, the flats, who owns and
+who lives in each, the approval limit and who does which tasks — and none of
+it is written into the record until the president opens the ledger. Opening
+writes the whole elected committee in at once, alongside a fingerprint of the
+election minutes, so the first thing every resident can check is who the
+society says it elected and the document that says so.
+
+Societies name their posts differently, so a president can add any post they
+like. A new post is a title, not a new kind of power: the rules about who
+approves money are the same in every society, and no setup screen can change
+them. Tasks work the same way. The president can let a member review payment
+claims or manage the resident list, but a task only ever lets someone start
+something. Finishing a money movement still needs the treasurer and the
+secretary, or the committee.
+
+**Signing in is the same for everyone.** Each person gets a ClearFunds ID —
+`treasurer@greenvalley.com` for a post, `riya.a101@greenvalley.com` for a
+resident — and signs in by entering it and typing a code emailed to their own
+address. The ID is a name, not a mailbox. There are no passwords to forget or
+share. A post's ID passes to the next person who holds the post; a resident's
+ends when they move out, and whoever moves in gets their own.
+
+**A resident can say "I've paid".** The claim goes into the record straight
+away, so a payment the committee ignores does not disappear. It becomes money
+in the ledger only when a reviewer checks it against the bank and proposes it
+as a receipt, and that receipt is approved like any other. Only online
+payments with a bank reference are accepted; cash is where money goes missing
+most easily. A rejected claim stays visible with the reason, and the resident
+can dispute it.
+
+**Notices go through the committee before residents see them.** The president
+writes, and the committee approves or asks for changes, much as a team reviews
+a document before it goes out. A notice can carry a vote. Each flat gets one
+vote, cast by the owner or by the tenant who lives there, and the committee
+decides each time whether the vote is named or anonymous. A vote can be cited
+by a later decision — "authorised by the vote on painting" — but it never
+replaces the approvals that decision needs. Otherwise whoever controlled who
+was allowed to vote would control the money.
+
+**Every fingerprint can be looked up.** Anyone can paste a fingerprint from
+anywhere in the product and see what it refers to: what it means in plain
+words, exactly what went into it, and everything linked to it. If nothing
+matches, the product says that nothing in the record it was given matches —
+not that the fingerprint is fake, because a record can be incomplete.
+
+**Money that was already owed comes in through the committee, not the
+setup.** Almost every society arrives with a bank balance and a list of flats
+already behind on their maintenance, and those figures decide what each
+resident sees as owing on day one. They are entered after the ledger opens, as
+ordinary proposals needing the committee's approval, marked as carried over
+from before. Nobody can type an arrears figure against a neighbour's flat
+during setup and have it stand as the record: the same vote is needed for a
+balance brought forward as for money spent next month. A resident who
+disagrees with the figure their flat opened with can flag it, like any other
+entry, and the committee's correction stays visible beside it.
+
+**Settled 2026-10-26, with a risk accepted: the president enters officers'
+emails.** Each officer gets a mail telling them their ClearFunds ID, their post
+and what it involves. Nothing else checks that the address really is theirs.
+With codes sent by email and no password, that mailbox is the only thing
+between someone else and their approvals, so a president who typed in an
+address they control for the treasurer could approve as both, and the rule that
+no one person moves money would be quietly gone. The warning sign is an officer
+who never received their mail; the product must never describe enrolment as
+having checked anyone. A check that does not rest on the president's word
+remains worth adding — the same problem as the auditor's identity above.

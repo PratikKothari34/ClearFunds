@@ -21,8 +21,8 @@ const MASTER = Deno.env.get("CLEARFUNDS_SIGNING_SECRET");
 
 const cors = {
   "Access-Control-Allow-Origin": Deno.env.get("CLEARFUNDS_ALLOWED_ORIGIN") ?? "*",
-  "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info, x-file-name",
+  "Access-Control-Allow-Methods": "GET, POST, PUT, OPTIONS",
 };
 
 const json = (body: unknown, status = 200) =>
@@ -39,6 +39,10 @@ async function seed(label: string): Promise<Uint8Array> {
     "raw", new TextEncoder().encode(MASTER), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
   return new Uint8Array(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(label)));
 }
+
+const MINUTES_MAX = 10 * 1024 * 1024;
+const minutesPath = (society: string) => `${society}/election-minutes.pdf`;
+const sha256 = async (b: Uint8Array<ArrayBuffer>) => hex(new Uint8Array(await crypto.subtle.digest("SHA-256", b)));
 
 const adminSeed = (society: string, person: string) => seed(`clearfunds/admin-key|${society}|${person}`);
 const headSeed = (society: string) => seed(`clearfunds/head-key|${society}`);
@@ -99,9 +103,55 @@ Deno.serve(async (req) => {
                     public_key: hex(await ed.getPublicKeyAsync(sk)) });
     }
 
+    // Platform admin: creates societies and registers presidents, nothing more.
+    if (route.startsWith("/platform/")) {
+      const { data: plat } = await admin.from("platform_admins").select("auth_user_id").eq("auth_user_id", user);
+      if (!plat?.length) return json({ error: "Only a ClearFunds platform admin can do this." }, 403);
+      if (req.method === "GET" && route === "/platform/societies") {
+        return json(await rpc(admin, "api_platform_list", { p_user: user }));
+      }
+      const body = await req.json().catch(() => ({}));
+      if (req.method === "POST" && route === "/platform/societies") {
+        return json({ society: await rpc<string>(admin, "api_platform_create", { p_user: user, p: body }) });
+      }
+      const m = route.match(/^\/platform\/societies\/(soc_[a-z0-9]+)\/president$/);
+      if (req.method === "POST" && m) {
+        return json(await rpc(admin, "api_platform_president", { p_user: user, p_society: m[1], p: body }));
+      }
+      return json({ error: "Not found." }, 404);
+    }
+
+    // The election minutes: stored, then hashed by this function, never by the client.
+    if (req.method === "PUT" && route === "/setup/minutes") {
+      const society = new URL(req.url).searchParams.get("society") ?? "";
+      await rpc(asUser, "api_setup_get", { p_society: society }); // refuses anyone but the president
+      const bytes = new Uint8Array(await req.arrayBuffer());
+      if (bytes.length > MINUTES_MAX) return json({ error: "The minutes must be at most 10 MB." }, 400);
+      if (req.headers.get("Content-Type") !== "application/pdf" || new TextDecoder().decode(bytes.slice(0, 5)) !== "%PDF-") {
+        return json({ error: "The minutes must be a PDF." }, 400);
+      }
+      const fileName = (req.headers.get("X-File-Name") ?? "minutes.pdf").normalize("NFC").slice(0, 200);
+      const up = await admin.storage.from("society-docs").upload(minutesPath(society), bytes,
+        { contentType: "application/pdf", upsert: true });
+      if (up.error) throw up.error;
+      const minutes = { file_name: fileName, size_bytes: bytes.length, sha256: await sha256(bytes) };
+      await rpc(admin, "api_setup_minutes", { p_user: user, p_society: society, p_minutes: minutes });
+      return json(minutes);
+    }
+
     if (req.method !== "POST") return json({ error: "Not found." }, 404);
     const body = await req.json().catch(() => ({}));
     const society = String(body.society ?? "");
+
+    if (route === "/open-society") {
+      // Hash the stored object again: what is chained is what is in storage now.
+      const file = await admin.storage.from("society-docs").download(minutesPath(society));
+      if (file.error) return json({ error: "Upload the election minutes first." }, 400);
+      const bytes = new Uint8Array(await file.data.arrayBuffer());
+      await rpc(admin, "api_setup_open", { p_user: user, p_society: society, p_confirm: String(body.confirm ?? ""),
+        p_minutes: { sha256: await sha256(bytes) } });
+      return json({ head: await rpc(asUser, "api_head", { p_society: society }) });
+    }
 
     if (route === "/propose") {
       const made = await rpc<{ seq: number }>(admin, "api_propose", {
