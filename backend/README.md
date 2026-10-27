@@ -44,6 +44,7 @@ Mail sent locally (sign-in codes) lands in Mailpit at http://127.0.0.1:54324.
 | `…19_reminders.sql` | Dues reminders to the residents of each owing flat, at most weekly; amounts written with the currency's own exponent |
 | `…20_attachments.sql` | Files attached to notice drafts, part of the approved revision, readable by residents once published |
 | `…21_templates.sql` | Expense templates: saved payee, category, description and fixed amount that pre-fill a proposal, never chained |
+| `…22_anchor.sql` | Which months' chain heads are due for publishing, and what was published; the daily job that triggers it |
 | `supabase/functions/api/` | The signing boundary: authenticates, derives the admin's Ed25519 key, registers it, signs |
 | `supabase/tests/` | pgTAP. `chain_vectors.test.sql` is generated from the contract vectors |
 | `scripts/seed.ts` | Local demo data, driven through the real rule functions |
@@ -80,6 +81,34 @@ SMTP settings are function secrets (`CLEARFUNDS_SMTP_*`, see
 `functions/.env.example`); for Gmail that is `smtp.gmail.com`, port 465 and an
 app password. The same Gmail account goes in the dashboard under Auth → SMTP
 for the sign-in codes. Without SMTP settings mail stays queued, never lost.
+
+## Publishing the chain head
+
+Each month's chain head is written to a public GitHub repo that the committee
+does not control (`contracts/anchor/v1.md`, AGENTS.md items 2 and 9), by
+`POST /anchor/publish` (`functions/api/anchor.ts`). A `pg_cron` job calls it
+daily at 06:00 IST, once the Vault holds where to call and the shared secret:
+
+```sql
+select vault.create_secret('https://<ref>.supabase.co/functions/v1/api/anchor/publish', 'clearfunds_anchor_url');
+select vault.create_secret('<same value as CLEARFUNDS_ANCHOR_SECRET>', 'clearfunds_anchor_secret');
+```
+
+It writes nothing until `CLEARFUNDS_ANCHOR_REPO` (`account/repo`) and
+`CLEARFUNDS_ANCHOR_TOKEN` are set as function secrets. Set them only once:
+
+- the repo's account is held by someone who does not run production;
+- branch protection on `main` blocks force-pushes and deletion;
+- the token is fine-grained, with Contents: read and write on that one repo
+  and nothing else;
+- the repo owner has agreed that each society's monthly entry count may be
+  public (#1).
+
+A period file is created once and never replaced. A file already there with a
+different head fails the run loudly and stops that society's later months.
+Each file is also sent to the Wayback Machine as a second witness.
+`deno test -A supabase/functions/api/anchor.test.ts` runs the publisher against
+an in-memory GitHub.
 
 ## How the rules are enforced
 
@@ -120,10 +149,6 @@ hands.
 
 ## Not built yet
 
-- **Publishing the chain head outside admin control.** `GET /api/head`
-  returns the signed head tuple; nothing publishes it yet. Mechanism,
-  cadence and recipients are open in `docs/GOALS.md`. Until it exists the
-  app says so on every balance.
 - **How an auditor proves who they are.** Auditors sign in like everyone
   else today. Open in `docs/GOALS.md`.
 - **Statement import, budget vs actual.**
