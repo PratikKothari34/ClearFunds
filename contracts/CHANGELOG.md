@@ -20,3 +20,4 @@ Append-only. One line per contract PR:
 2026-10-27 | api.v1 | ADD notice attachments: upload, read link, attachments on drafts | #59 | additive
 2026-10-27 | api.v1 | ADD expense templates: save, retire, list, template_id on /propose | #62 | additive
 2026-10-27 | anchor.v1 | ADD monthly published chain head: paths, file, client check, cadence, failures, account | #1 | new
+2026-10-27 | api.v1 | ADD bank statement import: POST /statements, statement_lines with matches to claims | #73 | additive
