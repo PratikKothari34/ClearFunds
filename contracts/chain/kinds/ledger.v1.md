@@ -63,17 +63,17 @@ by that signature's `key_seq`, which MUST be earlier in the chain.
 | 2 | `amount_minor` | int? | Always positive. For `limit_change`, the new limit |
 | 3 | `currency` | text? | |
 | 4 | `counterparty` | text? | Payee or payer |
-| 5 | `category` | text? | |
+| 5 | `category` | text? | `opening` marks a balance or arrears carried over from before the society joined: such a proposal is `committee` tier whatever its amount |
 | 6 | `narration` | text | |
 | 7 | `business_date` | text | `YYYY-MM-DD`. A reversal's is the day it was proposed: it posts in the current period |
-| 8 | `flat_id` | text? | A receipt against a flat's dues |
+| 8 | `flat_id` | text? | A receipt against a flat's dues, or the one flat a `flat` charge is for |
 | 9 | `target_seq` | int? | `reversal`: the posting reversed |
 | 10 | `reason` | text? | `reversal`: mandatory |
 | 11 | `replacement_amount_minor` | int? | `reversal`: reversal + replacement, posted atomically |
 | 12 | `person` | text? | `seat_admin`, `unseat_admin`, `appoint_auditor` |
 | 13 | `role` | text? | `seat_admin` |
 | 14 | `fy` | text? | `appoint_auditor`: `2025-26` |
-| 15 | `flat_set` | text? | `charge`: `all` or `parking`. Scopes the remainder counter |
+| 15 | `flat_set` | text? | `charge`: `all`, `parking` or `flat`. Scopes the remainder counter. `flat` charges the one flat named in `flat_id` the whole amount: `flat_ids` is that flat, `line_amounts` the amount, `remainder_flats` empty |
 | 16 | `flat_ids` | list\<text\> | `charge`: flats in registry-ordinal order. Empty otherwise |
 | 17 | `line_amounts` | list\<int\> | Same order. A charge reversal stores the original's lines **negated one by one** |
 | 18 | `remainder_flats` | list\<text\> | Flats that received the indivisible remainder |
