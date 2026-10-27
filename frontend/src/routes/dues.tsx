@@ -5,6 +5,7 @@ import { useDues, useLedger, useSummary } from '../lib/api'
 import { useMeStrict, isCommittee } from '../lib/session'
 import { day, plural } from '../lib/format'
 import { parts, toInput } from '../lib/money'
+import { countable, owing, partition } from '../lib/countable'
 import { Amount, Button, Card, Failed, Loading, PageTitle, Segmented, Sheet, cx } from '../components/ui'
 import type { DuesRow } from '../lib/types'
 
@@ -18,8 +19,17 @@ function Dues() {
   const [open, setOpen] = useState<DuesRow | null>(null)
   const wings = useMemo(() => {
     const m = new Map<string, DuesRow[]>()
-    for (const d of dues.data ?? []) {
-      if (show === 'owing' && d.outstanding_minor <= 0) continue
+    /*
+     * `owing` keeps the flats that might owe, which includes the ones whose
+     * figure could not be read. The old test was `d.outstanding_minor <= 0`,
+     * and `null <= 0` is true, so an unreadable flat was dropped from the
+     * filter entirely - the treasurer's list came out short and nothing said
+     * so. Erring towards showing a flat is the safe direction: the worst case
+     * is chasing a flat that has paid, not missing one that has not.
+     */
+    const keep = partition(dues.data ?? [], (d) => d.outstanding_minor)
+    const shown = show === 'owing' ? [...keep.owing, ...keep.unreadable] : (dues.data ?? [])
+    for (const d of shown) {
       const w = d.label.split('-')[0]!
       m.set(w, [...(m.get(w) ?? []), d])
     }
@@ -54,14 +64,24 @@ function Dues() {
               <h2 className="mb-2 px-1 text-[13px] font-medium text-ink-2">Wing {w}</h2>
               <div className="grid grid-cols-4 gap-2 sm:grid-cols-6 md:grid-cols-8">
                 {flats.map((d) => {
-                  const owes = d.outstanding_minor > 0
+                  /*
+                   * Three states. A green check is a claim that the flat has
+                   * settled, so a figure that could not be read must not get
+                   * one - it reads as "paid" to every resident and treasurer
+                   * who sees it. "?" plus the muted tile says unknown, and
+                   * the accessible name says it in words.
+                   */
+                  const c = countable(d.outstanding_minor)
+                  const owes = c.readable && c.owing
+                  const unknown = !c.readable
                   return (
                     <button key={d.flat_id} onClick={() => setOpen(d)}
-                      aria-label={`${d.label}, ${owes ? 'owes' : 'settled'}`}
+                      aria-label={`${d.label}, ${unknown ? 'amount could not be read' : owes ? 'owes' : 'settled'}`}
                       className={cx('flex aspect-square cursor-pointer flex-col items-center justify-center rounded-2xl border text-center transition-transform active:scale-95',
-                        owes ? 'border-debit/25 bg-debit-soft text-debit' : 'border-line bg-surface text-ink')}>
+                        unknown ? 'border-line bg-sunken text-ink-2' : owes ? 'border-debit/25 bg-debit-soft text-debit' : 'border-line bg-surface text-ink')}>
                       <span className="tnum text-[13px] font-semibold">{d.label.split('-')[1]}</span>
-                      {owes ? <span className="tnum mt-0.5 text-[10.5px] font-medium">{parts(d.outstanding_minor, 'INR').whole}</span>
+                      {unknown ? <span className="mt-0.5 text-[10.5px] font-medium" aria-hidden="true">?</span>
+                        : owes ? <span className="tnum mt-0.5 text-[10.5px] font-medium">{parts(c.minor, 'INR').whole}</span>
                         : <Check className="mt-0.5 size-3.5 text-credit" strokeWidth={3} />}
                     </button>
                   )
@@ -81,17 +101,21 @@ export function FlatSheet({ d, onClose }: { d: DuesRow; onClose: () => void }) {
   const me = useMeStrict()
   const ledger = useLedger()
   const paid = (ledger.data ?? []).filter((r) => r.flat_id === d.flat_id && r.origin_effect === 'receipt').slice(-6).toReversed()
+  const owed = countable(d.outstanding_minor)
   return (
     <Sheet open onClose={onClose} title={`Flat ${d.label}`}
-      footer={isCommittee(me) && d.outstanding_minor > 0 ? (
-        <Link to="/new" search={{ kind: 'receipt', flat: d.flat_id, amount: toInput(d.outstanding_minor) }}>
+      footer={isCommittee(me) && owed.readable && owed.owing ? (
+        <Link to="/new" search={{ kind: 'receipt', flat: d.flat_id, amount: toInput(owed.minor) }}>
           <Button tone="primary" className="w-full">Record a payment</Button>
         </Link>
       ) : undefined}>
       <div className="grid grid-cols-3 gap-2 text-center">
-        {[['Charged', d.charged_minor], ['Paid', d.paid_minor], ['Owes', d.outstanding_minor]].map(([l, v]) => (
-          <div key={l as string} className="rounded-xl bg-sunken px-2 py-3">
-            <Amount minor={v as number} size="sm" className={cx('font-semibold', l === 'Owes' && (v as number) > 0 && 'text-debit')} />
+        {([['Charged', d.charged_minor], ['Paid', d.paid_minor], ['Owes', d.outstanding_minor]] as const).map(([l, v]) => (
+          <div key={l} className="rounded-xl bg-sunken px-2 py-3">
+            {/* Amount discloses an unreadable figure itself; the debit colour
+                must not be applied to one, because `null > 0` is false and it
+                would read as a settled amount in plain ink. */}
+            <Amount minor={v} size="sm" className={cx('font-semibold', l === 'Owes' && owing(v) && 'text-debit')} />
             <p className="text-xs text-ink-2">{l}</p>
           </div>
         ))}
