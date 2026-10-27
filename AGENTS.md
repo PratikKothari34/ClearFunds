@@ -429,10 +429,15 @@ Settled, and binding on backend work:
    handles anyone else's code.** SMTP credentials live in the Supabase
    dashboard only; this repository is public.
 
-   **Who vouches for an officer's email is still open** (`docs/GOALS.md`). The
-   mailbox is the only sign-in factor, so whoever enters an officer's address
-   controls that officer's approvals. Do not ship officer enrolment without an
-   answer.
+   **The president enters officers' personal emails, and nothing independent
+   checks them** (settled 2026-10-26). Each officer receives an enrolment mail
+   naming their ClearFunds ID, their post and what that post does. This is an
+   **accepted risk, not a solved one**: the mailbox is the only sign-in factor,
+   so a president who entered an address they control could approve as that
+   officer, and the two-approver rule would be gone without a trace in the
+   chain. The only signal is an officer who never received their mail. Do not
+   describe enrolment as verifying anyone, and do not remove this paragraph
+   without a check that does not rest on the president's word.
 
 14. **A resident's "I've paid" claim is chained, and becomes money only
    through a receipt proposal.** `payment_claim` carries the flat, amount,
