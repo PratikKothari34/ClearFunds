@@ -2,7 +2,7 @@
 -- hidden until close; a carried option may be cited without changing the
 -- proposal's approvals.
 begin;
-select plan(19);
+select plan(21);
 
 create temp table u (k text primary key, id uuid);
 insert into u values ('pres', gen_random_uuid()), ('tre', gen_random_uuid()), ('sec', gen_random_uuid()),
@@ -72,7 +72,13 @@ select is((select (vote->>'tallies') is null and (vote->>'my_flat_voted')::boole
 reset role;
 
 update public.votes set closes_at = now() - interval '1 second' where vote_seq = pg_temp.v('anon');
-select cf.close_due_votes();
+-- A vote that cannot close (no options, so no tallies to chain) and is due first.
+insert into public.votes (society_id, vote_seq, notice_seq, options, max_picks, mode, closes_at, eligible)
+  values ('soc_v', 0, 0, '{}', 1, 'named', now() - interval '1 day', 0);
+select lives_ok('select cf.close_due_votes()', 'one vote that cannot close does not stop the run');
+select is((select closed_seq from votes where society_id = 'soc_v' and vote_seq = 0), null,
+  'it stays open, to be tried again next run');
+delete from public.votes where society_id = 'soc_v' and vote_seq = 0;
 select is((select body->'tallies' from chain_entries where society_id = 'soc_v' and kind = 'vote_closed'), '[0, 2, 0]'::jsonb,
   'closing chains the tallies');
 select is((select (body->>'carried')::int from chain_entries where society_id = 'soc_v' and kind = 'vote_closed'), 1,
