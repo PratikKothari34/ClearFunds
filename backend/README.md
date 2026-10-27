@@ -43,6 +43,7 @@ Mail sent locally (sign-in codes) lands in Mailpit at http://127.0.0.1:54324.
 | `…18_opening.sql` | Opening balances and arrears go to the committee; a charge can name one flat |
 | `…19_reminders.sql` | Dues reminders to the residents of each owing flat, at most weekly; amounts written with the currency's own exponent |
 | `…20_attachments.sql` | Files attached to notice drafts, part of the approved revision, readable by residents once published |
+| `…21_templates.sql` | Expense templates: saved payee, category, description and fixed amount that pre-fill a proposal, never chained |
 | `supabase/functions/api/` | The signing boundary: authenticates, derives the admin's Ed25519 key, registers it, signs |
 | `supabase/tests/` | pgTAP. `chain_vectors.test.sql` is generated from the contract vectors |
 | `scripts/seed.ts` | Local demo data, driven through the real rule functions |
@@ -125,4 +126,4 @@ hands.
   app says so on every balance.
 - **How an auditor proves who they are.** Auditors sign in like everyone
   else today. Open in `docs/GOALS.md`.
-- **Reminders, statement import, recurring templates, budget vs actual.**
+- **Statement import, budget vs actual.**
