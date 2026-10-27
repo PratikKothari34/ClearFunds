@@ -105,10 +105,15 @@ It writes nothing until `CLEARFUNDS_ANCHOR_REPO` (`account/repo`) and
   public (#1).
 
 A period file is created once and never replaced. A file already there with a
-different head fails the run loudly and stops that society's later months.
-Each file is also sent to the Wayback Machine as a second witness.
-`deno test -A supabase/functions/api/anchor.test.ts` runs the publisher against
-an in-memory GitHub.
+different head fails the run loudly and stops that society's later months, and
+so does a head whose `entry_count` differs from its `head_seq`. Each file's
+`published_at` is informational only: the client never checks against it.
+Each file is also sent to the Wayback Machine as a second witness. This runs
+the publisher against an in-memory GitHub:
+
+```sh
+deno test -A --config supabase/functions/api/deno.json supabase/functions/api/anchor.test.ts
+```
 
 ## How the rules are enforced
 

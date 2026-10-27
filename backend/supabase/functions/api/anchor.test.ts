@@ -1,4 +1,4 @@
-// deno test -A supabase/functions/api/anchor.test.ts
+// deno test -A --config supabase/functions/api/deno.json supabase/functions/api/anchor.test.ts
 // The publisher against an in-memory GitHub contents API.
 import * as ed from "@noble/ed25519";
 import { anchorFile, type Deps, type Due, publishAnchors, rawUrl } from "./anchor.ts";
@@ -112,4 +112,11 @@ Deno.test("a failed Wayback capture never stops publishing", async () => {
   const { d, recorded, witnessed } = deps(gh, [due("2026-10", 412)]);
   eq((await publishAnchors(d)).map((o) => o.result), ["published"], "published");
   eq([recorded.length, witnessed.length], [1, 0], "recorded, not witnessed");
+});
+
+Deno.test("a head whose entry_count differs from head_seq is never published", async () => {
+  const gh = github();
+  const { d, recorded } = deps(gh, [{ ...due("2026-09", 300), entry_count: 299 }, due("2026-10", 412)]);
+  eq((await publishAnchors(d)).map((o) => o.result), ["failed"], "it fails, and the next month waits");
+  eq([gh.files.size, recorded.length], [0, 0], "nothing written or recorded");
 });

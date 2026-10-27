@@ -62,6 +62,9 @@ export async function publishAnchors(o: Deps): Promise<Outcome[]> {
     const dir = `societies/${d.society_id}`;
     const path = `${dir}/periods/${d.period}.json`;
     try {
+      // Sequences are contiguous, so these are equal by construction. A head
+      // where they differ is a bug here, and the client would refuse the file.
+      if (d.entry_count !== d.head_seq) throw new Error(`entry_count ${d.entry_count} != head_seq ${d.head_seq}`);
       let text = await anchorFile(d, (o.now?.() ?? new Date()).toISOString(), o.sign);
       let result: Outcome["result"] = "published";
       const created = await put(path, text, `Anchor ${d.society_id} ${d.period}`);
