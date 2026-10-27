@@ -4,6 +4,7 @@
     "jsr:@supabase/functions-js@2": "2.118.0",
     "npm:@noble/ed25519@3.0.0": "3.0.0",
     "npm:@supabase/supabase-js@2.118.0": "2.118.0",
+    "npm:nodemailer@6.9.16": "6.9.16",
     "npm:openai@^4.52.5": "4.104.0"
   },
   "jsr": {
@@ -236,6 +237,9 @@
         "whatwg-url"
       ]
     },
+    "nodemailer@6.9.16": {
+      "integrity": "sha512-psAuZdTIRN08HKVd/E8ObdV6NO7NTBY3KsC30F7M4H1OnmLCUNaS56FpYxyb26zWLSyYF9Ozch9KYHhHegsiOQ=="
+    },
     "openai@4.104.0": {
       "integrity": "sha512-p99EFNsA/yX6UhVO93f5kJsDRLAg+CTA2RBqdHK4RtK8u5IJw32Hyb2dTGKbnnFmnuoBv5r7Z2CURI9sGZpSuA==",
       "dependencies": [
@@ -276,7 +280,8 @@
     "dependencies": [
       "jsr:@supabase/functions-js@2",
       "npm:@noble/ed25519@3.0.0",
-      "npm:@supabase/supabase-js@2.118.0"
+      "npm:@supabase/supabase-js@2.118.0",
+      "npm:nodemailer@6.9.16"
     ]
   }
 }
