@@ -8,6 +8,7 @@ import {
   MoveVertical, PartyPopper, Sprout, SprayCan, UserCheck, Wrench, X, Zap, Circle, Undo2, Receipt,
 } from 'lucide-react'
 import { parts } from '../lib/money'
+import { countable } from '../lib/countable'
 import { initials } from '../lib/format'
 
 export const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(' ')
@@ -62,7 +63,9 @@ export function IconButton({ label, children, className, ...rest }: ButtonHTMLAt
 // ---------------------------------------------------------------- money
 
 type AmountProps = {
-  minor: number
+  /* Nullable because the wire is: Amount discloses what it cannot read
+   * rather than making every call site guard first. */
+  minor: number | null
   currency?: string
   signed?: boolean
   size?: 'sm' | 'md' | 'lg' | 'hero'
@@ -73,8 +76,24 @@ type AmountProps = {
 
 /** The most important pixels on every screen. Sign and colour together, never colour alone. */
 export function Amount({ minor, currency = 'INR', signed, size = 'md', tone = 'ink', struck, className }: AmountProps) {
-  const p = parts(minor, currency, { signed: signed ?? false })
-  const color = tone === 'muted' ? 'text-ink-2' : tone === 'auto' ? (minor < 0 ? 'text-debit' : minor > 0 ? 'text-credit' : 'text-ink') : 'text-ink'
+  /*
+   * An amount that cannot be read is disclosed, never thrown. parts() raises
+   * RangeError on anything that is not a safe integer, and there is no error
+   * boundary, so one bad row used to blank the whole screen - a worse outcome
+   * than the row itself being wrong. Says "not available" rather than a
+   * figure, so nobody reads it as zero.
+   */
+  const c = countable(minor)
+  if (!c.readable) {
+    return (
+      <span className={cx('text-ink-2', size === 'sm' && 'text-sm', size === 'md' && 'text-base', className)}
+        title="This figure could not be read from the record.">
+        not available
+      </span>
+    )
+  }
+  const p = parts(c.minor, currency, { signed: signed ?? false })
+  const color = tone === 'muted' ? 'text-ink-2' : tone === 'auto' ? (c.minor < 0 ? 'text-debit' : c.minor > 0 ? 'text-credit' : 'text-ink') : 'text-ink'
   const Tag = struck ? 's' : 'span'
   return (
     <Tag
