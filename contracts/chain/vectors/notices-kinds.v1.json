@@ -1,0 +1,334 @@
+{
+ "spec": "contracts/chain/kinds/notices.v1.md",
+ "format_version": 1,
+ "hash_alg": "sha256",
+ "notes": "Entries 100-107 form one chain; prev_hash of entry 100 is SHA-256 of 'clearfunds/example entry 99'. Flat tokens use the test salt below; a real salt is never published. Ids are synthetic; entry 106 cites a vote from entry 101, and entry 106's own ballot belongs to a vote at 200 to exercise the named form. Entries 102 and 107 are the same flat's anonymous ballots in votes 101 and 102; flat_token lists both derivations so a verifier recomputes each token from the salt, vote and flat.",
+ "flat_token": [
+  {
+   "society_salt": "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a",
+   "vote_seq": 101,
+   "flat_id": "flt_a1b2c3d4e5",
+   "token": "70ee87b766a022cd092156cd27053f225d2d9fa5f8e9116020e58baaa0c9841f"
+  },
+  {
+   "society_salt": "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a",
+   "vote_seq": 102,
+   "flat_id": "flt_a1b2c3d4e5",
+   "token": "bc820b718659cc73b568e02e91cd89d579629479b973a0e561064f2e73480a1f"
+  }
+ ],
+ "layouts": {
+  "notice": [
+   [
+    "title",
+    "text"
+   ],
+   [
+    "body",
+    "text"
+   ],
+   [
+    "attachments",
+    "list<bytes>"
+   ],
+   [
+    "revision",
+    "int"
+   ],
+   [
+    "approvers",
+    "list<text>"
+   ],
+   [
+    "corrects_seq",
+    "int?"
+   ]
+  ],
+  "vote_opened": [
+   [
+    "notice_seq",
+    "int"
+   ],
+   [
+    "question",
+    "text"
+   ],
+   [
+    "options",
+    "list<text>"
+   ],
+   [
+    "max_picks",
+    "int"
+   ],
+   [
+    "mode",
+    "text"
+   ],
+   [
+    "eligible_flats",
+    "int"
+   ],
+   [
+    "closes_at",
+    "int"
+   ]
+  ],
+  "ballot": [
+   [
+    "vote_seq",
+    "int"
+   ],
+   [
+    "flat_id",
+    "text?"
+   ],
+   [
+    "flat_token",
+    "bytes?"
+   ],
+   [
+    "options",
+    "list<int>"
+   ]
+  ],
+  "vote_closed": [
+   [
+    "vote_seq",
+    "int"
+   ],
+   [
+    "tallies",
+    "list<int>"
+   ],
+   [
+    "flats_voted",
+    "int"
+   ],
+   [
+    "eligible_flats",
+    "int"
+   ],
+   [
+    "carried",
+    "int?"
+   ]
+  ],
+  "proposal_ref": [
+   [
+    "proposal_seq",
+    "int"
+   ],
+   [
+    "vote_seq",
+    "int"
+   ],
+   [
+    "option",
+    "int"
+   ]
+  ]
+ },
+ "entries": [
+  {
+   "name": "a notice approved at revision 2, with one attachment",
+   "entry": {
+    "format_version": 1,
+    "society_id": "soc_7f3k9q",
+    "sequence": 100,
+    "prev_hash": "080cc080811b2e1da1c5c915c92303648519435b531596c39f6cd382fe3a6a91",
+    "kind": "notice",
+    "recorded_at": 1793520000000,
+    "actor": "4b1c2d3e-0000-4000-8000-000000000001",
+    "body": {
+     "title": "Terrace waterproofing",
+     "body": "छत की वॉटरप्रूफिंग — three quotations attached; vote below.",
+     "attachments": [
+      "412de42fc97ad85ae118de7ad4e75447bc143492f51ee33f216d928d15d7f0ba"
+     ],
+     "revision": 2,
+     "approvers": [
+      "4b1c2d3e-0000-4000-8000-000000000001",
+      "4b1c2d3e-0000-4000-8000-000000000002",
+      "4b1c2d3e-0000-4000-8000-000000000003"
+     ],
+     "corrects_seq": null
+    }
+   },
+   "preimage_hex": "0200000016636c65617266756e64732f636861696e2d656e74727901000000080000000000000001020000000a736f635f3766336b3971010000000800000000000000640300000020080cc080811b2e1da1c5c915c92303648519435b531596c39f6cd382fe3a6a9102000000066e6f746963650100000008000001a1961f5c00020000002434623163326433652d303030302d343030302d383030302d303030303030303030303031050000013802000000155465727261636520776174657270726f6f66696e67020000005de0a49be0a4a420e0a495e0a58020e0a4b5e0a589e0a49fe0a4b0e0a4aae0a58de0a4b0e0a582e0a4abe0a4bfe0a482e0a49720e280942074687265652071756f746174696f6e732061747461636865643b20766f74652062656c6f772e05000000250300000020412de42fc97ad85ae118de7ad4e75447bc143492f51ee33f216d928d15d7f0ba01000000080000000000000002050000007b020000002434623163326433652d303030302d343030302d383030302d303030303030303030303031020000002434623163326433652d303030302d343030302d383030302d303030303030303030303032020000002434623163326433652d303030302d343030302d383030302d3030303030303030303030330000000000",
+   "entry_hash": "3fa98936a73c2b84ec472911366f188de8184d0530660ec0c6bdcccb6652e412"
+  },
+  {
+   "name": "its anonymous single-choice vote",
+   "entry": {
+    "format_version": 1,
+    "society_id": "soc_7f3k9q",
+    "sequence": 101,
+    "prev_hash": "3fa98936a73c2b84ec472911366f188de8184d0530660ec0c6bdcccb6652e412",
+    "kind": "vote_opened",
+    "recorded_at": 1793520000000,
+    "actor": "4b1c2d3e-0000-4000-8000-000000000001",
+    "body": {
+     "notice_seq": 100,
+     "question": "Which contractor?",
+     "options": [
+      "Shree Sai",
+      "Aqua Shield",
+      "Neither"
+     ],
+     "max_picks": 1,
+     "mode": "anonymous",
+     "eligible_flats": 96,
+     "closes_at": 1794124800000
+    }
+   },
+   "preimage_hex": "0200000016636c65617266756e64732f636861696e2d656e74727901000000080000000000000001020000000a736f635f3766336b39710100000008000000000000006503000000203fa98936a73c2b84ec472911366f188de8184d0530660ec0c6bdcccb6652e412020000000b766f74655f6f70656e65640100000008000001a1961f5c00020000002434623163326433652d303030302d343030302d383030302d3030303030303030303030310500000087010000000800000000000000640200000011576869636820636f6e74726163746f723f050000002a0200000009536872656520536169020000000b4171756120536869656c6402000000074e656974686572010000000800000000000000010200000009616e6f6e796d6f7573010000000800000000000000600100000008000001a1ba2be000",
+   "entry_hash": "608c505ecff8549d0cd15b8a60dafcc0a91173d733aaaf619321c2978acb8877"
+  },
+  {
+   "name": "an anonymous ballot carries a flat token",
+   "entry": {
+    "format_version": 1,
+    "society_id": "soc_7f3k9q",
+    "sequence": 102,
+    "prev_hash": "608c505ecff8549d0cd15b8a60dafcc0a91173d733aaaf619321c2978acb8877",
+    "kind": "ballot",
+    "recorded_at": 1793520060000,
+    "actor": null,
+    "body": {
+     "vote_seq": 101,
+     "flat_id": null,
+     "flat_token": "70ee87b766a022cd092156cd27053f225d2d9fa5f8e9116020e58baaa0c9841f",
+     "options": [
+      1
+     ]
+    }
+   },
+   "preimage_hex": "0200000016636c65617266756e64732f636861696e2d656e74727901000000080000000000000001020000000a736f635f3766336b3971010000000800000000000000660300000020608c505ecff8549d0cd15b8a60dafcc0a91173d733aaaf619321c2978acb8877020000000662616c6c6f740100000008000001a19620466000000000000500000049010000000800000000000000650000000000030000002070ee87b766a022cd092156cd27053f225d2d9fa5f8e9116020e58baaa0c9841f050000000d01000000080000000000000001",
+   "entry_hash": "8ff2c961c7f080c523bc3ca3b171dc42827960d7012fb7599e0e37078cb54db5"
+  },
+  {
+   "name": "a second flat",
+   "entry": {
+    "format_version": 1,
+    "society_id": "soc_7f3k9q",
+    "sequence": 103,
+    "prev_hash": "8ff2c961c7f080c523bc3ca3b171dc42827960d7012fb7599e0e37078cb54db5",
+    "kind": "ballot",
+    "recorded_at": 1793520120000,
+    "actor": null,
+    "body": {
+     "vote_seq": 101,
+     "flat_id": null,
+     "flat_token": "a8db15339b96eff3972e89c96de2f04790dacd451ffd87cd31a5321964f0fc63",
+     "options": [
+      1
+     ]
+    }
+   },
+   "preimage_hex": "0200000016636c65617266756e64732f636861696e2d656e74727901000000080000000000000001020000000a736f635f3766336b39710100000008000000000000006703000000208ff2c961c7f080c523bc3ca3b171dc42827960d7012fb7599e0e37078cb54db5020000000662616c6c6f740100000008000001a1962130c0000000000005000000490100000008000000000000006500000000000300000020a8db15339b96eff3972e89c96de2f04790dacd451ffd87cd31a5321964f0fc63050000000d01000000080000000000000001",
+   "entry_hash": "eb07272a75e6914009b481cc8dc38e2096a46cc9c3943bf630e7691a633925b3"
+  },
+  {
+   "name": "closed with option 1 carried",
+   "entry": {
+    "format_version": 1,
+    "society_id": "soc_7f3k9q",
+    "sequence": 104,
+    "prev_hash": "eb07272a75e6914009b481cc8dc38e2096a46cc9c3943bf630e7691a633925b3",
+    "kind": "vote_closed",
+    "recorded_at": 1794124800000,
+    "actor": null,
+    "body": {
+     "vote_seq": 101,
+     "tallies": [
+      0,
+      2,
+      0
+     ],
+     "flats_voted": 2,
+     "eligible_flats": 96,
+     "carried": 1
+    }
+   },
+   "preimage_hex": "0200000016636c65617266756e64732f636861696e2d656e74727901000000080000000000000001020000000a736f635f3766336b3971010000000800000000000000680300000020eb07272a75e6914009b481cc8dc38e2096a46cc9c3943bf630e7691a633925b3020000000b766f74655f636c6f7365640100000008000001a1ba2be00000000000000500000060010000000800000000000000650500000027010000000800000000000000000100000008000000000000000201000000080000000000000000010000000800000000000000020100000008000000000000006001000000080000000000000001",
+   "entry_hash": "aac0a710c2680fd45ff626ee673bcffbd262ad5a191d2cbb36c947060467ed6f"
+  },
+  {
+   "name": "a proposal cites it",
+   "entry": {
+    "format_version": 1,
+    "society_id": "soc_7f3k9q",
+    "sequence": 105,
+    "prev_hash": "aac0a710c2680fd45ff626ee673bcffbd262ad5a191d2cbb36c947060467ed6f",
+    "kind": "proposal_ref",
+    "recorded_at": 1794124900000,
+    "actor": "4b1c2d3e-0000-4000-8000-000000000002",
+    "body": {
+     "proposal_seq": 106,
+     "vote_seq": 101,
+     "option": 1
+    }
+   },
+   "preimage_hex": "0200000016636c65617266756e64732f636861696e2d656e74727901000000080000000000000001020000000a736f635f3766336b3971010000000800000000000000690300000020aac0a710c2680fd45ff626ee673bcffbd262ad5a191d2cbb36c947060467ed6f020000000c70726f706f73616c5f7265660100000008000001a1ba2d66a0020000002434623163326433652d303030302d343030302d383030302d30303030303030303030303205000000270100000008000000000000006a0100000008000000000000006501000000080000000000000001",
+   "entry_hash": "5042d3b07be55996777b08808b937d5881223386b5aec7aa85d48a179206de20"
+  },
+  {
+   "name": "a named multi-choice ballot carries the flat",
+   "entry": {
+    "format_version": 1,
+    "society_id": "soc_7f3k9q",
+    "sequence": 106,
+    "prev_hash": "5042d3b07be55996777b08808b937d5881223386b5aec7aa85d48a179206de20",
+    "kind": "ballot",
+    "recorded_at": 1794125000000,
+    "actor": null,
+    "body": {
+     "vote_seq": 200,
+     "flat_id": "flt_a1b2c3d4e5",
+     "flat_token": null,
+     "options": [
+      0,
+      2
+     ]
+    }
+   },
+   "preimage_hex": "0200000016636c65617266756e64732f636861696e2d656e74727901000000080000000000000001020000000a736f635f3766336b39710100000008000000000000006a03000000205042d3b07be55996777b08808b937d5881223386b5aec7aa85d48a179206de20020000000662616c6c6f740100000008000001a1ba2eed4000000000000500000044010000000800000000000000c8020000000e666c745f613162326333643465350000000000050000001a0100000008000000000000000001000000080000000000000002",
+   "entry_hash": "fb41e125c733f497602986da0593dd00e78f1be21f5c593d30102656f441bfb3"
+  },
+  {
+   "name": "the same flat's anonymous ballot in another vote (102)",
+   "entry": {
+    "format_version": 1,
+    "society_id": "soc_7f3k9q",
+    "sequence": 107,
+    "prev_hash": "fb41e125c733f497602986da0593dd00e78f1be21f5c593d30102656f441bfb3",
+    "kind": "ballot",
+    "recorded_at": 1794125060000,
+    "actor": null,
+    "body": {
+     "vote_seq": 102,
+     "flat_id": null,
+     "flat_token": "bc820b718659cc73b568e02e91cd89d579629479b973a0e561064f2e73480a1f",
+     "options": [
+      0
+     ]
+    }
+   },
+   "preimage_hex": "0200000016636c65617266756e64732f636861696e2d656e74727901000000080000000000000001020000000a736f635f3766336b39710100000008000000000000006b0300000020fb41e125c733f497602986da0593dd00e78f1be21f5c593d30102656f441bfb3020000000662616c6c6f740100000008000001a1ba2fd7a0000000000005000000490100000008000000000000006600000000000300000020bc820b718659cc73b568e02e91cd89d579629479b973a0e561064f2e73480a1f050000000d01000000080000000000000000",
+   "entry_hash": "ee0c01ea27aa81cb65f99f04a9100d592b3ad03b489dec08704e1e3fdd952598"
+  }
+ ],
+ "must_differ": [
+  {
+   "name": "the same flat's token differs between votes: recompute both from flat_token[0] and [1], which entries 102 and 107 carry",
+   "a": "70ee87b766a022cd092156cd27053f225d2d9fa5f8e9116020e58baaa0c9841f",
+   "b": "bc820b718659cc73b568e02e91cd89d579629479b973a0e561064f2e73480a1f"
+  },
+  {
+   "name": "a tie is carried null, not option 0",
+   "a": "aac0a710c2680fd45ff626ee673bcffbd262ad5a191d2cbb36c947060467ed6f",
+   "b": "dc45d049fc0b2b68b369dcf4f57643b446555b7268ae3f9c69a133456ff9a9cd"
+  }
+ ]
+}

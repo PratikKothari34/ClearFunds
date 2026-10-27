@@ -48,6 +48,14 @@ export function useTenantFlags() {
   })
 }
 
+/*
+ * The `as unknown as` here is a cast, not a validation: nothing checks the
+ * shape at runtime. DuesRow therefore declares the amounts `number | null`,
+ * matching what database.types.ts says actually arrives, and every surface
+ * resolves them through lib/countable.ts. Declaring them plain `number` made
+ * the compiler vouch for something no code enforced, and `null <= 0` being
+ * true then hid a flat that owed money.
+ */
 export function useDues() {
   const s = useSociety()
   return useQuery({
