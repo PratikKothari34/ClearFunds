@@ -33,6 +33,7 @@ Mail sent locally (sign-in codes) lands in Mailpit at http://127.0.0.1:54324.
 | `…08_tasks.sql` | Task checks in front of the existing writes, `api_set_post`, the tour flag, `api_me` posts |
 | `…09_platform.sql` | Platform admins, creating a society in draft with its president, the setup draft's table |
 | `…10_setup.sql` | The president's setup draft and its problems, opening from the draft (flats, tenures), the `society-docs` bucket |
+| `…11_ids.sql` | ClearFunds IDs that follow posts and tenures, and the enrolment mail they queue |
 | `supabase/functions/api/` | The signing boundary: authenticates, derives the admin's Ed25519 key, registers it, signs |
 | `supabase/tests/` | pgTAP. `chain_vectors.test.sql` is generated from the contract vectors |
 | `scripts/seed.ts` | Local demo data, driven through the real rule functions |
