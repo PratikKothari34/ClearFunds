@@ -110,8 +110,15 @@ declare
 begin
   for v in select society_id, vote_seq from public.votes where closed_seq is null and closes_at <= now()
             order by closes_at loop
-    perform cf.lock(v.society_id);
-    perform cf.close_vote(v.society_id, v.vote_seq);
+    -- Each vote closes in its own subtransaction. Otherwise one that cannot
+    -- close aborts the run, and being due first, every run after it: no vote
+    -- anywhere would close again. It stays open, logged, and is retried.
+    begin
+      perform cf.lock(v.society_id);
+      perform cf.close_vote(v.society_id, v.vote_seq);
+    exception when others then
+      raise warning 'vote % in % did not close: %', v.vote_seq, v.society_id, sqlerrm;
+    end;
   end loop;
 end
 $$;
