@@ -16,3 +16,4 @@ Append-only. One line per contract PR:
 2026-10-26 | api.v1 | ADD api_lookup and api_entry_context | #14 | additive
 2026-10-26 | api.v1 | CLARIFY api_setup_save returns draft; flat_dues and ledger amounts never null | #45 | not breaking
 2026-10-27 | chain-entry.v1 | ADD flat_set value flat (one-flat charge) and category opening (committee tier); no layout change | #50 | additive
+2026-10-27 | api.v1 | ADD api_send_dues_reminders | #56 | additive
