@@ -14,6 +14,7 @@ import "@supabase/functions-js/edge-runtime.d.ts";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import * as ed from "@noble/ed25519";
 import nodemailer from "nodemailer";
+import { type Columns, StatementError, statementLines } from "./statements.ts";
 
 const URL_ = Deno.env.get("SUPABASE_URL")!;
 const ANON = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -268,6 +269,19 @@ Deno.serve(async (req) => {
     if (route === "/ballot") {
       return json(await rpc(admin, "api_ballot", { p_user: user, p_society: society,
         p_vote_seq: Number(body.vote_seq), p_options: Array.isArray(body.options) ? body.options.map(Number) : [] }));
+    }
+
+    // A bank statement: read here into credit lines, checked and stored by the
+    // database. It moves no money and chains nothing.
+    if (route === "/statements") {
+      let parsed;
+      try {
+        parsed = statementLines(String(body.csv ?? ""), (body.columns ?? {}) as Columns, String(body.date_format ?? ""));
+      } catch (e) {
+        if (e instanceof StatementError) return json({ error: e.message }, 400);
+        throw e;
+      }
+      return json(await rpc(admin, "api_statement_store", { p_user: user, p_society: society, p: parsed }));
     }
 
     if (route === "/propose") {
