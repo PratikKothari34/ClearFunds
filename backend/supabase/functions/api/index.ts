@@ -42,6 +42,12 @@ async function seed(label: string): Promise<Uint8Array> {
 }
 
 const MINUTES_MAX = 10 * 1024 * 1024;
+const ATTACHMENT_TYPES = ["application/pdf", "image/png", "image/jpeg"];
+const MAGIC: Record<string, number[]> = {
+  "application/pdf": [0x25, 0x50, 0x44, 0x46, 0x2d],
+  "image/png": [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a],
+  "image/jpeg": [0xff, 0xd8, 0xff],
+};
 const minutesPath = (society: string) => `${society}/election-minutes.pdf`;
 const sha256 = async (b: Uint8Array<ArrayBuffer>) => hex(new Uint8Array(await crypto.subtle.digest("SHA-256", b)));
 
@@ -203,6 +209,42 @@ Deno.serve(async (req) => {
       return json(minutes);
     }
 
+    // Notice attachments: stored and hashed here, read through a short signed link.
+    if (route === "/notices/attachment" && (req.method === "PUT" || req.method === "GET")) {
+      const q = new URL(req.url).searchParams;
+      const society = q.get("society") ?? "";
+      if (req.method === "GET") {
+        const f = await rpc<{ path: string; file_name: string; media_type: string }>(admin,
+          "api_notice_attachment_find", { p_user: user, p_society: society, p_sha256: q.get("sha256") ?? "" });
+        const signed = await admin.storage.from("society-docs").createSignedUrl(f.path, 300);
+        if (signed.error) throw signed.error;
+        return json({ url: signed.data.signedUrl, file_name: f.file_name, media_type: f.media_type });
+      }
+      const type = req.headers.get("Content-Type") ?? "";
+      if (!ATTACHMENT_TYPES.includes(type)) return json({ error: "Attach a PDF, PNG or JPEG." }, 400);
+      // Limits count the bytes received, never a declared Content-Length.
+      const bytes = new Uint8Array(await req.arrayBuffer());
+      if (bytes.length === 0 || bytes.length > MINUTES_MAX) return json({ error: "A file must be at most 10 MB." }, 400);
+      // The declared type must match the leading bytes; the header alone is not trusted.
+      if (!MAGIC[type]?.every((b, i) => bytes[i] === b)) return json({ error: "That file is not the type it says it is." }, 400);
+      const sha = await sha256(bytes);
+      const draft = Number(q.get("draft_id"));
+      if (!Number.isSafeInteger(draft) || draft <= 0) return json({ error: "Name the draft to attach to." }, 400);
+      // The path is the checked draft and the hash of these bytes, so "05" and
+      // "5" cannot file one draft's uploads in two places.
+      const path = `${society}/notices/${draft}/${sha}`;
+      const meta = { sha256: sha, size_bytes: bytes.length, media_type: type, path,
+        file_name: (req.headers.get("X-File-Name") ?? "attachment").normalize("NFC").slice(0, 200) };
+      // Refuse before storing: the president's own unpublished draft, within its size budget.
+      await rpc(admin, "api_notice_attachment_store", { p_user: user, p_society: society, p_draft_id: draft,
+        p: { sha256: sha, size_bytes: bytes.length } });
+      const up = await admin.storage.from("society-docs").upload(path, bytes, { contentType: type, upsert: true });
+      if (up.error) throw up.error;
+      await rpc(admin, "api_notice_attachment_store", { p_user: user, p_society: society, p_draft_id: draft, p: meta });
+      const { path: _p, ...out } = meta;
+      return json(out);
+    }
+
     if (req.method !== "POST") return json({ error: "Not found." }, 404);
     const body = await req.json().catch(() => ({}));
     const society = String(body.society ?? "");
@@ -218,9 +260,22 @@ Deno.serve(async (req) => {
       return json({ head: await rpc(asUser, "api_head", { p_society: society }) });
     }
 
+    if (route === "/publish-notice") {
+      return json(await rpc(admin, "api_publish_notice", {
+        p_user: user, p_society: society, p_draft_id: Number(body.draft_id) }));
+    }
+
+    if (route === "/ballot") {
+      return json(await rpc(admin, "api_ballot", { p_user: user, p_society: society,
+        p_vote_seq: Number(body.vote_seq), p_options: Array.isArray(body.options) ? body.options.map(Number) : [] }));
+    }
+
     if (route === "/propose") {
+      // A cited vote travels beside the proposal (contracts/api/v1.md).
+      const p = { ...(body.proposal ?? {}),
+        ...(body.vote_seq != null ? { vote_seq: Number(body.vote_seq), vote_option: Number(body.vote_option) } : {}) };
       const made = await rpc<{ seq: number }>(admin, "api_propose", {
-        p_user: user, p_society: society, p: body.proposal ?? {} });
+        p_user: user, p_society: society, p });
       // The proposer's own approval, when their seat lets it count.
       let status = "open";
       try {
