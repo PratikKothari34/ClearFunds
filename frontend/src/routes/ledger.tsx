@@ -5,6 +5,7 @@ import { Plus, Search, SearchX } from 'lucide-react'
 import { useDisputes, useLedger, useSummary } from '../lib/api'
 import { useMeStrict, isCommittee } from '../lib/session'
 import { categoryLabel, month } from '../lib/format'
+import { countable, owing } from '../lib/countable'
 import { Amount, Button, Empty, Facts, Failed, Input, Loading, PageTitle, Segmented } from '../components/ui'
 import { EntryRow } from '../components/EntryRow'
 import type { LedgerRow } from '../lib/types'
@@ -39,7 +40,11 @@ function match(r: LedgerRow, q: string) {
   if (/^#\d+$/.test(q)) return r.seq === Number(q.slice(1))
   const hay = `${r.counterparty ?? ''} ${r.narration} ${categoryLabel(r.category)} ${r.reason ?? ''}`.toLowerCase()
   const digits = q.replace(/[,₹\s]/g, '')
-  return hay.includes(q) || (/^\d+$/.test(digits) && String(Math.abs(r.amount_minor)).startsWith(digits))
+  /* An unreadable amount matches no digit query rather than matching every
+   * one: countable() refuses it, so the row is found by its text or not at
+   * all. It is never silently dropped from an unfiltered list. */
+  const amount = countable(r.amount_minor)
+  return hay.includes(q) || (/^\d+$/.test(digits) && amount.readable && String(Math.abs(amount.minor)).startsWith(digits))
 }
 
 function Ledger() {
@@ -58,8 +63,14 @@ function Ledger() {
     return all.filter((r) => {
       if (!match(r, dq)) return false
       switch (filter) {
-        case 'in': return r.is_cash && r.amount_minor > 0
-        case 'out': return r.is_cash && r.amount_minor < 0
+        /*
+         * An unreadable amount has no direction, so it cannot be claimed by
+         * either side - but it must not vanish from the ledger entirely, and
+         * it does not: 'all' keeps it, which is the default view. Deciding
+         * in/out from a null here is what hid a flat on the dues screen.
+         */
+        case 'in': return r.is_cash && owing(r.amount_minor)
+        case 'out': { const a = countable(r.amount_minor); return r.is_cash && a.readable && a.minor < 0 }
         case 'reversed': return r.reversed_by_seq !== null || r.reverses_seq !== null
         case 'disputed': return disputed(r)
         case 'charges': return !r.is_cash

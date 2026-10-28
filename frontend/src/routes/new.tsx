@@ -7,6 +7,7 @@ import { supabase, unwrap, Refused } from '../lib/supabase'
 import { useMeStrict } from '../lib/session'
 import { categories, month, todayIST } from '../lib/format'
 import { format, parse } from '../lib/money'
+import { countable } from '../lib/countable'
 import { Button, Card, Field, Input, MoneyInput, PageTitle, Segmented, cx, useToast } from '../components/ui'
 
 type Kind = 'expense' | 'receipt' | 'charge'
@@ -44,7 +45,14 @@ function NewEntry() {
   useEffect(() => { setCategory(kind === 'expense' ? 'repairs' : kind === 'charge' ? 'maintenance' : 'maintenance') }, [kind])
 
   const minor = parse(amount)
-  const lim = limit.data?.current.limit_minor
+  /*
+   * An unreadable limit must never produce `pair`. `minor <= null` is true in
+   * JavaScript, so the old shape would have claimed the treasurer+secretary
+   * tier for any amount the moment the limit could not be read - the exact
+   * inversion 0004 forbids, and the display the proposer acts on.
+   */
+  const limRead = countable(limit.data?.current.limit_minor)
+  const lim = limRead.readable ? limRead.minor : undefined
   const seated = (committee.data?.seats ?? []).filter((x) => x.unseated_seq === null).length
   const needed = Math.max(Math.ceil((2 * seated) / 3), 2)
   const pair = minor !== null && lim !== undefined && minor <= lim
