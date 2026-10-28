@@ -7,13 +7,14 @@
 // the chain so anyone can check a signature without trusting this server.
 //
 // The operator can therefore mint an approval. What bounds that is the chain
-// head published outside admin control (GET /head), which this function
-// signs but does not publish.
+// head published outside admin control: GET /head signs it, and
+// POST /anchor/publish writes each month's to the anchor repo (anchor.ts).
 
 import "@supabase/functions-js/edge-runtime.d.ts";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import * as ed from "@noble/ed25519";
 import nodemailer from "nodemailer";
+import { publishAnchors, type Due } from "./anchor.ts";
 
 const URL_ = Deno.env.get("SUPABASE_URL")!;
 const ANON = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -154,6 +155,29 @@ Deno.serve(async (req) => {
       if (!secret || req.headers.get("X-Mailer-Secret") !== secret) return json({ error: "Not found." }, 404);
       await flushMail(admin);
       return json({ ok: true });
+    }
+
+    // Daily, from pg_cron. Writes nothing until the anchor repo and its
+    // token are configured (contracts/anchor/v1.md).
+    if (req.method === "POST" && route === "/anchor/publish") {
+      const secret = Deno.env.get("CLEARFUNDS_ANCHOR_SECRET");
+      if (!secret || req.headers.get("X-Anchor-Secret") !== secret) return json({ error: "Not found." }, 404);
+      const repo = Deno.env.get("CLEARFUNDS_ANCHOR_REPO"), token = Deno.env.get("CLEARFUNDS_ANCHOR_TOKEN");
+      if (!repo || !token) return json({ ok: true, configured: false, outcomes: [] });
+      const outcomes = await publishAnchors({
+        repo, token,
+        due: () => rpc<Due[]>(admin, "api_anchor_due", {}),
+        sign: async (society, message) => {
+          const sk = await headSeed(society);
+          return { alg: "ed25519", public_key: hex(await ed.getPublicKeyAsync(sk)), signature: hex(await ed.signAsync(message, sk)) };
+        },
+        record: (d, body, url) => rpc(admin, "api_anchor_record", { p_society: d.society_id, p_period: d.period,
+          p_head_seq: d.head_seq, p_head_hash: d.head_hash, p_body: body, p_url: url }),
+        witnessed: (d) => rpc(admin, "api_anchor_witnessed", { p_society: d.society_id, p_period: d.period }),
+      });
+      // A conflict or failure is loud: it fails the run, and the cron log keeps it.
+      const bad = outcomes.filter((x) => x.result === "conflict" || x.result === "failed");
+      return json({ ok: bad.length === 0, configured: true, outcomes }, bad.length ? 500 : 200);
     }
 
     const auth = req.headers.get("Authorization") ?? "";
