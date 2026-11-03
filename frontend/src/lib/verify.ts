@@ -25,6 +25,41 @@ export type Head = { hash: string; highest_sequence: number; entry_count: number
  */
 export type Memory = { seq: number; hash: string; at: number; checkedThrough?: number }
 
+/*
+ * A memory is PARSED, not cast, because localStorage is not ours.
+ *
+ * It survives across visits on a device anyone may share, and any script
+ * that ever runs on this origin can write it. Reading it with a cast let a
+ * corrupted value do the two worst things this module can do:
+ *
+ *   - A value that is not an object (`7`, `[]`) made `mem.seq` undefined,
+ *     `hashes[undefined - 1]` undefined, and `undefined === undefined` TRUE,
+ *     so the device check reported 'consistent' - positive confirmation that
+ *     nothing changed - and a relabelled entry then fell through to the
+ *     'warn' branch and was shown as a routine "update the app" version gap
+ *     instead of as evidence.
+ *   - `checkedThrough: NaN` made `Math.max(NaN, ...)` NaN and `n <= NaN`
+ *     always false, disabling regression detection; JSON.stringify writes
+ *     NaN as null, so the next visit read 0 and the bound DROPPED. The bound
+ *     only ever rises, or the forgery is reported once and then forgotten.
+ *
+ * So an unreadable memory returns null and the check reports 'first': no
+ * claim, rather than a false one. A missing `checkedThrough` is still
+ * accepted - older clients stored none - but a present-and-invalid one is
+ * not, because that is corruption rather than an older shape.
+ */
+export function asMemory(v: unknown): Memory | null {
+  if (typeof v !== 'object' || v === null || Array.isArray(v)) return null
+  const m = v as Record<string, unknown>
+  if (!Number.isSafeInteger(m.seq) || (m.seq as number) < 1) return null
+  if (typeof m.hash !== 'string' || m.hash === '') return null
+  if (!Number.isSafeInteger(m.at)) return null
+  const t = m.checkedThrough
+  if (t === undefined) return { seq: m.seq as number, hash: m.hash, at: m.at as number }
+  if (!Number.isSafeInteger(t) || (t as number) < 0) return null
+  return { seq: m.seq as number, hash: m.hash, at: m.at as number, checkedThrough: t as number }
+}
+
 export type Check = {
   at: number
   entries: number
@@ -109,11 +144,16 @@ export async function runCheck(society: string, onStep: OnStep = () => {}): Prom
 
   // Did anything this phone saw before change?
   onStep('device', 0, 1)
-  const mem = read<Memory>(memKey(society))
+  const mem = asMemory(read<unknown>(memKey(society)))
   let device: Check['device'] = 'first'
   if (mem) {
+    /*
+     * An absent hash is NOT a match. The chain may be shorter than it was,
+     * or unreadable at that point; either way this phone cannot confirm the
+     * entry it recorded, which is a change, not a consistency.
+     */
     const now = hashes[mem.seq - 1]
-    device = now === mem.hash ? 'consistent' : { changed: mem.seq }
+    device = typeof now === 'string' && now === mem.hash ? 'consistent' : { changed: mem.seq }
   }
 
   /*
