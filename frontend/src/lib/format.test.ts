@@ -1,7 +1,8 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { categoryLabel, flatSetLabel } from './format'
+import { categoryLabel, flatSetLabel, writeOutcome } from './format'
+import { PROPOSAL_STATES } from './types'
 
 /*
  * `flat_set` says which flats a charge hits, on the screen where a committee
@@ -92,5 +93,84 @@ describe('categoryLabel', () => {
   it('names a missing category instead of leaving a blank', () => {
     expect(categoryLabel(null)).toBe('Uncategorised')
     expect(categoryLabel('')).toBe('Uncategorised')
+  })
+})
+
+/*
+ * The four outcomes a `proposal_closed` entry can carry, read out of the
+ * contract for the same reason as `flat_set`: a fifth closing added there
+ * must fail this suite rather than silently read as "still waiting".
+ *
+ * The contract lists only the closings. `posted` and `open` come from
+ * `cf.proposal_status`, which answers 'posted' when a posting exists and
+ * 'open' when nothing has closed the proposal, so they are named here.
+ */
+const contractClosings = (): string[] => {
+  const row = readFileSync(LEDGER, 'utf8')
+    .split('\n')
+    .find((l) => /^\|\s*\d+\s*\|\s*`outcome`\s*\|/.test(l))
+  if (!row) throw new Error(`no proposal_closed outcome row in ${LEDGER}`)
+  const values = [...row.matchAll(/`([a-z_]+)`/g)].map((m) => m[1]!).filter((v) => v !== 'outcome')
+  if (values.length < 2) throw new Error(`outcome row does not list its values: ${row}`)
+  return values
+}
+
+describe('writeOutcome', () => {
+  it('reads the contract row, so this suite cannot go stale silently', () => {
+    const values = contractClosings()
+    // Not an assertion on the count - a fifth closing arriving is the point.
+    expect(values.length).toBeGreaterThan(1)
+    expect(new Set(values).size).toBe(values.length)
+  })
+
+  it('calls every closing the contract defines closed, never waiting', () => {
+    // THE regression. `status === 'posted' ? done : waiting` told a committee
+    // member a DECLINED proposal was out for votes.
+    for (const v of contractClosings()) {
+      expect(writeOutcome(v), `${v} did not read as a closing`).toBe('closed')
+    }
+  })
+
+  it('knows every state the app parses, so none falls to the hedge', () => {
+    // PROPOSAL_STATES is what rows.ts accepts off the wire. A state the app
+    // will happily parse but cannot classify is a gap between the two.
+    for (const v of PROPOSAL_STATES) {
+      expect(writeOutcome(v), `${v} is parsed but not classified`).not.toBe('unknown')
+    }
+  })
+
+  it('agrees with the contract about which states close a proposal', () => {
+    // Neither list is derived from the other, so this catches drift in either
+    // direction: a closing the contract has and the app does not parse, or an
+    // app state that is neither posted, open, nor a contract closing.
+    const closings = contractClosings()
+    for (const v of closings) {
+      expect(PROPOSAL_STATES as readonly string[], `${v} is not parsed`).toContain(v)
+    }
+    const classified = PROPOSAL_STATES.filter((v) => writeOutcome(v) === 'closed')
+    expect([...classified].toSorted()).toEqual([...closings].toSorted())
+  })
+
+  it('separates posted from waiting', () => {
+    expect(writeOutcome('posted')).toBe('posted')
+    expect(writeOutcome('open')).toBe('open')
+  })
+
+  it('hedges an unrecognised status rather than claiming one', () => {
+    // The write already happened. Reporting it as waiting would be a claim
+    // about a vote that may not be pending; reporting it as posted would be a
+    // claim about the ledger. Both are worse than saying we cannot tell.
+    for (const bad of [null, undefined, '', 'POSTED', 'Posted', 'post', 'posted ', 'pending', 0, 1, true, {}, []]) {
+      expect(writeOutcome(bad), `${JSON.stringify(bad)} classified as something`).toBe('unknown')
+    }
+  })
+
+  it('never answers open for a status it does not recognise', () => {
+    // Narrower than the case above and kept separate: of the four wrong
+    // answers, "waiting for the others" is the one a person acts on - they
+    // stop chasing approvals that are not coming.
+    for (const bad of [null, '', 'declined_by_chair', 'cf-new-state']) {
+      expect(writeOutcome(bad)).not.toBe('open')
+    }
   })
 })
