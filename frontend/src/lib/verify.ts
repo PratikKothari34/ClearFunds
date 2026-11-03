@@ -99,7 +99,54 @@ function write(k: string, v: unknown) {
   try { localStorage.setItem(k, JSON.stringify(v)) } catch { /* storage blocked: this visit only */ }
 }
 
-export const lastCheck = (society: string) => read<Check>(checkKey(society))
+/*
+ * The cached Check is PARSED too, and for a blunter reason than the memory:
+ * it is read during RENDER, and verdict() dereferences four fields without
+ * guarding them.
+ *
+ * `Provenance` sits on the dashboard - the first screen a resident sees -
+ * and calls verdict() on whatever came out of storage. There is no error
+ * boundary anywhere in the tree, so a shape verdict() cannot read blanks the
+ * whole app rather than one card. This is not hypothetical: `regressed` was
+ * ADDED to Check, so every device that cached one before that ships
+ * `regressed: undefined`, and `c.regressed.length` is a TypeError. A shipped
+ * field addition would have blanked the dashboard for existing users.
+ *
+ * `device: null` is the sharp one - `typeof null === 'object'` passes
+ * verdict()'s own check and then dereferences `.changed`.
+ *
+ * An unreadable cache therefore returns null, which every caller already
+ * renders as "not checked on this phone yet" - absent, never a pass. The
+ * next runCheck overwrites it.
+ */
+export function asCheck(v: unknown): Check | null {
+  if (typeof v !== 'object' || v === null || Array.isArray(v)) return null
+  const c = v as Record<string, unknown>
+  if (!Number.isSafeInteger(c.at)) return null
+  const seqs = (x: unknown) => Array.isArray(x) && x.every((n) => Number.isSafeInteger(n))
+  if (!seqs(c.unchecked) || !seqs(c.regressed)) return null
+  if (c.chain !== 'ok' && !(typeof c.chain === 'object' && c.chain !== null && typeof (c.chain as { failed?: unknown }).failed === 'string')) return null
+  if (c.device !== 'first' && c.device !== 'consistent'
+    && !(typeof c.device === 'object' && c.device !== null && Number.isSafeInteger((c.device as { changed?: unknown }).changed))) return null
+  const sig = c.signatures
+  if (typeof sig !== 'object' || sig === null || Array.isArray(sig)) return null
+  if (!Number.isSafeInteger((sig as { checked?: unknown }).checked) || !seqs((sig as { failed?: unknown }).failed)) return null
+  /* The anchor's object form carries a Head that `verify.tsx` renders. A
+   * string form it does not recognise is refused rather than rendered. */
+  const anchor = c.anchor
+  const named = anchor === 'unpublished' || anchor === 'unreachable' || anchor === 'matches' || anchor === 'behind'
+  if (!named && !(typeof anchor === 'object' && anchor !== null && isHead((anchor as { mismatch?: unknown }).mismatch))) return null
+  if (c.anchorHead !== undefined && !isHead(c.anchorHead)) return null
+  return c as unknown as Check
+}
+
+function isHead(v: unknown): boolean {
+  if (typeof v !== 'object' || v === null) return false
+  const h = v as Record<string, unknown>
+  return typeof h.hash === 'string' && h.hash !== '' && Number.isSafeInteger(h.highest_sequence)
+}
+
+export const lastCheck = (society: string) => asCheck(read<unknown>(checkKey(society)))
 
 export const anchorUrl = (society: string) => {
   const t = import.meta.env.VITE_ANCHOR_URL
