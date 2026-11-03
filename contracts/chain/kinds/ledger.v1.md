@@ -162,6 +162,20 @@ one proposal: the reversal, then a posting with the original's effect.
 | 7 | `key_seq` | int | |
 | 8 | `signature` | bytes | |
 
+**The appointment is the society's authorisation to disclose** (draft, #3). An
+auditor's duty of confidentiality to the society can be waived by the society.
+The `auditor` posting at `appointment_seq` is that waiver, recorded: it exists
+only once the committee has approved the `appoint_auditor` proposal at the
+committee tier. So a `year_close` can never carry a statement that the society
+did not authorise to be read by its members. No new kind or field is needed,
+because `appointment_seq` already links the two. Two consequences:
+
+- The committee is told so when it approves the appointment: approving it
+  authorises the auditor's statement for that year to be published to every
+  member.
+- The annual report names the appointment entry as the authorisation, beside
+  the opinion.
+
 ---
 
 ## Pseudonyms
