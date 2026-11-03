@@ -11,7 +11,7 @@
 import { describe, expect, it } from 'vitest'
 import { ShapeError } from './parse'
 import {
-  chargePreview, disputeRow, duesRow, duesRows, ledgerRow, limitEntries, proposalRow,
+  chargePreview, disputeRow, duesRow, duesRows, ledgerRow, limitEntries, me, proposalRow,
   resolvedHandle, seat, structuring, summary,
 } from './rows'
 import { countable } from './countable'
@@ -397,5 +397,118 @@ describe('what the parsers must not do', () => {
     const row = duesRow(dues({ outstanding_minor: null }), 'row')
     expect(row.outstanding_minor).not.toBe(0)
     expect(row.outstanding_minor).toBeNull()
+  })
+})
+
+/*
+ * `api_me` is the most privileged payload the app reads, so these cases ask
+ * the access question rather than a shape question: if the server sends a
+ * role the app has no branch for, or omits the society entirely, does the
+ * surface get to decide from it?
+ *
+ * The two absent-by-contract fields are asserted to SURVIVE, because a null
+ * seat and a null tenure are ordinary people, not faults - failing them would
+ * lock out every resident without a committee post.
+ */
+const whoami = (over: Record<string, unknown> = {}) => ({
+  person: 'p1', name: 'Asha Rao', email: 'asha@example.com',
+  society: {
+    id: 's1', name: 'Sunview CHS', city: 'Pune', currency: 'INR',
+    fy_start_month: 4, structuring_window_days: 30,
+  },
+  seat: { role: 'treasurer', derived: false },
+  auditor_for: ['2025-26'],
+  tenure: {
+    id: 't1', kind: 'owner', handle: 'A-101-owner', flat_id: 'f1',
+    flat: 'A-101', owner_can_see: true,
+  },
+  last_seen_seq: 42,
+  ...over,
+})
+
+describe('me', () => {
+  it('accepts the shape the contract promises', () => {
+    expect(() => me(whoami(), 'useMe')).not.toThrow()
+  })
+
+  /*
+   * A signed-in person who belongs to no society yet. That is an answer, so
+   * the parser must return it rather than fail the query and strand them.
+   */
+  it('accepts null, which is who-are-you answered honestly', () => {
+    expect(me(null, 'useMe')).toBeNull()
+  })
+
+  /*
+   * These two are the reason the parser cannot simply mark everything
+   * required. Someone with no committee post and someone who lives nowhere
+   * in the society are both ordinary, and every surface already branches on
+   * them - rejecting either would lock out real people.
+   */
+  it('keeps a person who holds no committee seat', () => {
+    expect(me(whoami({ seat: null }), 'useMe')?.seat).toBeNull()
+  })
+
+  it('keeps a person with no tenure in this society', () => {
+    expect(me(whoami({ tenure: null }), 'useMe')?.tenure).toBeNull()
+  })
+
+  it('keeps a person who has never visited before', () => {
+    expect(me(whoami({ last_seen_seq: null }), 'useMe')?.last_seen_seq).toBeNull()
+  })
+
+  /*
+   * The access rule. `seat.role` chooses which controls render, so a role
+   * with no branch in the app must fail here and name itself - not arrive at
+   * a switch that renders nothing, or renders another role's copy.
+   */
+  it('rejects a committee role the app has no branch for', () => {
+    expect(() => me(whoami({ seat: { role: 'chairman', derived: false } }), 'useMe')).toThrow(ShapeError)
+  })
+
+  it('rejects a tenure kind outside owner and tenant', () => {
+    expect(() => me(whoami({ tenure: { ...whoami().tenure as object, kind: 'guest' } }), 'useMe')).toThrow(ShapeError)
+  })
+
+  /*
+   * A missing society is not a reduced view of the answer, it is a broken
+   * one: every query downstream keys off `society.id`, and a surface that
+   * rendered without it would be deciding access from a blank.
+   */
+  it('rejects an identity with no society', () => {
+    expect(() => me(whoami({ society: null }), 'useMe')).toThrow(ShapeError)
+  })
+
+  it('rejects a society whose own required field is missing', () => {
+    const s = whoami().society as Record<string, unknown>
+    expect(() => me(whoami({ society: { ...s, currency: null } }), 'useMe')).toThrow(ShapeError)
+  })
+
+  /*
+   * `auditor_for` opens the year-close screen. A scalar where a list belongs
+   * would make `.length` undefined and the screen silently unreachable, so
+   * the shape is checked rather than coerced.
+   */
+  it('rejects auditor_for sent as anything but a list', () => {
+    expect(() => me(whoami({ auditor_for: '2025-26' }), 'useMe')).toThrow(ShapeError)
+  })
+
+  it('accepts an auditor of no years, which is most people', () => {
+    expect(me(whoami({ auditor_for: [] }), 'useMe')?.auditor_for).toEqual([])
+  })
+
+  /* The error has to say which field, or it cannot be acted on. */
+  it('names the nested field that failed, not just the call', () => {
+    expect(() => me(whoami({ seat: { role: 'treasurer', derived: 'yes' } }), 'useMe'))
+      .toThrow(/seat\.derived/)
+  })
+
+  it('rejects a missing required field as firmly as a null one', () => {
+    const { person: _drop, ...rest } = whoami()
+    expect(() => me(rest, 'useMe')).toThrow(ShapeError)
+  })
+
+  it('rejects a response that is not an object at all', () => {
+    expect(() => me('asha', 'useMe')).toThrow(ShapeError)
   })
 })
