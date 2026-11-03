@@ -39,8 +39,8 @@
 import { array, bool, int, nullable, object, oneOf, required, ShapeError, str } from './parse'
 import type { Parser } from './parse'
 import type {
-  Approval, ChargePreview, DisputeRow, DuesRow, LedgerRow, Note, Person, ProposalRow, Report,
-  LimitEntry, ResolvedHandle, Seat, SignoffEntry, Structuring, Summary, Year,
+  Approval, ChargePreview, DisputeRow, DuesRow, LedgerRow, Me, Note, Person, ProposalRow, Report,
+  LimitEntry, ResolvedHandle, Seat, SignoffEntry, Society, Structuring, Summary, Year,
 } from './types'
 
 /* Shared vocabularies, kept together so a backend addition is one edit here
@@ -406,3 +406,55 @@ export const limitEntries: Parser<LimitEntry[]> = (value, path) => {
   }
   return rows
 }
+
+/*
+ * Who this person is, and what they may see. `api_me` is the most privileged
+ * payload the app reads: `seat.role` decides which controls render,
+ * `auditor_for` opens the year-close screen, and `tenure` gates every
+ * resident surface. It crossed the wire unparsed until now.
+ *
+ * Every field is `required` except the three the contract genuinely leaves
+ * absent. A null `seat` is someone with no committee post, a null `tenure` is
+ * someone who lives nowhere in this society, and both are ordinary states
+ * that the surfaces already branch on. `last_seen_seq` is null before a first
+ * visit. Nothing else may be missing: a person with no `society` or no
+ * `person` id is not a reduced view of the answer, it is a broken one, and a
+ * surface that renders it would be deciding access from a blank.
+ *
+ * `seat` here is NOT the `Seat` read model above - it is narrower, carrying
+ * only the role and whether it was derived, so it gets its own shape rather
+ * than a reuse that would demand fields `api_me` never sends.
+ *
+ * The whole thing is nullable because `api_me` answers null for a signed-in
+ * person who belongs to no society yet. That is an answer, not a failure, so
+ * it parses; every field inside a present one is checked.
+ */
+const society = object<Society>({
+  id: required(str),
+  name: required(str),
+  city: nullable(str),
+  currency: required(str),
+  fy_start_month: required(int),
+  structuring_window_days: required(int),
+})
+
+export const me = nullable(object<Me>({
+  person: required(str),
+  name: required(str),
+  email: required(str),
+  society: required(society),
+  seat: nullable(object<NonNullable<Me['seat']>>({
+    role: required(role),
+    derived: required(bool),
+  })),
+  auditor_for: required(array(str)),
+  tenure: nullable(object<NonNullable<Me['tenure']>>({
+    id: required(str),
+    kind: required(oneOf(['owner', 'tenant'] as const)),
+    handle: required(str),
+    flat_id: required(str),
+    flat: required(str),
+    owner_can_see: required(bool),
+  })),
+  last_seen_seq: nullable(int),
+}))

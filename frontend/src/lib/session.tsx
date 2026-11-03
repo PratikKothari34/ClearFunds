@@ -2,6 +2,8 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import type { Session } from '@supabase/supabase-js'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase, unwrap } from './supabase'
+import { parse } from './parse'
+import { me as meParser } from './rows'
 import type { Me, Role } from './types'
 
 type Auth = { session: Session | null; ready: boolean }
@@ -29,7 +31,7 @@ export function useMe() {
     queryKey: ['me', session?.user.id],
     enabled: !!session,
     staleTime: 60_000,
-    queryFn: async () => unwrap(await supabase.rpc('api_me', {})) as unknown as Me | null,
+    queryFn: async () => parse(meParser, unwrap(await supabase.rpc('api_me', {})), 'useMe'),
   })
 }
 
