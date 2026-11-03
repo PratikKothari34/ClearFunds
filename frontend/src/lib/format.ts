@@ -62,6 +62,23 @@ export const categories: { id: string; label: string }[] = [
 export const categoryLabel = (c: string | null) =>
   categories.find((x) => x.id === c)?.label ?? (c ? c[0]!.toUpperCase() + c.slice(1) : 'Uncategorised')
 
+/*
+ * Which flats a charge hits, for a committee member deciding whether to
+ * approve it. `chain/kinds/ledger.v1.md` item 15 defines three values, and
+ * `flat` arrived after this screen was written: a binary "is it parking?"
+ * check rendered a ONE-FLAT charge as "Every flat", the opposite of what it
+ * does, on the screen where someone approves it.
+ *
+ * An unrecognised value therefore never falls through to a specific claim.
+ * It says only what is certain - the flat count is shown beside this - so a
+ * value added to the contract next shows as unlabelled rather than as a lie.
+ */
+export const flatSetLabel = (f: string | null): string =>
+  f === 'parking' ? 'Flats with parking'
+  : f === 'all' ? 'Every flat'
+  : f === 'flat' ? 'One flat'
+  : 'Some flats'
+
 export const actionLabel: Record<Action, string> = {
   expense: 'Expense', receipt: 'Receipt', charge: 'Charge', reversal: 'Reversal',
   limit_change: 'Limit change', seat_admin: 'Seat member', unseat_admin: 'Unseat member',

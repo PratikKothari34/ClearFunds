@@ -1,0 +1,96 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import { describe, expect, it } from 'vitest'
+import { categoryLabel, flatSetLabel } from './format'
+
+/*
+ * `flat_set` says which flats a charge hits, on the screen where a committee
+ * member decides whether to approve it. The contract defines the values, and
+ * `flat` was added after the screen was written: a binary "is it parking?"
+ * check rendered a one-flat charge as "Every flat".
+ *
+ * So the values are read from the contract rather than hardcoded here. A value
+ * added to the contract next fails this test instead of silently rendering as
+ * the catch-all, which is the whole failure being guarded against.
+ */
+const LEDGER = resolve(__dirname, '../../../contracts/chain/kinds/ledger.v1.md')
+
+const contractFlatSets = (): string[] => {
+  const row = readFileSync(LEDGER, 'utf8')
+    .split('\n')
+    .find((l) => /^\|\s*\d+\s*\|\s*`flat_set`\s*\|/.test(l))
+  if (!row) throw new Error(`no flat_set row in ${LEDGER}`)
+  const clause = /`charge`:\s*((?:`[a-z_]+`(?:,\s*|\s+or\s+)?)+)/.exec(row)
+  if (!clause) throw new Error(`flat_set row does not list its values: ${row}`)
+  return [...clause[1]!.matchAll(/`([a-z_]+)`/g)].map((m) => m[1]!)
+}
+
+describe('flatSetLabel', () => {
+  it('reads the contract row, so this suite cannot go stale silently', () => {
+    const values = contractFlatSets()
+    // Not an assertion on the count: a third value arriving is the point. This
+    // only proves the parse found a list rather than an empty match.
+    expect(values.length).toBeGreaterThan(1)
+    expect(new Set(values).size).toBe(values.length)
+  })
+
+  it('labels every value the contract defines, each distinctly', () => {
+    const values = contractFlatSets()
+    const labels = values.map(flatSetLabel)
+    // A value the contract declares must never read as the unknown catch-all:
+    // that is the lie this guard exists to stop.
+    const unknown = flatSetLabel('cf-not-a-contract-value')
+    for (const [i, v] of values.entries()) {
+      expect(labels[i], `${v} has no label of its own`).not.toBe(unknown)
+      expect(labels[i]!.length, `${v} labelled with nothing`).toBeGreaterThan(0)
+    }
+    // Two values that scope a charge differently must not read the same, or an
+    // approver cannot tell a one-flat charge from a building-wide one.
+    expect(new Set(labels).size, `labels collide: ${labels.join(' / ')}`).toBe(values.length)
+  })
+
+  it('never claims a scope it was not told', () => {
+    // Every unrecognised input lands on the same hedged label, and that label
+    // is not one of the specific claims. `null` included: a missing flat_set
+    // is not evidence of a building-wide charge.
+    const specific = contractFlatSets().map(flatSetLabel)
+    for (const bad of [null, '', 'ALL', 'All', 'parkin', 'parking ', 'flats', 'everyone']) {
+      expect(specific, `${JSON.stringify(bad)} read as a specific scope`).not.toContain(
+        flatSetLabel(bad),
+      )
+      // Hedged, not absent. An empty string leaves a blank where the scope of
+      // a charge should be, which reads as a rendering glitch rather than as
+      // "we could not tell you" - and is not in `specific`, so the check above
+      // passes on it.
+      expect(flatSetLabel(bad).trim(), `${JSON.stringify(bad)} rendered blank`).not.toBe('')
+    }
+  })
+
+  it('distinguishes one flat from every flat', () => {
+    // The actual regression: these two are opposites, and the broken binary
+    // check mapped `flat` onto the `all` label.
+    expect(flatSetLabel('flat')).not.toBe(flatSetLabel('all'))
+  })
+
+  it('is case-sensitive rather than guessing', () => {
+    // No normalising: the contract values are lowercase, and silently accepting
+    // a variant would hide a backend sending something we do not understand.
+    expect(flatSetLabel('PARKING')).toBe(flatSetLabel('cf-unknown'))
+  })
+})
+
+describe('categoryLabel', () => {
+  it('labels a known category from its own table', () => {
+    expect(categoryLabel('lift')).toBe('Lift')
+  })
+
+  it('shows an unknown category rather than hiding or inventing one', () => {
+    // Degrades to the value itself: an approver sees what the backend sent.
+    expect(categoryLabel('borewell')).toBe('Borewell')
+  })
+
+  it('names a missing category instead of leaving a blank', () => {
+    expect(categoryLabel(null)).toBe('Uncategorised')
+    expect(categoryLabel('')).toBe('Uncategorised')
+  })
+})

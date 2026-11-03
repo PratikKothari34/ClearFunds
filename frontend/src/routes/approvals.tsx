@@ -4,7 +4,7 @@ import { Check, CheckCheck, Inbox, Plus, Undo2, X } from 'lucide-react'
 import { useCast, useLimit, useNames, useProposals, useWithdraw } from '../lib/api'
 import { Refused } from '../lib/supabase'
 import { useMeStrict } from '../lib/session'
-import { actionLabel, ago, categoryLabel, day, plural, proposalTitle, roleLabel, tierLabel } from '../lib/format'
+import { actionLabel, ago, categoryLabel, day, flatSetLabel, plural, proposalTitle, roleLabel, tierLabel } from '../lib/format'
 import { format } from '../lib/money'
 import { countable } from '../lib/countable'
 import { Amount, Avatar, Button, Card, Chip, Empty, Facts, Failed, Loading, Meter, PageTitle, Segmented, Sheet, useToast, cx } from '../components/ui'
@@ -160,7 +160,7 @@ function Body({ p, limitNow }: { p: ProposalRow; limitNow: number | undefined })
       case 'receipt':
         return <Facts items={[categoryLabel(p.category), day(p.business_date), p.narration]} />
       case 'charge':
-        return <Facts items={[`${p.flat_count} flats`, p.flat_set === 'parking' ? 'Flats with parking' : 'Every flat', day(p.business_date)]} />
+        return <Facts items={[plural(p.flat_count, 'flat'), flatSetLabel(p.flat_set), day(p.business_date)]} />
       case 'reversal':
         return <>Reverses <Link to="/entry/$seq" params={{ seq: String(p.target_seq) }} className="font-medium text-accent">#{p.target_seq}</Link>{p.replacement_amount_minor ? <>, replaced by {format(p.replacement_amount_minor)}</> : null}. {p.reason}</>
       case 'limit_change':
