@@ -8,6 +8,8 @@ import { useMeStrict, isCommittee } from '../lib/session'
 import { categoryLabel, instant, longDay, plural, roleLabel, rowTitle, tierLabel, actionLabel, writeOutcome } from '../lib/format'
 import { format, parse } from '../lib/money'
 import { countable } from '../lib/countable'
+import { allocationBody, lineFor, split } from '../lib/allocation'
+import { parse as parseShape } from '../lib/parse'
 import {
   Amount, Avatar, Button, Card, Caption, Chip, EntryIcon, Facts, Field, Fingerprint, Loading, MoneyInput, Sheet, Textarea, useToast, cx,
 } from '../components/ui'
@@ -188,27 +190,34 @@ function Allocation({ r }: { r: LedgerRow }) {
     queryFn: async () => {
       const e = unwrap(await supabase.from('chain_entries').select('body').eq('society_id', s.id).eq('sequence', r.proposal_seq).single())
       const flats = unwrap(await supabase.from('flats').select('id,label,ordinal').eq('society_id', s.id))
-      return { body: e.body as unknown as { flat_ids: string[]; line_amounts: number[]; remainder_flats: string[]; flat_set: string }, flats: new Map(flats.map((f) => [f.id, f.label])) }
+      return { alloc: split(parseShape(allocationBody, e.body, 'allocation')), flats: new Map(flats.map((f) => [f.id, f.label])) }
     },
   })
   if (!q.data) return <Loading rows={1} />
-  const { body, flats } = q.data
-  const mine = me.tenure ? body.flat_ids.indexOf(me.tenure.flat_id) : -1
-  const extra = new Set(body.remainder_flats)
-  const splitSign = countable(r.amount_minor)
+  const { alloc, flats } = q.data
+  const mine = lineFor(alloc, me.tenure?.flat_id)
+  const eachReadable = countable(alloc.each)
   return (
     <section>
       <Caption>Split across flats</Caption>
       <Card className="p-5">
         <div className="grid grid-cols-3 gap-3 text-center">
-          <Stat label="Flats" value={body.flat_ids.length.toString()} />
-          <Stat label="Each" value={splitSign.readable ? format(Math.min(...body.line_amounts.map(Math.abs)) * Math.sign(splitSign.minor)) : 'Not available'} />
-          <Stat label="+1 paisa" value={plural(body.remainder_flats.length, 'flat')} />
+          <Stat label="Flats" value={alloc.lines.length.toString()} />
+          <Stat label="Each" value={eachReadable.readable ? format(eachReadable.minor) : 'Not available'} />
+          <Stat label="+1 paisa" value={plural(alloc.remainderCount, 'flat')} />
         </div>
-        {mine >= 0 && (
+        {/* A broken entry is disclosed, not truncated in silence: a flat
+            missing from one of the two lists is a flat whose charge nobody
+            is being shown. */}
+        {alloc.mismatch && (
+          <p className="mt-4 rounded-xl bg-sunken px-4 py-3 text-[13px] text-ink-2">
+            This split is incomplete in the record: the list of flats and the list of amounts do not match. The figures below are the flats that could be paired.
+          </p>
+        )}
+        {mine && (
           <div className="mt-4 flex items-center justify-between rounded-xl bg-accent-soft px-4 py-3 text-sm">
             <span className="font-medium">Your flat, {me.tenure!.flat}</span>
-            <Amount minor={body.line_amounts[mine]!} />
+            <Amount minor={mine.minor} />
           </div>
         )}
         <p className="mt-4 text-[13px] text-ink-2">The paisa that does not divide goes to the flats that have had it least often, so no flat pays more over time.</p>
@@ -217,10 +226,10 @@ function Allocation({ r }: { r: LedgerRow }) {
         </button>
         {all && (
           <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-1 text-sm sm:grid-cols-3">
-            {body.flat_ids.map((id, i) => (
-              <div key={id} className="flex justify-between gap-2 py-0.5">
-                <span className={cx(extra.has(id) && 'font-medium')}>{flats.get(id)}</span>
-                <Amount minor={body.line_amounts[i]!} size="sm" className={cx(!extra.has(id) && 'text-ink-2')} />
+            {alloc.lines.map((l) => (
+              <div key={l.flat_id} className="flex justify-between gap-2 py-0.5">
+                <span className={cx(l.remainder && 'font-medium')}>{flats.get(l.flat_id) ?? l.flat_id}</span>
+                <Amount minor={l.minor} size="sm" className={cx(!l.remainder && 'text-ink-2')} />
               </div>
             ))}
           </div>
