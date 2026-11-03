@@ -1,3 +1,4 @@
+import { PROPOSAL_STATES } from './types'
 import type { Action, LedgerRow, Opinion, ProposalRow, Role } from './types'
 
 // One catalogue for every label a person reads, so a second language is a
@@ -121,3 +122,31 @@ export function initials(name: string) {
 /** Severity colour: clean reads as checked-against, anything worse as a break. */
 export const opinionTone = (o: Opinion | null) =>
   o === 'clean' ? ('anchor' as const) : o === 'qualified' ? ('attention' as const) : o ? ('break' as const) : ('neutral' as const)
+
+/*
+ * What happened to a proposal, from the `status` a write returned.
+ *
+ * Three outcomes, because three is what a person needs to know: it is on the
+ * ledger, it is waiting for more approvals, or it is closed and will never
+ * post. `declined`, `withdrawn`, `superseded` and `year_closed` are four
+ * different closings and none of them is "waiting" - the call sites used to
+ * read `status === 'posted' ? done : waiting`, so a DECLINED proposal
+ * reported success.
+ *
+ * Not `oneOf`: a status this build does not recognise is not a failed write.
+ * The entry was made. Throwing would tell the person it did not happen,
+ * which is the one answer that is certainly wrong - so an unknown value
+ * degrades to `'unknown'` and the copy hedges. Compare `flatSetLabel`.
+ */
+export type WriteOutcome = 'posted' | 'open' | 'closed' | 'unknown'
+
+export function writeOutcome(status: unknown): WriteOutcome {
+  if (status === 'posted') return 'posted'
+  if (status === 'open') return 'open'
+  // Every other state the chain defines is a closing. Derived from the list,
+  // not re-listed here: a seventh state added to PROPOSAL_STATES reads as
+  // closed, which is true of every closing outcome the contract has, rather
+  // than falling to the hedge or - worse - to "waiting".
+  if (typeof status === 'string' && (PROPOSAL_STATES as readonly string[]).includes(status)) return 'closed'
+  return 'unknown'
+}

@@ -38,6 +38,7 @@
  */
 import { array, bool, int, nullable, object, oneOf, required, ShapeError, str } from './parse'
 import type { Parser } from './parse'
+import { PROPOSAL_STATES } from './types'
 import type {
   Approval, ChargePreview, DisputeRow, DuesRow, LedgerRow, Note, Person, ProposalRow, Report,
   LimitEntry, ResolvedHandle, Seat, SignoffEntry, Structuring, Summary, Year,
@@ -136,7 +137,7 @@ export const proposalRow = object<ProposalRow>({
   /* Computed by the server from the limit in force, not a stored column: a
    * null is a broken proposal, not a cell that could not be read. */
   limit_minor: required(int),
-  state: required(oneOf(['open', 'posted', 'declined', 'withdrawn', 'superseded', 'year_closed'] as const)),
+  state: required(oneOf(PROPOSAL_STATES)),
   posted_seq: nullable(int),
   approvals: required(array(approval)),
   approve_count: required(int),

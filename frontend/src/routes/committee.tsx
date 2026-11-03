@@ -5,7 +5,7 @@ import { Gavel, Scale, UserMinus, UserPlus, Users } from 'lucide-react'
 import { useAddResident, useCommittee, useLimit, usePropose, useSociety, useYears } from '../lib/api'
 import { supabase, unwrap, Refused } from '../lib/supabase'
 import { useMeStrict, isCommittee } from '../lib/session'
-import { instant, roleLabel, todayIST, fyOf } from '../lib/format'
+import { instant, roleLabel, todayIST, fyOf, writeOutcome } from '../lib/format'
 import { format, parse } from '../lib/money'
 import { countable } from '../lib/countable'
 import { Avatar, Button, Caption, Card, Chip, Field, Input, Loading, MoneyInput, PageTitle, Segmented, Sheet, useToast } from '../components/ui'
@@ -139,7 +139,13 @@ function Actions({ action, onClose, name, lim }: { action: Action; onClose: () =
     setError(null)
     try {
       const out = await propose.mutateAsync(p)
-      toast(out.status === 'posted' ? 'Done.' : 'Proposed. The committee votes on it in Approvals.')
+      const outcome = writeOutcome(out.status)
+      toast(
+        outcome === 'posted' ? 'Done.'
+        : outcome === 'open' ? 'Proposed. The committee votes on it in Approvals.'
+        : outcome === 'closed' ? 'Proposed, and already closed. Open it in Approvals to see why.'
+        : 'Proposed. Open it in Approvals to see where it stands.',
+      )
       onClose()
     } catch (e) {
       setError(e instanceof Refused ? e.message : 'Could not propose it.')

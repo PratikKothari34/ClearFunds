@@ -2,7 +2,7 @@ import { useEffect, useMemo } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase, unwrap, edge, bytea } from './supabase'
 import { useMeStrict } from './session'
-import { array, parse } from './parse'
+import { array, int, object, parse, required, str } from './parse'
 import type { Parser } from './parse'
 /*
  * `people` and `seats` are imported under pf-/sf- names because useCommittee
@@ -249,18 +249,32 @@ function useWrite<A, R>(fn: (a: A) => Promise<R>) {
   })
 }
 
+/*
+ * Every edge function's response is parsed, for the reason in `all` above: a
+ * type argument on `edge<T>` is a cast, so a missing `seq` arrived as
+ * `undefined` and was typed `number`.
+ *
+ * `status` is parsed as a STRING, not against PROPOSAL_STATES. The write
+ * already happened; a value this build does not recognise is not a failed
+ * write, and refusing it here would tell the person their entry was not made.
+ * `writeOutcome` classifies it and the copy hedges on an unknown one.
+ */
+const seqOnly = object<{ seq: number }>({ seq: required(int) })
+const statusOnly = object<{ status: string }>({ status: required(str) })
+const seqAndStatus = object<{ seq: number; status: string }>({ seq: required(int), status: required(str) })
+
 export type ProposalInput = Record<string, string | number | null | undefined>
 
 export function usePropose() {
   const s = useSociety()
   return useWrite((proposal: ProposalInput) =>
-    edge<{ seq: number; status: string }>('/propose', { society: s.id, proposal }))
+    edge('/propose', { society: s.id, proposal }).then((r) => parse(seqAndStatus, r, '/propose')))
 }
 
 export function useCast() {
   const s = useSociety()
   return useWrite((a: { seq: number; decision: 'approve' | 'decline' }) =>
-    edge<{ status: string }>('/cast', { society: s.id, ...a }))
+    edge('/cast', { society: s.id, ...a }).then((r) => parse(statusOnly, r, '/cast')))
 }
 
 export function useWithdraw() {
@@ -270,13 +284,13 @@ export function useWithdraw() {
 
 export function useSignoff() {
   const s = useSociety()
-  return useWrite((a: { month: string; note?: string }) => edge<{ seq: number }>('/signoff', { society: s.id, ...a }))
+  return useWrite((a: { month: string; note?: string }) => edge('/signoff', { society: s.id, ...a }).then((r) => parse(seqOnly, r, '/signoff')))
 }
 
 export function useCloseYear() {
   const s = useSociety()
   return useWrite((a: { fy: string; opinion: string; statement: string }) =>
-    edge<{ seq: number }>('/close-year', { society: s.id, ...a }))
+    edge('/close-year', { society: s.id, ...a }).then((r) => parse(seqOnly, r, '/close-year')))
 }
 
 export function useRaiseFlag() {

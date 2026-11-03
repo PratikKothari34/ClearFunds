@@ -5,7 +5,7 @@ import { ArrowLeft, Check, CircleDashed, Flag, Undo2, X, ChevronDown } from 'luc
 import { useLedger, useNames, useProposals, usePropose, useSociety, useDisputes, useLimit } from '../lib/api'
 import { supabase, unwrap, bytea, Refused } from '../lib/supabase'
 import { useMeStrict, isCommittee } from '../lib/session'
-import { categoryLabel, instant, longDay, plural, roleLabel, rowTitle, tierLabel, actionLabel } from '../lib/format'
+import { categoryLabel, instant, longDay, plural, roleLabel, rowTitle, tierLabel, actionLabel, writeOutcome } from '../lib/format'
 import { format, parse } from '../lib/money'
 import { countable } from '../lib/countable'
 import {
@@ -269,7 +269,13 @@ function ReverseSheet({ open, onClose, r, p }: { open: boolean; onClose: () => v
         narration: `${replace ? 'Correct' : 'Reverse'} ${rowTitle(r)}`,
         ...(replace && repl ? { replacement_amount_minor: repl } : {}),
       })
-      toast(out.status === 'posted' ? 'Reversed.' : 'Reversal proposed. It needs approval before it posts.')
+      const outcome = writeOutcome(out.status)
+      toast(
+        outcome === 'posted' ? 'Reversed.'
+        : outcome === 'open' ? 'Reversal proposed. It needs approval before it posts.'
+        : outcome === 'closed' ? 'The reversal was proposed and already closed. Open it in Approvals to see why.'
+        : 'Reversal proposed. Open it in Approvals to see where it stands.',
+      )
       onClose()
     } catch (e) {
       setError(e instanceof Refused ? e.message : 'Could not propose it. Try again.')
