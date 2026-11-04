@@ -3,6 +3,7 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import { Gavel, Lock } from 'lucide-react'
 import { useCloseYear, useYears } from '../lib/api'
 import { Refused } from '../lib/supabase'
+import { checkStatement } from '../lib/statement'
 import { useMeStrict } from '../lib/session'
 import { instant, longDay, opinionChip, opinionHint, opinionLabel, opinionTone } from '../lib/format'
 import { Button, Card, Caption, Chip, Empty, Field, Loading, PageTitle, Sheet, Textarea, useToast, cx } from '../components/ui'
@@ -62,14 +63,34 @@ function CloseSheet({ y, open, onClose }: { y: Year; open: boolean; onClose: () 
   const [opinion, setOpinion] = useState<Opinion | null>(null)
   const [statement, setStatement] = useState('')
   const [error, setError] = useState<string | null>(null)
+  /*
+   * Bytes, not characters: `/close-year` bounds the statement in UTF-8 bytes
+   * and refuses rather than truncates. See lib/statement.ts - a character
+   * count passes 16,000 Devanagari characters at three bytes each and loses
+   * the whole statement at the one irreversible action in the product.
+   */
+  const st = checkStatement(statement)
+  /*
+   * Measured in bytes, so the threshold is too: a Devanagari statement
+   * reaches it at a third of the characters an English one does, which is
+   * precisely the case a character counter would get wrong.
+   */
+  const near = st.used > st.max * 0.9
   const submit = async () => {
     setError(null)
     /* Closing a year is irreversible, so the precondition is enforced here
      * and not only by the disabled button: a disabled attribute is a UI
      * guarantee, and this writes a seal to the chain. */
     if (!opinion) { setError('Choose an opinion before closing the year.'); return }
+    /*
+     * Checked here as well as on the disabled button, for the same reason the
+     * opinion is: a disabled attribute is a UI guarantee and this writes a
+     * seal to the chain. The server refuses it too; this is so the auditor
+     * learns it before signing rather than after.
+     */
+    if (st.over) { setError(`Your statement is ${st.used.toLocaleString('en-IN')} bytes. The limit is ${st.max.toLocaleString('en-IN')}. Shorten it before closing the year.`); return }
     try {
-      await close.mutateAsync({ fy: y.fy, opinion, statement })
+      await close.mutateAsync({ fy: y.fy, opinion, statement: st.value })
       toast(`FY ${y.fy} is closed.`)
       onClose()
     } catch (e) {
@@ -78,7 +99,7 @@ function CloseSheet({ y, open, onClose }: { y: Year; open: boolean; onClose: () 
   }
   return (
     <Sheet open={open} onClose={onClose} title={`Close FY ${y.fy}`} wide
-      footer={<Button tone="primary" className="w-full" busy={close.isPending} disabled={!opinion || !statement.trim()} onClick={submit}>Sign and close the year</Button>}>
+      footer={<Button tone="primary" className="w-full" busy={close.isPending} disabled={!opinion || st.empty || st.over} onClick={submit}>Sign and close the year</Button>}>
       <div className="space-y-5">
         <Caption className="mb-0 px-0">Opinion, least to most serious</Caption>
         <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Opinion">
@@ -96,7 +117,20 @@ function CloseSheet({ y, open, onClose }: { y: Year; open: boolean; onClose: () 
         </div>
         <Field label="Your statement" htmlFor="st" hint="Public and chained. There are no private notes." error={error}>
           <Textarea id="st" value={statement} onChange={(e) => setStatement(e.target.value)} className="min-h-36"
-            placeholder="In my opinion… Basis for opinion…" />
+            placeholder="In my opinion… Basis for opinion…" aria-describedby={near ? 'st-left' : undefined} />
+          {/*
+            * Shown only near the limit. A counter on a two-paragraph opinion
+            * is noise that suggests brevity is wanted, and brevity is not
+            * what an adverse opinion needs. It appears in time to matter and
+            * is announced politely, so it does not interrupt typing.
+            */}
+          {near && (
+            <p id="st-left" aria-live="polite" className={cx('mt-1.5 text-right text-xs tnum', st.over ? 'text-debit' : 'text-ink-2')}>
+              {st.over
+                ? `${(st.used - st.max).toLocaleString('en-IN')} bytes over the limit`
+                : `${(st.max - st.used).toLocaleString('en-IN')} bytes left`}
+            </p>
+          )}
         </Field>
         <ul className="space-y-1.5 text-[13px] text-ink-2">
           <li>Any opinion closes the year, including adverse and disclaimer. Closing seals it; it does not endorse it.</li>
