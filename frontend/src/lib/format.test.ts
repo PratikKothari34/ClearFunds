@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { categoryLabel, flatSetLabel, headlineOpinion, opinionChip, opinionTone, worseOpinion, writeOutcome } from './format'
+import { auditChip, categoryLabel, flatSetLabel, headlineOpinion, opinionChip, opinionTone, worseOpinion, writeOutcome } from './format'
 import { PROPOSAL_STATES } from './types'
 import type { Opinion } from './types'
 
@@ -315,6 +315,99 @@ describe('a closed year reads as reassuring only when its opinion is clean', () 
   it('always names the seal, so no closed year renders a blank chip', () => {
     for (const o of states) {
       expect(opinionChip(o).trim().length, `${String(o)} rendered blank`).toBeGreaterThan(0)
+    }
+  })
+})
+
+/*
+ * AN OPEN YEAR AND A CLOSED ONE ARE NOT THE SAME ABSENCE.
+ *
+ * `headline === null` was read as "Not yet audited" in the calm tone on the
+ * resident-facing report whether or not the year was closed. Both readings
+ * are wrong in opposite directions, and the fix is not a tone:
+ *
+ *   - on an OPEN year it is the ordinary state for most of the year, so
+ *     warning about it trains residents to ignore the warning tone.
+ *   - on a CLOSED year nothing further is pending, so "not yet" is a false
+ *     reassurance about a gap in the record.
+ *
+ * `closed` sits beside `headline` in the report row, so the distinction was
+ * available the whole time.
+ */
+describe('auditChip', () => {
+  it('reads calm on an open year with no opinion, which is most of a year', () => {
+    const open = auditChip(false, null)
+    expect(open.tone).toBe('neutral')
+    expect(open.text).toMatch(/not yet/i)
+  })
+
+  it('does not say "not yet" about a closed year, where nothing is pending', () => {
+    const sealed = auditChip(true, null)
+    expect(sealed.text).not.toMatch(/not yet/i)
+    expect(sealed.text.trim().length).toBeGreaterThan(0)
+    // A gap in the record on a sealed year is not reassuring, and not calm.
+    expect(sealed.tone).not.toBe('anchor')
+    expect(sealed.tone).not.toBe(auditChip(false, null).tone)
+  })
+
+  it('names the opinion when there is one, whatever the year state', () => {
+    for (const closed of [true, false]) {
+      for (const o of ranked) {
+        const c = auditChip(closed, o)
+        expect(c.text.toLowerCase(), `${o} was not named`).toContain(o)
+        expect(c.tone, `${o} tone ignored the opinion`).toBe(opinionTone(o))
+      }
+    }
+  })
+
+  it('reserves the reassuring tone for a clean opinion, closed or not', () => {
+    const states: (Opinion | null)[] = [...ranked, null]
+    for (const closed of [true, false]) {
+      for (const o of states) {
+        expect(auditChip(closed, o).tone === 'anchor', `closed=${closed} ${String(o)}`).toBe(o === 'clean')
+      }
+    }
+  })
+
+  it('never returns a blank chip', () => {
+    for (const closed of [true, false]) {
+      for (const o of [...ranked, null] as (Opinion | null)[]) {
+        expect(auditChip(closed, o).text.trim().length, `closed=${closed} ${String(o)}`).toBeGreaterThan(0)
+      }
+    }
+  })
+})
+
+/** The quoted members of a one-line union declaration, sorted. Throws rather
+ * than returning an empty list, so a renamed declaration fails loudly instead
+ * of asserting over nothing. */
+const readUnion = (file: string, decl: string) => {
+  const src = readFileSync(resolve(__dirname, file), 'utf8')
+  const line = src.split('\n').find((l) => l.includes(decl))
+  if (!line) throw new Error(`no \`${decl}\` in ${file}`)
+  const vs = [...line.matchAll(/'([a-z]+)'/g)].map((m) => m[1]!)
+  if (vs.length < 2) throw new Error(`${decl} in ${file} is not a union: ${line}`)
+  return vs.toSorted()
+}
+
+/*
+ * The Tone union is declared twice - here in lib/, which stays free of
+ * component imports, and in ui.tsx, which owns the class for each. A tone
+ * added there and not here cannot be asked for by auditChip; a tone removed
+ * there resolves to NO class, so the chip renders unstyled and nothing fails.
+ */
+describe('the tone names lib/ may ask for match the ones ui.tsx can render', () => {
+  it('declares the same set in both places', () => {
+    const mine = readUnion('./format.ts', 'type Tone =')
+    const theirs = readUnion('../components/ui.tsx', 'type Tone =')
+    expect(mine).toEqual(theirs)
+  })
+
+  it('gives every tone ui.tsx renders an actual class', () => {
+    // A tone in the union with no entry in toneClass renders unstyled.
+    const ui = readFileSync(resolve(__dirname, '../components/ui.tsx'), 'utf8')
+    for (const t of readUnion('../components/ui.tsx', 'type Tone =')) {
+      expect(ui, `${t} has no class`).toMatch(new RegExp(`\\n\\s*${t}:\\s*'`))
     }
   })
 })

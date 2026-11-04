@@ -174,6 +174,38 @@ export const opinionTone = (o: Opinion | null | undefined) =>
   : o === null ? ('attention' as const)
   : ('neutral' as const)
 
+/** The chip tones a surface may ask for. Mirrors ui.tsx's own union; this
+ * module stays free of component imports, so the names are repeated here and
+ * format.test.ts asserts the two lists still agree - a tone added there and
+ * not here would make auditChip unable to ask for it, and a tone removed
+ * there would resolve to no class at all. */
+type Tone = 'neutral' | 'credit' | 'debit' | 'attention' | 'anchor' | 'break' | 'accent'
+
+/*
+ * A YEAR'S AUDIT CHIP, WHICH DEPENDS ON WHETHER THE YEAR IS CLOSED.
+ *
+ * `headline === null` means two completely different things, and the tone and
+ * the wording both turn on which:
+ *
+ *   - an OPEN year has simply not been audited yet, which is the ordinary
+ *     state for most of a year's life and must read as calm. Warning every
+ *     resident for eleven months is noise, and noise is what makes a real
+ *     warning ignorable.
+ *   - a CLOSED year with no opinion is a GAP IN THE RECORD. The year is
+ *     sealed, so an opinion should exist. "Not yet audited" is a false
+ *     reassurance here: nothing further is pending.
+ *
+ * So the caller passes `closed`, which every surface already has - the report
+ * carries it beside the headline, and a year row declares it. Taking the
+ * tone from the opinion alone cannot express this, which is why this exists
+ * rather than each screen writing its own ternary. Three screens wrote one;
+ * one of them rendered a disclaimer as reassuring.
+ */
+export const auditChip = (closed: boolean, o: Opinion | null | undefined): { tone: Tone; text: string } =>
+  o ? { tone: opinionTone(o), text: `Audit: ${opinionLabel[o]}` }
+  : closed ? { tone: 'attention', text: 'Closed, no opinion recorded' }
+  : { tone: 'neutral', text: 'Not yet audited' }
+
 /**
  * What a chip says for an opinion that may be absent. A closed year with no
  * recorded opinion rendered an EMPTY chip under a lock icon, because
