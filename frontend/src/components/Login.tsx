@@ -8,7 +8,28 @@ import { ThemeSwitch } from './Shell'
 // Local demo accounts (backend/scripts/seed.ts). Offered only by the dev
 // server and only when VITE_DEMO_LOGINS is set: a production build never
 // carries them.
-const DEMO = import.meta.env.DEV && import.meta.env.VITE_DEMO_LOGINS
+const DEMO_ON = import.meta.env.DEV && import.meta.env.VITE_DEMO_LOGINS
+
+/*
+ * The seed account's credentials live behind the SAME gate as the list, so
+ * the strings are eliminated from a production build rather than merely
+ * unreachable.
+ *
+ * They used to sit inline in `demo()`, which was ungated - no button ever
+ * rendered in production, but the domain and password still survived
+ * minification and shipped in the entry chunk to every resident's phone.
+ * Not a leaked secret (`.test` resolves nowhere, the accounts exist only in
+ * a local seed, and this repo is public) but a credential-shaped string in
+ * a production bundle, and dead code there besides.
+ *
+ * Null in production, so `demo()` returns before it can be called. Verify
+ * with: grep -r clearfunds-demo frontend/dist  ->  no match.
+ */
+const DEMO_AUTH = DEMO_ON
+  ? (key: string) => ({ email: `${key}@gulmohar.test`, password: 'clearfunds-demo' })
+  : null
+
+const DEMO = DEMO_ON
   ? [
       ['resident', 'Resident', 'Ravi, A-604'],
       ['tenant', 'Tenant', 'Sana, B-904'],
@@ -48,9 +69,23 @@ export function Login() {
     if (error) setError('That code did not work. Check the latest email, or send a new one.')
   }
 
+  /*
+   * Gated on the SAME condition as DEMO, not just on DEMO being empty.
+   *
+   * The array was already dev-only, so no button ever rendered in
+   * production - but this function was unconditional, so the seed
+   * account's domain and its password survived minification and shipped
+   * in the entry chunk to every resident's phone. Not a leaked secret:
+   * `.test` resolves nowhere, the accounts exist only in a local seed, and
+   * the repo is public. It is a credential-shaped string in a production
+   * bundle and dead code besides, which is reason enough for it not to be
+   * there. Behind this gate the literals are eliminated, not merely
+   * unreachable - verified by grepping dist for the password.
+   */
   async function demo(key: string) {
+    if (!DEMO_AUTH) return
     setBusy(true)
-    const { error } = await supabase.auth.signInWithPassword({ email: `${key}@gulmohar.test`, password: 'clearfunds-demo' })
+    const { error } = await supabase.auth.signInWithPassword(DEMO_AUTH(key))
     setBusy(false)
     if (error) setError(`${error.message}. Run backend/scripts/seed.ts first.`)
   }
