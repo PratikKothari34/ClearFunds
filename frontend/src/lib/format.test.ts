@@ -189,15 +189,15 @@ describe('writeOutcome', () => {
  * ("in that order of severity"), so reordering it there fails here rather
  * than silently re-ranking the AGM headline.
  */
-describe('opinion severity', () => {
-  const ranked = (() => {
-    const line = readFileSync(LEDGER, 'utf8').split('\n').find((l) => /^\|\s*\d+\s*\|\s*`opinion`/.test(l))
-    if (!line) throw new Error('no `opinion` row in the contract')
-    const vs = [...line.matchAll(/`([a-z_]+)`/g)].map((m) => m[1]!).filter((v) => v !== 'opinion')
-    if (vs.length < 4) throw new Error(`the contract lists ${vs.length} opinions, not a ranking: ${line}`)
-    return vs as Opinion[]
-  })()
+const ranked: Opinion[] = (() => {
+  const line = readFileSync(LEDGER, 'utf8').split('\n').find((l) => /^\|\s*\d+\s*\|\s*`opinion`/.test(l))
+  if (!line) throw new Error('no `opinion` row in the contract')
+  const vs = [...line.matchAll(/`([a-z_]+)`/g)].map((m) => m[1]!).filter((v) => v !== 'opinion')
+  if (vs.length < 4) throw new Error(`the contract lists ${vs.length} opinions, not a ranking: ${line}`)
+  return vs as Opinion[]
+})()
 
+describe('opinion severity', () => {
   it('ranks them in the order the contract states', () => {
     // Vacuity guard: if the row stops listing a sequence, the throw above
     // fires rather than this passing over a one-element list.
@@ -283,6 +283,38 @@ describe('opinionChip', () => {
   it('names the opinion when there is one', () => {
     for (const o of ['clean', 'qualified', 'adverse', 'disclaimer'] as Opinion[]) {
       expect(opinionChip(o).toLowerCase()).toContain(o)
+    }
+  })
+})
+
+/*
+ * THE SEAL, ACROSS BOTH SURFACES THAT RENDER IT.
+ *
+ * A closed year's chip was `tone={y.closed ? 'anchor' : 'neutral'}` with the
+ * text "Year closed" on the committee screen - so a year closed with an
+ * ADVERSE opinion, or with a DISCLAIMER, rendered in the reassuring tone with
+ * the opinion shown nowhere on that screen. The row carried `headline` the
+ * whole time; the chip ignored it.
+ *
+ * Asserted here as a property over the whole opinion domain rather than per
+ * call site, because the same pair of expressions is rendered on two screens
+ * and a third would otherwise reintroduce it.
+ */
+describe('a closed year reads as reassuring only when its opinion is clean', () => {
+  // Every value the contract defines, plus the two absent cases a closed
+  // year can actually hold.
+  const states = [...ranked, null, undefined] as (Opinion | null | undefined)[]
+
+  it('reserves the reassuring tone for a clean opinion alone', () => {
+    for (const o of states) {
+      const reassuring = opinionTone(o) === 'anchor'
+      expect(reassuring, `${String(o)} must not read as reassuring`).toBe(o === 'clean')
+    }
+  })
+
+  it('always names the seal, so no closed year renders a blank chip', () => {
+    for (const o of states) {
+      expect(opinionChip(o).trim().length, `${String(o)} rendered blank`).toBeGreaterThan(0)
     }
   })
 })

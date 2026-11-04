@@ -5,7 +5,7 @@ import { Gavel, Scale, UserMinus, UserPlus, Users } from 'lucide-react'
 import { useAddResident, useCommittee, useLimit, usePropose, useSociety, useYears } from '../lib/api'
 import { supabase, unwrap, Refused } from '../lib/supabase'
 import { useMeStrict, isCommittee } from '../lib/session'
-import { instant, roleLabel, todayIST, fyOf, writeOutcome } from '../lib/format'
+import { instant, roleLabel, todayIST, fyOf, opinionChip, opinionTone, writeOutcome } from '../lib/format'
 import { format, parse } from '../lib/money'
 import { countable } from '../lib/countable'
 import { Avatar, Button, Caption, Card, Chip, Field, Input, Loading, MoneyInput, PageTitle, Segmented, Sheet, useToast } from '../components/ui'
@@ -101,7 +101,11 @@ function Committee() {
               <p className="truncate font-medium">{y.auditor!.map((a) => a.name).join(', ')}</p>
               <p className="text-[13px] text-ink-2">FY {y.fy}</p>
             </div>
-            <Chip tone={y.closed ? 'anchor' : 'neutral'}>{y.closed ? 'Year closed' : 'Open'}</Chip>
+            {/* A closed year carries its OPINION, never a bare "Year closed" in
+              * the reassuring tone. An adverse opinion or a disclaimer rendered
+              * as calm green here, with the opinion shown nowhere on the
+              * screen - the data was in hand and the chip ignored it. */}
+            <Chip tone={y.closed ? opinionTone(y.headline) : 'neutral'}>{y.closed ? opinionChip(y.headline) : 'Open'}</Chip>
           </div>
         ))}
         {!(years.data ?? []).some((y) => y.auditor?.length) && <p className="p-4 text-sm text-ink-2">No auditor appointed yet.</p>}
