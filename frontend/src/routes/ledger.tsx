@@ -4,8 +4,9 @@ import { useWindowVirtualizer } from '@tanstack/react-virtual'
 import { Plus, Search, SearchX } from 'lucide-react'
 import { useDisputes, useLedger, useSummary } from '../lib/api'
 import { useMeStrict, isCommittee } from '../lib/session'
-import { categoryLabel, month } from '../lib/format'
+import { month } from '../lib/format'
 import { countable, owing } from '../lib/countable'
+import { match } from '../lib/search'
 import { Amount, Button, Empty, Facts, Failed, Input, Loading, PageTitle, Segmented } from '../components/ui'
 import { EntryRow } from '../components/EntryRow'
 import type { LedgerRow } from '../lib/types'
@@ -35,25 +36,13 @@ export function useDisputed() {
   }, [disputes.data])
 }
 
-function match(r: LedgerRow, q: string) {
-  if (!q) return true
-  if (/^#\d+$/.test(q)) return r.seq === Number(q.slice(1))
-  const hay = `${r.counterparty ?? ''} ${r.narration} ${categoryLabel(r.category)} ${r.reason ?? ''}`.toLowerCase()
-  const digits = q.replace(/[,₹\s]/g, '')
-  /* An unreadable amount matches no digit query rather than matching every
-   * one: countable() refuses it, so the row is found by its text or not at
-   * all. It is never silently dropped from an unfiltered list. */
-  const amount = countable(r.amount_minor)
-  return hay.includes(q) || (/^\d+$/.test(digits) && amount.readable && String(Math.abs(amount.minor)).startsWith(digits))
-}
-
 function Ledger() {
   const me = useMeStrict()
   const search = Route.useSearch()
   const nav = Route.useNavigate()
   const filter = search.f ?? 'all'
   const [q, setQ] = useState(search.q ?? '')
-  const dq = useDeferredValue(q.trim().toLowerCase())
+  const dq = useDeferredValue(q)
   const ledger = useLedger()
   const summary = useSummary()
   const disputed = useDisputed()
