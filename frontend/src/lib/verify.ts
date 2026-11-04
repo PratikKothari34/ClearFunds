@@ -148,17 +148,51 @@ function isHead(v: unknown): boolean {
 
 export const lastCheck = (society: string) => asCheck(read<unknown>(checkKey(society)))
 
-export const anchorUrl = (society: string) => {
+/*
+ * THE PUBLISHED HEAD'S ADDRESS, WHICH IS ALSO A LINK A RESIDENT CLICKS.
+ *
+ * Returns null unless the configured value resolves to an absolute http(s)
+ * URL. Three things went wrong without that check, and the first two are
+ * reachable the first time anyone configures this at all:
+ *
+ *  - verify.tsx renders `new URL(anchorUrl(s.id)!).host` DURING RENDER. A
+ *    relative path - "/anchors/{society}.json", the natural thing to write
+ *    when the head is published into our own static hosting - throws
+ *    TypeError there, and with no error boundary the whole verify screen
+ *    blanks. That is the one screen whose purpose is proving the record was
+ *    not altered.
+ *  - vite.config.ts builds the CSP connect-src from the same value and
+ *    would throw at dev-server startup.
+ *  - the value is also an href. A javascript: or data: URL set here would
+ *    make that link a script sink. It is a build-time value rather than
+ *    attacker-supplied, but nothing checked it and nothing said it must be
+ *    absolute.
+ *
+ * The society id is encoded, so it cannot escape its slot in the template.
+ */
+export type Anchor = { href: string; host: string }
+
+export const anchorUrl = (society: string): Anchor | null => {
   const t = import.meta.env.VITE_ANCHOR_URL
-  return t ? t.replace('{society}', encodeURIComponent(society)) : null
+  if (!t) return null
+  const filled = t.replace('{society}', encodeURIComponent(society))
+  let u: URL
+  try {
+    u = new URL(filled)
+  } catch {
+    return null
+  }
+  if (u.protocol !== 'https:' && u.protocol !== 'http:') return null
+  // The host comes from the SAME parse, so no caller ever parses it again.
+  return { href: u.href, host: u.host }
 }
 
 /** Fetched from the anchor's own origin, never through our server. */
 export async function fetchAnchor(society: string): Promise<Head | 'unpublished' | 'unreachable'> {
-  const url = anchorUrl(society)
-  if (!url) return 'unpublished'
+  const a = anchorUrl(society)
+  if (!a) return 'unpublished'
   try {
-    const res = await fetch(url, { cache: 'no-store' })
+    const res = await fetch(a.href, { cache: 'no-store' })
     if (!res.ok) return 'unreachable'
     const j = await res.json()
     const h = (j.head ?? j) as Head
