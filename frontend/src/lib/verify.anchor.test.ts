@@ -92,6 +92,20 @@ describe('an anchor that can be rendered', () => {
     expect(a!.host).not.toContain(SOCIETY)
   })
 
+  it('reports the host of the URL it validated, not of the raw template', () => {
+    /*
+     * A second parse is not merely wasteful, it can disagree. With the society
+     * in the host position the raw template and the filled URL have DIFFERENT
+     * hosts, so a host derived from the template would label the link with an
+     * address the href does not go to - on the screen a resident uses to decide
+     * whether to trust the record.
+     */
+    const a = withTemplate('https://{society}.anchors.example.org/head.json')
+    expect(a).not.toBeNull()
+    expect(a!.host).toBe(`${SOCIETY}.anchors.example.org`)
+    expect(new URL(a!.href).host).toBe(a!.host)
+  })
+
   it('keeps the society inside its own slot in the template', () => {
     /* The id is encoded, so an id carrying path or query syntax cannot climb
      * out of the segment it was substituted into. */
