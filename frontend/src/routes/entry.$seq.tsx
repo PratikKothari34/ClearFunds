@@ -7,7 +7,7 @@ import { supabase, unwrap, bytea, Refused } from '../lib/supabase'
 import { useMeStrict, isCommittee } from '../lib/session'
 import { categoryLabel, instant, longDay, plural, roleLabel, rowTitle, tierLabel, actionLabel, writeOutcome } from '../lib/format'
 import { format, parse } from '../lib/money'
-import { countable } from '../lib/countable'
+import { countable, direction } from '../lib/countable'
 import { allocationBody, lineFor, split } from '../lib/allocation'
 import { parse as parseShape } from '../lib/parse'
 import {
@@ -52,7 +52,7 @@ function Detail({ r, p }: { r: LedgerRow; p: ProposalRow }) {
   const reversedBy = r.reversed_by_seq ? byseq.get(r.reversed_by_seq) : undefined
   const reverses = r.reverses_seq ? byseq.get(r.reverses_seq) : undefined
   const nonCash = r.effect === 'charge' || r.effect === 'charge_reversal'
-  const direction = countable(r.amount_minor)
+  const dir = direction(r.amount_minor)
 
   const entry = useQuery({
     queryKey: ['entry', s.id, r.seq],
@@ -76,8 +76,10 @@ function Detail({ r, p }: { r: LedgerRow; p: ProposalRow }) {
             <Amount minor={r.amount_minor} currency={r.currency} signed={!nonCash} size="hero" tone={nonCash ? 'muted' : 'auto'} struck={!!reversedBy} />
           </div>
           <div className="mt-3 flex flex-wrap gap-1.5">
-            {nonCash ? <Chip>Billed to flats, not cash</Chip> : direction.readable
-              ? <Chip tone={direction.minor < 0 ? 'debit' : 'credit'}>{direction.minor < 0 ? 'Money out' : 'Money in'}</Chip>
+            {nonCash ? <Chip>Billed to flats, not cash</Chip>
+              : dir === 'out' ? <Chip tone="debit">Money out</Chip>
+              : dir === 'in' ? <Chip tone="credit">Money in</Chip>
+              : dir === 'flat' ? <Chip>No change to the balance</Chip>
               : <Chip tone="break">Direction could not be read</Chip>}
             {reversedBy && <Chip tone="break">Reversed</Chip>}
             {flagged.some((d) => d.is_open) && <Chip tone="break" icon={<Flag className="size-3" />}>Disputed</Chip>}
