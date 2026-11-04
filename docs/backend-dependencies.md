@@ -87,27 +87,39 @@ a missing field is a visible error, not `undefined`.
 (`posted`, `open`, `declined`, `withdrawn`, `superseded`, `year_closed`); the
 API contract lists three. Filed as issue #90.
 
-## 6. Seven chain kinds the frontend cannot verify
+## 6. Chain kinds the frontend can verify — now all of them
 
 `frontend/src/lib/chain.ts` holds a byte layout per kind so it can recompute
-each entry's hash independently. Seven kinds in `contracts/chain/kinds/` have
-no layout here:
+each entry's hash independently. **Every kind in `contracts/chain/kinds/` now
+has one.** Seven did not — `ballot`, `claim_closed`, `notice`,
+`payment_claim`, `proposal_ref`, `vote_closed`, `vote_opened` — so entries of
+those kinds were skipped and the walk continued on the hash the server
+reported. Not a crash, but those entries were trusted rather than recomputed.
+They are now recomputed, driven against the contract's own vectors
+(`contracts/chain/vectors/{society,claims,notices}-kinds.v1.json`, which
+nothing had been reading), and `walk()` returns nothing as unchecked for them.
 
-```
-ballot    claim_closed    notice    payment_claim
-proposal_ref    vote_closed    vote_opened
-```
+**What this asks of the backend: nothing today.** It is recorded here because
+of what it means for a kind added later.
 
-**This is not a crash and not a blocker.** An entry of an unknown kind is
-skipped and the walk continues using the hash the server reported for it, so
-one new kind cannot make the whole record read as broken.
-
-**But those entries are trusted rather than verified**, which is the one thing
-the product claims not to do. A resident sees them listed as unchecked. The
-layouts are frontend work and are ours to add; they are listed here because
-the gap closes only when the kinds are actually in use, and whoever ships a
-new kind should know the frontend goes quiet on it until a matching layout
-lands.
+- **A new kind ships with its layout, or the frontend goes quiet on it.** An
+  entry whose kind the frontend has no layout for is reported to the resident
+  as not checked, and its hash is taken from the response. Adding a kind to
+  `contracts/chain/kinds/` is therefore a frontend change too.
+- **Please ship test vectors with it**, in the shape the three existing files
+  use: `layouts`, `entries` with `preimage_hex` and `entry_hash`, and
+  `must_differ` pairs. The frontend encoder is an independent implementation
+  and shares no code with the SQL one; the vectors are the only thing that
+  proves the two agree byte for byte. The suite enumerates kinds out of those
+  files, so a new vector file is covered as soon as it is added to the list.
+- **The ordering in the contract table is load-bearing.** The preimage
+  concatenates fields in that order, so renumbering a field in the markdown
+  changes every hash for that kind.
+- **One thing a layout cannot express**, asserted over the vectors instead: a
+  `ballot` carries exactly one of `flat_id` and `flat_token`. Both present
+  would place a flat beside its own anonymous token and unmask the ballot.
+  The frontend also recomputes the token from the salt, vote and flat, so a
+  change to that derivation is a breaking change on this side.
 
 ## 7. Response headers the SPA cannot set
 
