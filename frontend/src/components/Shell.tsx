@@ -6,16 +6,28 @@ import { useMeStrict, hats } from '../lib/session'
 import { navFor, splitTabs, type NavId, type NavItem } from '../lib/nav'
 import { useDisputes, useLive, useProposals, useSignoffs, useYears } from '../lib/api'
 import { roleLabel, todayIST } from '../lib/format'
+import { recentMonths, waitsOn } from '../lib/pending'
+
+/*
+ * Re-exported, and the routes import them from HERE rather than from lib/.
+ *
+ * The rules themselves live in lib/pending.ts, where they are tested without
+ * mounting a router. This is the import edge, and it is load-bearing: three
+ * lazy route chunks sharing this module is why rolldown gives the router its
+ * own `link-*` chunk. Pointing those routes straight at lib/pending.ts
+ * removed the shared edge, the heuristic stopped firing, and the router's
+ * 20 KB folded into the ENTRY chunk - the resident read path, which the
+ * bundle budget keeps lightest. Total bytes were identical, so nothing but
+ * `expect: ['ui', 'link']` in scripts/budget.mjs noticed.
+ *
+ * Declaring the split with advancedChunks instead was tried and is worse:
+ * naming one group replaces rolldown's whole strategy, so the 78.8 KB
+ * Supabase chunk folded into the entry as well.
+ */
+export { recentMonths, waitsOn }
 import { Avatar, IconButton, Sheet, cx } from './ui'
 import { Logo } from './Logo'
-import type { Me, ProposalRow } from '../lib/types'
-
-/** Is this proposal waiting on this person's vote? */
-export function waitsOn(p: ProposalRow, me: Me) {
-  if (p.state !== 'open' || !me.seat) return false
-  if (p.approvals.some((a) => a.person === me.person)) return false
-  return p.tier === 'committee' || me.seat.role === 'treasurer' || me.seat.role === 'secretary'
-}
+import type { Me } from '../lib/types'
 
 export function useBadges(me: Me): Partial<Record<NavId, number>> {
   const committee = !!me.seat
@@ -37,14 +49,6 @@ export function useBadges(me: Me): Partial<Record<NavId, number>> {
     if (committee && disputes.data) b.disputes = disputes.data.filter((d) => d.is_open).length
     return b
   }, [committee, me, proposals.data, signoffs.data, years.data, disputes.data])
-}
-
-export function recentMonths(cur: string, n: number) {
-  const [y, m] = cur.split('-').map(Number)
-  return Array.from({ length: n }, (_, i) => {
-    const d = new Date(Date.UTC(y!, m! - 1 - i, 1))
-    return d.toISOString().slice(0, 7)
-  })
 }
 
 export function ThemeSwitch() {
