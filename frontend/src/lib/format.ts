@@ -242,3 +242,52 @@ export function writeOutcome(status: unknown): WriteOutcome {
   if (typeof status === 'string' && (PROPOSAL_STATES as readonly string[]).includes(status)) return 'closed'
   return 'unknown'
 }
+
+/*
+ * IS THIS PERIOD A MONTH OR A FINANCIAL YEAR?
+ *
+ * `chain/kinds/ledger.v1.md` item 4 of the flag row gives `period` two
+ * shapes, `YYYY-MM` and `YYYY-YY`, and both are seven characters with a
+ * hyphen at index 4. The disputes screen discriminated them by whether the
+ * second half was <= 12, which is wrong three ways and all three reach a
+ * resident reading a dispute about their own money:
+ *
+ *   - `2011-12` is FY 2011-12 and rendered as "December 2011". Every
+ *     financial year ending in a year 00-12 of its century collides -
+ *     2009-10, 2010-11, 2011-12 - so the screen names a single month for a
+ *     dispute raised about a whole year.
+ *   - `2026-00` passed the <= 12 test, made an Invalid Date, and
+ *     Intl.format on NaN is a RangeError. Thrown during render, inside a
+ *     list item, with no error boundary in the tree: the whole disputes
+ *     screen blanks rather than one line reading oddly.
+ *   - A null period rendered the literal string "FY null".
+ *
+ * The real discriminator is not a magnitude. `fyOf` builds a financial year
+ * as the start year and the NEXT year's last two digits, so the second half
+ * of `YYYY-YY` is always the first half plus one, mod 100. A month never is:
+ * `2026-27` cannot be a month and `2026-03` cannot be a year that follows
+ * 2026. That is exact, and it needs no range guess.
+ *
+ * An unreadable period is disclosed as unreadable. It is never shown as a
+ * month, because naming the wrong period on a dispute is worse than saying
+ * the period could not be read.
+ */
+export type Period =
+  | { kind: 'month'; value: string }
+  | { kind: 'fy'; value: string }
+  | { kind: 'unreadable' }
+
+export function period(p: string | null | undefined): Period {
+  if (typeof p !== 'string' || !/^\d{4}-\d{2}$/.test(p)) return { kind: 'unreadable' }
+  const head = Number(p.slice(0, 4))
+  const tail = Number(p.slice(5))
+  if (tail === (head + 1) % 100) return { kind: 'fy', value: p }
+  if (tail >= 1 && tail <= 12) return { kind: 'month', value: p }
+  return { kind: 'unreadable' }
+}
+
+/** What a resident reads for a period, disclosing one it could not read. */
+export function periodLabel(p: string | null | undefined): string {
+  const r = period(p)
+  return r.kind === 'month' ? month(r.value) : r.kind === 'fy' ? `FY ${r.value}` : 'An unrecorded period'
+}
