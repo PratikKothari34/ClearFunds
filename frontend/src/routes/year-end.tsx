@@ -4,7 +4,7 @@ import { Gavel, Lock } from 'lucide-react'
 import { useCloseYear, useYears } from '../lib/api'
 import { Refused } from '../lib/supabase'
 import { useMeStrict } from '../lib/session'
-import { instant, longDay, opinionHint, opinionLabel, opinionTone } from '../lib/format'
+import { instant, longDay, opinionChip, opinionHint, opinionLabel, opinionTone } from '../lib/format'
 import { Button, Card, Caption, Chip, Empty, Field, Loading, PageTitle, Sheet, Textarea, useToast, cx } from '../components/ui'
 import type { Opinion, Year } from '../lib/types'
 
@@ -38,7 +38,7 @@ function YearCard({ y, mine }: { y: Year; mine: boolean }) {
           <h2 className="text-lg font-semibold tracking-tight">FY {y.fy}</h2>
           <p className="text-[13px] text-ink-2">{longDay(y.starts)} to {longDay(y.ends)}</p>
         </div>
-        {y.closed ? <Chip tone={opinionTone(y.headline)} icon={<Lock className="size-3" />}>{opinionLabel[y.headline!]}</Chip>
+        {y.closed ? <Chip tone={opinionTone(y.headline)} icon={<Lock className="size-3" />}>{opinionChip(y.headline)}</Chip>
           : <Chip>{y.ended ? 'Ended, open' : 'In progress'}</Chip>}
       </div>
       <p className="mt-3 text-sm text-ink-2">
@@ -64,8 +64,12 @@ function CloseSheet({ y, open, onClose }: { y: Year; open: boolean; onClose: () 
   const [error, setError] = useState<string | null>(null)
   const submit = async () => {
     setError(null)
+    /* Closing a year is irreversible, so the precondition is enforced here
+     * and not only by the disabled button: a disabled attribute is a UI
+     * guarantee, and this writes a seal to the chain. */
+    if (!opinion) { setError('Choose an opinion before closing the year.'); return }
     try {
-      await close.mutateAsync({ fy: y.fy, opinion: opinion!, statement })
+      await close.mutateAsync({ fy: y.fy, opinion, statement })
       toast(`FY ${y.fy} is closed.`)
       onClose()
     } catch (e) {

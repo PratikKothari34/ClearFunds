@@ -136,9 +136,52 @@ export function initials(name: string) {
   return name.replace(/^CA\s+/, '').split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase()
 }
 
-/** Severity colour: clean reads as checked-against, anything worse as a break. */
-export const opinionTone = (o: Opinion | null) =>
-  o === 'clean' ? ('anchor' as const) : o === 'qualified' ? ('attention' as const) : o ? ('break' as const) : ('neutral' as const)
+/*
+ * Severity, as an order rather than a comment.
+ *
+ * `clean < qualified < adverse < disclaimer` is the contract's own ranking
+ * (item 11), and a disclaimer is WORSE than an adverse opinion - the auditor
+ * could not form an opinion at all. The order lived only in a doc comment and
+ * in the incidental order of three array literals, so nothing stopped a
+ * surface from ranking them wrongly.
+ */
+const SEVERITY: Record<Opinion, number> = { clean: 0, qualified: 1, adverse: 2, disclaimer: 3 }
+
+/**
+ * The more serious of two opinions. The headline is the most serious one ever
+ * received, never the most recent, so a year that went adverse and was later
+ * revisited still headlines adverse.
+ */
+export const worseOpinion = (a: Opinion, b: Opinion): Opinion => (SEVERITY[b] > SEVERITY[a] ? b : a)
+
+/** The most serious opinion in a history, or null if it is empty. */
+export const headlineOpinion = (os: readonly Opinion[]): Opinion | null =>
+  os.length === 0 ? null : os.reduce(worseOpinion)
+
+/*
+ * Severity colour: clean reads as checked-against, anything worse as a break.
+ *
+ * A null is NOT calm. It means no opinion was recorded, which on a year the
+ * server says is closed is a gap in the record, not a reassurance - so it
+ * takes `attention`, never the same tone as a clean opinion. The caller that
+ * genuinely has no year yet passes nothing and gets the neutral chip from
+ * `opinionChip` instead.
+ */
+export const opinionTone = (o: Opinion | null | undefined) =>
+  o === 'clean' ? ('anchor' as const)
+  : o === 'qualified' ? ('attention' as const)
+  : o ? ('break' as const)
+  : o === null ? ('attention' as const)
+  : ('neutral' as const)
+
+/**
+ * What a chip says for an opinion that may be absent. A closed year with no
+ * recorded opinion rendered an EMPTY chip under a lock icon, because
+ * `opinionLabel[y.headline!]` is `undefined` - the seal, the most
+ * consequential state in the audit model, read as nothing at all.
+ */
+export const opinionChip = (o: Opinion | null | undefined): string =>
+  o ? opinionLabel[o] : 'Opinion not recorded'
 
 /*
  * What happened to a proposal, from the `status` a write returned.

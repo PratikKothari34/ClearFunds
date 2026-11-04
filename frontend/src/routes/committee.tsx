@@ -11,6 +11,14 @@ import { countable } from '../lib/countable'
 import { Avatar, Button, Caption, Card, Chip, Field, Input, Loading, MoneyInput, PageTitle, Segmented, Sheet, useToast } from '../components/ui'
 import type { Role } from '../lib/types'
 
+/* Formats from the narrowed amount, never from the raw field: a guard that
+ * checks one expression and formats another stops guarding the moment either
+ * is edited, and format() throws on an unreadable one. */
+const histLimit = (h: { limit_minor: unknown }) => {
+  const c = countable(h.limit_minor)
+  return c.readable ? format(c.minor, 'INR', { compact: true }) : null
+}
+
 export const Route = createFileRoute('/committee')({ component: Committee })
 
 const order: Role[] = ['president', 'treasurer', 'secretary', 'member']
@@ -32,13 +40,6 @@ function Committee() {
    * placeholder rather than a figure, and never implies the lower tier. */
   const limRead = countable(limit.data?.current.limit_minor)
   const lim = limRead.readable ? limRead.minor : undefined
-  /* Formats from the narrowed amount, never from the raw field: a guard
-   * that checks one expression and formats another stops guarding the
-   * moment either is edited, and format() throws on an unreadable one. */
-  const histLimit = (h: { limit_minor: unknown }) => {
-    const c = countable(h.limit_minor)
-    return c.readable ? format(c.minor, 'INR', { compact: true }) : null
-  }
   const mine = isCommittee(me)
 
   return (
