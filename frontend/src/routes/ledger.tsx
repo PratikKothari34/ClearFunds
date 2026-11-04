@@ -4,7 +4,7 @@ import { useWindowVirtualizer } from '@tanstack/react-virtual'
 import { Plus, Search, SearchX } from 'lucide-react'
 import { useDisputes, useLedger, useSummary } from '../lib/api'
 import { useMeStrict, isCommittee } from '../lib/session'
-import { month } from '../lib/format'
+import { month, monthOf } from '../lib/format'
 import { countable, owing } from '../lib/countable'
 import { match } from '../lib/search'
 import { Amount, Button, Empty, Facts, Failed, Input, Loading, PageTitle, Segmented } from '../components/ui'
@@ -73,7 +73,7 @@ function Ledger() {
     const out: ({ k: 'm'; month: string } | { k: 'r'; r: LedgerRow })[] = []
     let cur = ''
     for (const r of rows) {
-      const m = r.business_date.slice(0, 7)
+      const m = monthOf(r.business_date)
       if (m !== cur) { out.push({ k: 'm', month: m }); cur = m }
       out.push({ k: 'r', r })
     }

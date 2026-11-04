@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase'
 import { useMeStrict, hats } from '../lib/session'
 import { navFor, splitTabs, type NavId, type NavItem } from '../lib/nav'
 import { useDisputes, useLive, useProposals, useSignoffs, useYears } from '../lib/api'
-import { roleLabel, todayIST } from '../lib/format'
+import { monthOf, roleLabel, todayIST } from '../lib/format'
 import { recentMonths, waitsOn } from '../lib/pending'
 
 /*
@@ -40,7 +40,7 @@ export function useBadges(me: Me): Partial<Record<NavId, number>> {
     if (committee) b.approvals = (proposals.data ?? []).filter((p) => waitsOn(p, me)).length
     if (me.seat?.role === 'president' && signoffs.data) {
       const done = new Set(signoffs.data.map((s) => s.body.month))
-      const cur = todayIST().slice(0, 7)
+      const cur = monthOf(todayIST())
       b.signoff = recentMonths(cur, 3).filter((m) => m < cur && !done.has(m)).length
     }
     if (me.auditor_for.length && years.data) {

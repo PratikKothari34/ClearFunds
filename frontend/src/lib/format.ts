@@ -118,11 +118,18 @@ export function proposalTitle(p: ProposalRow, names: Map<string, string>) {
 export const tierLabel = (p: Pick<ProposalRow, 'tier' | 'required' | 'seated'>) =>
   p.tier === 'pair' ? 'Treasurer + Secretary' : `${p.required} of ${p.seated} committee`
 
-export const shortHash = (h: string) => h.slice(0, 4) + ' ' + h.slice(4, 8)
-
 export const plural = (n: number, one: string, many = `${one}s`) => `${n.toLocaleString('en-IN')} ${n === 1 ? one : many}`
 
-/** '2026-10' for a date. */
+/**
+ * '2026-10' for a date.
+ *
+ * Eight surfaces wrote `.slice(0, 7)` inline while this named helper went
+ * unused. Not a style point: the ledger groups by it, the dispute form seeds
+ * its period from it, and `month()` is called on the result - so a change to
+ * what a month KEY is has eight places to miss and one to change. The two
+ * remaining slices in pending.ts are deliberately not this: one normalises a
+ * string before a regex, the other reads an ISO string it just built.
+ */
 export const monthOf = (d: string) => d.slice(0, 7)
 
 export function fyOf(d: string, startMonth: number) {

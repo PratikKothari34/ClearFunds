@@ -14,6 +14,24 @@
 import type { Me, ProposalRow } from './types'
 
 /**
+ * Is this person one of the two named officers?
+ *
+ * This is 0004's `pair` tier, and the tier NEVER reduces to one person: at or
+ * below the committee's limit it is the treasurer AND the secretary, both. So
+ * the predicate names exactly those two roles and must never grow to include
+ * `president` or `member` - a president who could approve a below-limit entry
+ * alongside one officer would make the pair tier a two-person rule with three
+ * possible pairs, which is not what the committee set.
+ *
+ * It lived in session.tsx, unused, while waitsOn below spelled the same rule
+ * out inline - two independent spellings of one authorisation rule, only one
+ * of them reachable by a test. session.tsx re-exports it, so it is still
+ * imported from there, but the rule lives next to the tier logic it belongs
+ * to and in a module with no React or Supabase in its import graph.
+ */
+export const isOfficer = (me: Me) => me.seat?.role === 'treasurer' || me.seat?.role === 'secretary'
+
+/**
  * Is this proposal waiting on this person's vote?
  *
  * The state check comes first and is not optional. Only an `open` proposal
@@ -27,7 +45,7 @@ export function waitsOn(p: ProposalRow, me: Me): boolean {
   if (p.approvals.some((a) => a.person === me.person)) return false
   // Above the limit everyone votes; at or below it, only the two named
   // officers - 0004's tier, which never reduces to one person.
-  return p.tier === 'committee' || me.seat.role === 'treasurer' || me.seat.role === 'secretary'
+  return p.tier === 'committee' || isOfficer(me)
 }
 
 /**

@@ -47,7 +47,15 @@ export function hats(me: Me): Set<Hat> {
 }
 
 export const isCommittee = (me: Me) => !!me.seat
-export const isOfficer = (me: Me) => me.seat?.role === 'treasurer' || me.seat?.role === 'secretary'
+
+/*
+ * isOfficer is 0004's `pair` tier and now lives in lib/pending.ts, beside
+ * waitsOn, which spelled the same rule out inline while this copy went
+ * unused. Re-exported so an import from here still resolves, and because a
+ * pure authorisation predicate should not require this module's React,
+ * Supabase and TanStack Query import graph to be testable.
+ */
+export { isOfficer } from './pending'
 
 /** The signed-in person, for screens that render only once it is known. */
 export function useMeStrict(): Me {

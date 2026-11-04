@@ -303,7 +303,6 @@ export const disputeRows = array(disputeRow)
 export const seats = array(seat)
 export const people = array(person)
 export const years = array(year)
-export const structurings = array(structuring)
 
 /*
  * api_summary is a separate source from the dues view - the dashboard's

@@ -4,7 +4,7 @@ import { Check, PenLine } from 'lucide-react'
 import { useNames, useSignoff, useSignoffs, useSummary } from '../lib/api'
 import { Refused } from '../lib/supabase'
 import { useMeStrict } from '../lib/session'
-import { instant, month, todayIST } from '../lib/format'
+import { instant, month, monthOf, todayIST } from '../lib/format'
 import { Amount, Button, Card, Chip, Field, Input, Loading, PageTitle, Sheet, useToast, cx } from '../components/ui'
 import { recentMonths } from '../components/Shell'
 
@@ -16,7 +16,7 @@ function SignOff() {
   const summary = useSummary()
   const names = useNames()
   const [open, setOpen] = useState<string | null>(null)
-  const cur = todayIST().slice(0, 7)
+  const cur = monthOf(todayIST())
   const months = recentMonths(cur, 12)
   const done = new Map((signoffs.data ?? []).map((s) => [s.body.month, s]))
   const totals = new Map((summary.data?.months ?? []).map((m) => [m.month, m]))

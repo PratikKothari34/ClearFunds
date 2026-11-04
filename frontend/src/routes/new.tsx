@@ -5,7 +5,7 @@ import { ArrowDownLeft, ArrowUpRight, Receipt, Users, Vote } from 'lucide-react'
 import { previewCharge, useCommittee, useLedger, useLimit, usePropose, useSociety } from '../lib/api'
 import { supabase, unwrap, Refused } from '../lib/supabase'
 import { useMeStrict } from '../lib/session'
-import { categories, month, todayIST } from '../lib/format'
+import { categories, month, monthOf, todayIST } from '../lib/format'
 import { format, parse } from '../lib/money'
 import { countable } from '../lib/countable'
 import { Button, Card, Field, Input, MoneyInput, PageTitle, Segmented, cx, useToast } from '../components/ui'
@@ -88,7 +88,7 @@ function NewEntry() {
       const out = await propose.mutateAsync(
         kind === 'charge'
           ? { action: 'charge', amount_minor: minor, flat_set: flatSet, category, business_date: date,
-              narration: note.trim() || `${category === 'parking' ? 'Parking' : 'Maintenance'} ${month(date.slice(0, 7))}` }
+              narration: note.trim() || `${category === 'parking' ? 'Parking' : 'Maintenance'} ${month(monthOf(date))}` }
           : { action: kind, amount_minor: minor, category, business_date: date, narration: note.trim(),
               counterparty: kind === 'receipt' && flat ? `Flat ${flatLabel}` : payee.trim(),
               ...(kind === 'receipt' && flat ? { flat_id: flat } : {}) },
@@ -160,7 +160,7 @@ function NewEntry() {
           <Field label="Date" htmlFor="date"><Input id="date" type="date" max={todayIST()} value={date} onChange={(e) => setDate(e.target.value)} /></Field>
           <Field label={kind === 'receipt' ? 'Reference' : kind === 'charge' ? 'Title' : 'What for'} htmlFor="note">
             <Input id="note" value={note} onChange={(e) => setNote(e.target.value)} maxLength={280}
-              placeholder={kind === 'receipt' ? 'UPI ref 6044…' : kind === 'charge' ? `Maintenance ${month(date.slice(0, 7), { month: 'short', year: 'numeric' })}` : 'Pump repair, A wing'} />
+              placeholder={kind === 'receipt' ? 'UPI ref 6044…' : kind === 'charge' ? `Maintenance ${month(monthOf(date), { month: 'short', year: 'numeric' })}` : 'Pump repair, A wing'} />
           </Field>
         </div>
 

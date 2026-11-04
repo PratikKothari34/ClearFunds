@@ -11,7 +11,7 @@ import type { Parser } from './parse'
  */
 import {
   chargePreview, disputeRow, duesRows, ledgerRow, limitEntries, people as peopleRows,
-  proposalRow, report, resolvedHandle, seats as seatRows, signoffEntries, structurings,
+  proposalRow, report, resolvedHandle, seats as seatRows, signoffEntries,
   summary, years,
 } from './rows'
 import type { Entry } from './chain'
@@ -138,13 +138,17 @@ export function useReport(fy: string | undefined) {
   })
 }
 
-export function useStructuring() {
-  const s = useSociety()
-  return useQuery({
-    queryKey: ['structuring', s.id],
-    queryFn: async () => parse(structurings, unwrap(await supabase.rpc('api_structuring', { p_society: s.id })), 'useStructuring'),
-  })
-}
+/*
+ * There is no useStructuring. `api_report` already returns the structuring
+ * aggregates and the AGM report renders them (routes/reports.tsx), which is
+ * where 0004 says they belong - in the report, marked crossed. A second hook
+ * on api_structuring fetched the same aggregate by a different path for a
+ * standalone screen that was never built, so the two could disagree about
+ * which below-limit payments crossed the limit with nothing to say which was
+ * right. `rows.ts` keeps the `structuring` row parser - the report's own
+ * schema wraps it with array() inline - but not the standalone array export,
+ * which existed only for this hook.
+ */
 
 export function useSignoffs() {
   const s = useSociety()

@@ -11,8 +11,10 @@
  * a seventh proposal state fails this suite instead of silently deciding
  * whether a vote is still open.
  */
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { recentMonths, waitsOn } from './pending'
+import { isOfficer, recentMonths, waitsOn } from './pending'
 import { PROPOSAL_STATES } from './types'
 import { todayIST } from './format'
 import type { Me, ProposalRow } from './types'
@@ -151,5 +153,59 @@ describe('recentMonths', () => {
     expect(today).toMatch(/^\d{4}-\d{2}-\d{2}$/)
     expect(recentMonths(today.slice(0, 7), 3)).toHaveLength(3)
     expect(recentMonths(today, 3)).toHaveLength(3)
+  })
+})
+
+/*
+ * The four seat roles, read out of contracts/chain/kinds/society.v1.md rather
+ * than listed here. A fifth role added there must fail this suite: the pair
+ * tier names exactly two of them, and a role the frontend has never heard of
+ * defaulting into "officer" would hand a below-limit approval to someone the
+ * committee never put in that seat.
+ */
+const SOCIETY = resolve(__dirname, '../../../contracts/chain/kinds/society.v1.md')
+
+const contractRoles = (): string[] => {
+  const row = readFileSync(SOCIETY, 'utf8')
+    .split('\n')
+    .find((l) => /^\|\s*\d+\s*\|\s*`seat_role`\s*\|/.test(l))
+  if (!row) throw new Error(`no seat_role row in ${SOCIETY}`)
+  const vals = [...row.matchAll(/`([a-z]+)`/g)].map((m) => m[1]!).filter((v) => v !== 'seat_role')
+  if (vals.length === 0) throw new Error(`seat_role row lists no values: ${row}`)
+  return vals
+}
+
+describe('isOfficer is the pair tier from 0004', () => {
+  it('still finds the contract roles, and ROLES covers them', () => {
+    // Vacuity guard both ways: a renamed row throws rather than letting the
+    // cases below assert over nothing, and a role in the contract that this
+    // suite does not exercise fails here instead of going untested.
+    expect(contractRoles().toSorted()).toEqual([...ROLES].toSorted())
+  })
+
+  it('is the treasurer and the secretary, and those two only', () => {
+    /* The tier NEVER reduces to one person and never widens to three. A
+     * president counting as an officer would make "treasurer + secretary" a
+     * two-of-three rule, so a below-limit entry could be approved by a pair
+     * the committee did not authorise. */
+    for (const role of contractRoles()) {
+      const expected = role === 'treasurer' || role === 'secretary'
+      expect(isOfficer(me(role as Role)), role).toBe(expected)
+    }
+  })
+
+  it('is false for someone with no committee seat', () => {
+    // A resident, a tenant, an auditor with no seat: never an officer.
+    expect(isOfficer(me(null))).toBe(false)
+  })
+
+  it('answers the pair tier exactly as waitsOn does', () => {
+    /* The two were independent spellings of one rule and only waitsOn was
+     * tested. They must not drift apart again: on a `pair` proposal, the
+     * people waited on are exactly the officers. */
+    for (const role of [...contractRoles(), null]) {
+      const person = me(role as Role | null)
+      expect(waitsOn(p({ tier: 'pair' }), person), String(role)).toBe(isOfficer(person))
+    }
   })
 })
