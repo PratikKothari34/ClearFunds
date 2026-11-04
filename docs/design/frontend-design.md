@@ -843,13 +843,21 @@ control against the flag-reason XSS this product worries about.
   loosening.** A white flash is a cosmetic defect on one screen; an XSS hole in
   a flag reason rendered to the whole society is not.
 
-**Built outcome, 2026-10-25: both, in different modes.** Production allows the
-script by hash, with no nonce anywhere in the built HTML. The dev server cannot
-satisfy that policy at all - it injects every stylesheet as a `<style>` tag, so
-the app renders fully populated and completely unstyled, silently - so it gets a
-per-start random nonce instead, covering `script-src` and `style-src` in the
-served HTML only. `'unsafe-inline'` is used in neither, exactly as this section
-requires, and the "nonce or hash" resolution turned out to need both.
+**Built outcome, corrected 2026-11-05: neither hash nor nonce in production -
+the script is external.** The theme bootstrap is `public/theme.js`, a real file
+served from the same origin, so production satisfies plain `script-src 'self'`
+with **no `'sha256-'` entry at all**. That is strictly stronger than carrying a
+hash: `index.html` holds **zero** inline scripts, which `npm run csp-hash`
+asserts, and the check prints the hash one *would* need so that adding a script
+back cannot pass quietly. A policy still carrying a hash for a script that no
+longer exists is the stale-contract failure this section is about, one level up.
+
+The dev server is the exception, and still needs a nonce. It cannot satisfy the
+production policy at all - it injects every stylesheet as a `<style>` tag, so
+the app renders fully populated and completely unstyled, silently, with no build
+error - so it gets a per-start random nonce covering `script-src` and
+`style-src` in the served HTML only. `'unsafe-inline'` is used in neither,
+exactly as this section requires.
 
 ---
 

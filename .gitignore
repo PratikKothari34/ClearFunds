@@ -6,6 +6,7 @@ docs/decisions/*
 !docs/decisions/README.md
 docs/research/
 docs/subagents/
+docs/process/
 action_report.md
 docs/github-contributors-ticket.md
 .claude/settings.local.json
