@@ -7,7 +7,7 @@ built without reading the frontend source.
 **This document states dependencies. It does not specify how to build them** -
 schema, RLS, function bodies and deployment are the backend lane's calls.
 
-Status as of 2026-11-04. The deployed site is live but shows no data: every
+Status as of 2026-11-05. The deployed site is live but shows no data: every
 dependency below is unmet.
 
 ## 1. Three environment variables
@@ -106,15 +106,19 @@ of what it means for a kind added later.
   entry whose kind the frontend has no layout for is reported to the resident
   as not checked, and its hash is taken from the response. Adding a kind to
   `contracts/chain/kinds/` is therefore a frontend change too.
-- **Please ship test vectors with it**, in the shape the three existing files
-  use: `layouts`, `entries` with `preimage_hex` and `entry_hash`, and
-  `must_differ` pairs. The frontend encoder is an independent implementation
-  and shares no code with the SQL one; the vectors are the only thing that
-  proves the two agree byte for byte. The suite enumerates kinds out of those
-  files, so a new vector file is covered as soon as it is added to the list.
-- **The ordering in the contract table is load-bearing.** The preimage
-  concatenates fields in that order, so renumbering a field in the markdown
-  changes every hash for that kind.
+- **A new kind in `contracts/chain/kinds/` now fails the frontend suite**
+  until it has a layout. The suite reads the contract markdown directly -
+  each `###` heading naming a kind and its numbered field table - and compares it
+  to the layout table field for field, in order. So the field numbering in
+  that table is not documentation; it is the thing the hash is computed
+  from, and renumbering a field there is a breaking change.
+- **Please ship test vectors with it anyway**, in the shape the three
+  existing files use: `layouts`, `entries` with `preimage_hex` and
+  `entry_hash`, and `must_differ` pairs. Reading the table proves the two
+  sides agree about the *layout*; only a vector proves they agree about the
+  *bytes*. The encoders are independent implementations and share no code,
+  and `ledger.v1.md` - which defines every kind that moves money - still has
+  no vector file.
 - **One thing a layout cannot express**, asserted over the vectors instead: a
   `ballot` carries exactly one of `flat_id` and `flat_token`. Both present
   would place a flat beside its own anonymous token and unmask the ballot.
