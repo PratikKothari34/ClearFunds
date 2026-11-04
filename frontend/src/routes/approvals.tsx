@@ -65,6 +65,11 @@ function ProposalCard({ p, canAct }: { p: ProposalRow; canAct: boolean }) {
   const [confirm, setConfirm] = useState(false)
   const [declineOpen, setDeclineOpen] = useState(false)
   const mineToWithdraw = p.state === 'open' && p.proposed_by === me.person
+  /* The narrowed amount, not the raw field re-asserted: a guard that
+   * checks one expression and passes another stops guarding the moment
+   * either is edited, and Body formats this without a second check. */
+  const limRead = countable(limit.data?.current.limit_minor)
+  const limitNow = limRead.readable ? limRead.minor : undefined
 
   const act = async (decision: 'approve' | 'decline') => {
     try {
@@ -105,7 +110,7 @@ function ProposalCard({ p, canAct }: { p: ProposalRow; canAct: boolean }) {
           )}
         </div>
 
-        <Body p={p} limitNow={countable(limit.data?.current.limit_minor).readable ? limit.data!.current.limit_minor! : undefined} />
+        <Body p={p} limitNow={limitNow} />
 
         <div className="mt-4 space-y-2">
           <Meter have={p.approve_count} need={p.required} declined={p.decline_count} />
