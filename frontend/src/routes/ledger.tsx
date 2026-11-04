@@ -11,12 +11,23 @@ import { Amount, Button, Empty, Facts, Failed, Input, Loading, PageTitle, Segmen
 import { EntryRow } from '../components/EntryRow'
 import type { LedgerRow } from '../lib/types'
 
-type Filter = 'all' | 'in' | 'out' | 'reversed' | 'disputed' | 'charges'
+const FILTERS = ['all', 'in', 'out', 'reversed', 'disputed', 'charges'] as const
+type Filter = (typeof FILTERS)[number]
 
 export const Route = createFileRoute('/ledger')({
   component: Ledger,
   validateSearch: (s: Record<string, unknown>): { f?: Filter | undefined; q?: string | undefined } => ({
-    ...(typeof s.f === 'string' ? { f: s.f as Filter } : {}),
+    /*
+     * CHECKED, not cast. `f` comes from the address bar, so `s.f as Filter`
+     * let any string through as a Filter. The switch below defaults to
+     * showing every row, which is safe - but the same value also drives
+     * `Segmented`, a role="tablist" that marks the matching tab
+     * aria-selected. An unknown filter leaves EVERY tab aria-selected=false:
+     * invalid ARIA, and a screen reader then announces no current filter
+     * while the list silently shows everything. Dropping the value falls
+     * back to 'all', which is what the list was already doing.
+     */
+    ...(FILTERS.includes(s.f as Filter) ? { f: s.f as Filter } : {}),
     ...(typeof s.q === 'string' ? { q: s.q } : {}),
   }),
 })

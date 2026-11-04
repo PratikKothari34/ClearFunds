@@ -5,6 +5,7 @@ import { ArrowDownLeft, ArrowUpRight, Receipt, Users, Vote } from 'lucide-react'
 import { previewCharge, useCommittee, useLedger, useLimit, usePropose, useSociety } from '../lib/api'
 import { supabase, unwrap, Refused } from '../lib/supabase'
 import { useMeStrict } from '../lib/session'
+import { isOfficer } from '../lib/pending'
 import { categories, month, monthOf, todayIST } from '../lib/format'
 import { format, parse } from '../lib/money'
 import { countable } from '../lib/countable'
@@ -78,7 +79,15 @@ function NewEntry() {
       && r.counterparty?.toLowerCase() === payee.trim().toLowerCase() && r.business_date >= since).length
   }, [ledger.data, payee, kind, s.structuring_window_days])
 
-  const selfApproves = pair ? me.seat?.role === 'treasurer' || me.seat?.role === 'secretary' : true
+  /*
+   * Below the limit only the two named officers sign as they submit, and this
+   * is 0004's pair tier - the SAME rule waitsOn applies on the approvals
+   * screen, so it comes from isOfficer rather than being spelled out a third
+   * time. A committee member who is told "your approval is signed as you
+   * submit" when it is not believes the entry needs one more signature than
+   * it does, and stops chasing the one it is actually waiting on.
+   */
+  const selfApproves = pair ? isOfficer(me) : true
   const ready = !!minor && (kind === 'charge' || (kind === 'expense' ? !!payee.trim() : !!(flat || payee.trim()))) && (kind === 'charge' || !!note.trim())
 
   const submit = async () => {
