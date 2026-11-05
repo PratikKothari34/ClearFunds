@@ -6,6 +6,7 @@ import { routeTree } from './routeTree.gen'
 import { AuthProvider } from './lib/session'
 import { ToastProvider } from './components/ui'
 import { Refused } from './lib/supabase'
+import { Crashed } from './components/Crashed'
 import './styles/app.css'
 
 const queryClient = new QueryClient({
@@ -19,7 +20,27 @@ const queryClient = new QueryClient({
   },
 })
 
-const router = createRouter({ routeTree, defaultPreload: 'intent', scrollRestoration: true })
+/*
+ * defaultErrorComponent is the error boundary this tree did not have.
+ *
+ * It is set on the ROUTER, not wrapped around RouterProvider, and that
+ * placement is the whole point: a route's throw is caught inside the root
+ * route's <Shell>, so the nav, the theme and the rest of the app survive and
+ * one route's content is replaced. A boundary above RouterProvider would catch
+ * the same throws and take the entire app down with them - which is what
+ * already happens today, so it would be no improvement.
+ *
+ * Query failures do NOT come here. Query catches its own and the surfaces
+ * render <Failed>. This exists for the throws Query cannot see, which are the
+ * ones raised during render - money.ts raising RangeError on a value that is
+ * not a safe integer being the documented case.
+ */
+const router = createRouter({
+  routeTree,
+  defaultPreload: 'intent',
+  scrollRestoration: true,
+  defaultErrorComponent: Crashed,
+})
 
 declare module '@tanstack/react-router' {
   interface Register {

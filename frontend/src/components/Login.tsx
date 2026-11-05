@@ -54,9 +54,9 @@ export function Login() {
     setError(null)
     // shouldCreateUser stays true so a resident the committee added can sign
     // in the first time; an email with no account here sees nothing.
-    const { error } = await supabase.auth.signInWithOtp({ email: email.trim().toLowerCase(), options: { emailRedirectTo: location.origin } })
+    const { error: sendError } = await supabase.auth.signInWithOtp({ email: email.trim().toLowerCase(), options: { emailRedirectTo: location.origin } })
     setBusy(false)
-    if (error) setError(error.message)
+    if (sendError) setError(sendError.message)
     else setSent(true)
   }
 
@@ -64,9 +64,9 @@ export function Login() {
     e.preventDefault()
     setBusy(true)
     setError(null)
-    const { error } = await supabase.auth.verifyOtp({ email: email.trim().toLowerCase(), token: code.trim(), type: 'email' })
+    const { error: verifyError } = await supabase.auth.verifyOtp({ email: email.trim().toLowerCase(), token: code.trim(), type: 'email' })
     setBusy(false)
-    if (error) setError('That code did not work. Check the latest email, or send a new one.')
+    if (verifyError) setError('That code did not work. Check the latest email, or send a new one.')
   }
 
   /*
@@ -85,9 +85,9 @@ export function Login() {
   async function demo(key: string) {
     if (!DEMO_AUTH) return
     setBusy(true)
-    const { error } = await supabase.auth.signInWithPassword(DEMO_AUTH(key))
+    const { error: demoError } = await supabase.auth.signInWithPassword(DEMO_AUTH(key))
     setBusy(false)
-    if (error) setError(`${error.message}. Run backend/scripts/seed.ts first.`)
+    if (demoError) setError(`${demoError.message}. Run backend/scripts/seed.ts first.`)
   }
 
   return (

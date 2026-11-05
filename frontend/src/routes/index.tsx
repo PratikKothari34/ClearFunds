@@ -142,7 +142,7 @@ function NeedsYou({ me }: { me: Me }) {
   if (me.seat?.role === 'president' && signoffs.data) {
     const done = new Set(signoffs.data.map((s) => s.body.month))
     const cur = monthOf(todayIST())
-    for (const m of recentMonths(cur, 3).filter((m) => m < cur && !done.has(m))) {
+    for (const m of recentMonths(cur, 3).filter((r) => r < cur && !done.has(r))) {
       items.push({ key: `s${m}`, icon: PenLine, title: `Sign off ${month(m)}`, sub: 'The month’s expense sheet', to: '/sign-off' })
     }
   }
