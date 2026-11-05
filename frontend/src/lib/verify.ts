@@ -158,9 +158,9 @@ export const lastCheck = (society: string) => asCheck(read<unknown>(checkKey(soc
  *  - verify.tsx renders `new URL(anchorUrl(s.id)!).host` DURING RENDER. A
  *    relative path - "/anchors/{society}.json", the natural thing to write
  *    when the head is published into our own static hosting - throws
- *    TypeError there, and with no error boundary the whole verify screen
- *    blanks. That is the one screen whose purpose is proving the record was
- *    not altered.
+ *    TypeError there, and the boundary then replaces the whole verify screen.
+ *    That is the one screen whose purpose is proving the record was not
+ *    altered, so losing it is a failure however neatly it is reported.
  *  - vite.config.ts builds the CSP connect-src from the same value and
  *    would throw at dev-server startup.
  *  - the value is also an href. A javascript: or data: URL set here would

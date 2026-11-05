@@ -28,9 +28,9 @@ describe('an anchor that cannot be rendered', () => {
     /*
      * '/anchors/{society}.json' is the natural thing to write when the head is
      * published into our own static hosting, and `new URL()` throws TypeError
-     * on it. There is no error boundary in the tree, so that throw during
-     * render blanks the entire verify screen - the one screen whose purpose is
-     * proving the record was not altered.
+     * on it. That throw during render costs the entire verify screen - the one
+     * screen whose purpose is proving the record was not altered - which the
+     * boundary reports rather than recovers.
      */
     for (const t of ['/anchors/{society}.json', 'anchors/{society}.json', './head.json', '//example.org/head.json']) {
       expect(() => withTemplate(t)).not.toThrow()

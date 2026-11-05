@@ -55,8 +55,9 @@ export function waitsOn(p: ProposalRow, me: Me): boolean {
  * into the previous year without a special case. `cur` comes from
  * todayIST(), which is Intl.DateTimeFormat('en-CA') and therefore always
  * well-formed - but a malformed one would make Number() NaN and
- * toISOString() throw RangeError during render, with no error boundary in
- * the tree, so this refuses rather than throws.
+ * toISOString() throw RangeError during render. This runs in the nav badge,
+ * above every route, so the throw reaches the ROOT boundary and replaces the
+ * whole app rather than one badge - hence it refuses rather than throws.
  */
 export function recentMonths(cur: string, n: number): string[] {
   const m = /^(\d{4})-(\d{2})$/.exec(cur.slice(0, 7))

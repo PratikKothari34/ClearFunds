@@ -4,8 +4,8 @@
  * `Provenance` sits on the dashboard - the first screen a resident sees - and
  * calls verdict() on whatever lastCheck() returned, while rendering. verdict()
  * dereferences c.regressed, c.signatures.failed and c.device without guarding
- * them, and there is no error boundary anywhere in the tree, so a shape it
- * cannot read blanks the whole app rather than one card.
+ * them, and this renders on the dashboard above the route boundary, so a
+ * shape it cannot read costs the whole app rather than one card.
  *
  * Not hypothetical: `regressed` was ADDED to Check, so every device holding a
  * cache written before that has `regressed: undefined`. Shipping a field

@@ -6,8 +6,8 @@ import { ShapeError, parse } from './parse'
 
 /*
  * entry.$seq.tsx reached this body with `as unknown as {...}` and then did
- * arithmetic on it. There is NO error boundary in the tree, so each throw
- * blanked the entry-detail screen rather than one figure. These are the
+ * arithmetic on it. A throw here costs the entry-detail screen rather than
+ * one figure - the render boundary contains it, it does not recover it. These are the
  * bodies the server can actually send, including the empty one the contract
  * says is normal (`ledger.v1.md` item 16, "Empty otherwise").
  */

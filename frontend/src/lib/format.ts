@@ -265,8 +265,8 @@ export function writeOutcome(status: unknown): WriteOutcome {
  *     dispute raised about a whole year.
  *   - `2026-00` passed the <= 12 test, made an Invalid Date, and
  *     Intl.format on NaN is a RangeError. Thrown during render, inside a
- *     list item, with no error boundary in the tree: the whole disputes
- *     screen blanks rather than one line reading oddly.
+ *     list item, so the whole disputes screen is replaced by the boundary
+ *     rather than one line reading oddly.
  *   - A null period rendered the literal string "FY null".
  *
  * The real discriminator is not a magnitude. `fyOf` builds a financial year

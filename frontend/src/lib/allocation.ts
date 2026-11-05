@@ -6,8 +6,9 @@ import type { Parser } from './parse'
  *
  * `entry.$seq.tsx` used to reach this with `e.body as unknown as {...}` - a
  * cast, which checks nothing - and then do arithmetic on the result. Three
- * paths threw, and there is NO ERROR BOUNDARY anywhere in the tree, so each
- * one blanked the whole entry-detail screen rather than one figure:
+ * paths threw, and the render boundary added later contains such a throw to
+ * one screen without recovering the figure, so each one still costs the whole
+ * entry-detail screen rather than one line:
  *
  *   - `Math.min(...[])` is `Infinity`, and `format()` raises RangeError on
  *     anything that is not a safe integer. `ledger.v1.md` item 16 says

@@ -131,8 +131,10 @@ describe('recentMonths', () => {
 
   it('refuses a malformed month rather than throwing during render', () => {
     /* toISOString() on an Invalid Date is a RangeError, and this runs inside
-     * the nav badge on every page load, with no error boundary in the tree -
-     * so the whole app blanks, not one badge. */
+     * the nav badge on every page load. The badge is above every route, so the
+     * throw reaches the ROOT boundary: the whole app is replaced, not one
+     * badge. The boundary makes that legible instead of white - it does not
+     * make it acceptable. */
     for (const bad of ['', 'nope', '2026', '2026-', 'YYYY-MM', '2026-13', '2026-00', 'x026-01', '20261-1']) {
       expect(() => recentMonths(bad, 3), bad).not.toThrow()
       expect(recentMonths(bad, 3), bad).toEqual([])
