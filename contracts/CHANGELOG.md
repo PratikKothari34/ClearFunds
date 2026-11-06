@@ -21,3 +21,6 @@ Append-only. One line per contract PR:
 2026-10-27 | api.v1 | ADD expense templates: save, retire, list, template_id on /propose | #62 | additive
 2026-10-27 | anchor.v1 | ADD monthly published chain head: paths, file, client check, cadence, failures, account | #1 | new
 2026-11-03 | api.v1 | CHANGE flat_dues rows: committee reads every flat, anyone else only flats with their open tenure | #6 | narrows a read; no field changes
+2026-10-27 | api.v1 | ADD bank statement import: POST /statements, statement_lines with matches to claims | #73 | additive
+2026-10-27 | api.v1 | ADD api_signoff_months: open flags, entries and residents per month | #70 | additive
+2026-10-27 | api.v1 | ADD api_report_compare: a year beside the one before | #67 | additive
