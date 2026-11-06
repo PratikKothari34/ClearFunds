@@ -1,7 +1,7 @@
 -- The auditor's year-close statement (#3): required, bounded in bytes of
 -- UTF-8 rather than characters, and refused with the limit when over.
 begin;
-select plan(6);
+select plan(8);
 
 create temp table u (k text primary key, id uuid);
 insert into u values ('pres', gen_random_uuid()), ('tre', gen_random_uuid()), ('sec', gen_random_uuid()),
@@ -29,6 +29,10 @@ select lives_ok($$select pg_temp.intent(repeat('क', 5461))$$, 'Devanagari is c
 select throws_like($$select pg_temp.intent(repeat('क', 5462))$$, '%16386 bytes%', 'and refused by bytes');
 select lives_ok($$select pg_temp.intent('  ' || repeat('a', 16384) || '  ')$$,
   'surrounding spaces are trimmed before counting, as they are before chaining');
+-- U+0958 is 3 bytes as typed and 6 once NFC has decomposed it, which is what is chained.
+select throws_like($$select pg_temp.intent(repeat(U&'\0958', 2731))$$, '%16386 bytes%',
+  'the limit is measured on the NFC bytes the chain stores');
+select lives_ok($$select pg_temp.intent(repeat(U&'\0958', 2730))$$, 'and 16,380 of those bytes is accepted');
 
 select * from finish();
 rollback;
