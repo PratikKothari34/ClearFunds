@@ -3,6 +3,7 @@
 - **Status:** proposed
 - **Extends:** [`../entry-preimage.v1.md`](../entry-preimage.v1.md) §5. Additive: no
   existing hash changes.
+- **Test vectors:** [`../vectors/ledger-kinds.v1.json`](../vectors/ledger-kinds.v1.json)
 - **Producer:** backend (`backend/supabase/migrations/20261026000001_chain.sql`,
   table `cf.kinds`) · **Consumer:** frontend verifier (`frontend/src/lib/chain.ts`, `KINDS`)
 
