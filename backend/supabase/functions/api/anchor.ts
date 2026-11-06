@@ -43,10 +43,14 @@ export async function publishAnchors(o: Deps): Promise<Outcome[]> {
   const api = (path: string) => `https://api.github.com/repos/${o.repo}/contents/${path}`;
   const headers = { Authorization: `Bearer ${o.token}`, Accept: "application/vnd.github+json",
                     "User-Agent": "clearfunds-anchor", "X-GitHub-Api-Version": "2022-11-28" };
+  // GitHub answers 404, not 403, to a token that cannot see the repo, so a bare
+  // "PUT ...: 404" would read as a missing path on the day this is switched on.
+  const why = (status: number) =>
+    [401, 403, 404].includes(status) ? ` (can CLEARFUNDS_ANCHOR_TOKEN write contents to ${o.repo}?)` : "";
   const get = async (path: string) => {
     const r = await f(api(path) + "?ref=main", { headers });
     if (r.status === 404) return null;
-    if (!r.ok) throw new Error(`GET ${path}: ${r.status}`);
+    if (!r.ok) throw new Error(`GET ${path}: ${r.status}${why(r.status)}`);
     const j = await r.json();
     return { sha: j.sha as string, text: unb64(j.content as string) };
   };
@@ -71,8 +75,10 @@ export async function publishAnchors(o: Deps): Promise<Outcome[]> {
       if (!created.ok) {
         // Never replace a period file. One already there is either this
         // publisher's own earlier write, recognised by its head, or a conflict.
-        const existing = created.status === 422 || created.status === 409 ? await get(path) : null;
-        if (!existing) throw new Error(`PUT ${path}: ${created.status}`);
+        // What is there decides, not the status: GitHub does not always use the
+        // same one, and a write can succeed behind a failed response.
+        const existing = await get(path);
+        if (!existing) throw new Error(`PUT ${path}: ${created.status}${why(created.status)}`);
         const prior = JSON.parse(existing.text);
         if (prior.head_seq !== d.head_seq || prior.head_hash !== d.head_hash || prior.society_id !== d.society_id) {
           out.push({ society_id: d.society_id, period: d.period, result: "conflict",
@@ -86,7 +92,7 @@ export async function publishAnchors(o: Deps): Promise<Outcome[]> {
       const latest = await get(`${dir}/latest.json`);
       if (latest?.text !== text) {
         const r = await put(`${dir}/latest.json`, text, `Latest ${d.society_id} ${d.period}`, latest?.sha);
-        if (!r.ok) throw new Error(`PUT latest.json: ${r.status}`);
+        if (!r.ok) throw new Error(`PUT latest.json: ${r.status}${why(r.status)}`);
       }
       const url = rawUrl(o.repo, path);
       await o.record(d, text, url);
