@@ -511,25 +511,28 @@ A PR is done when **all** of these hold. Working code alone does not count.
 
 ---
 
-## 9. CI, when it lands
+## 9. CI
 
-**No workflow exists yet, but there is something to run.** Until `ci-ok`
-exists, the gate is local and you run it yourself before opening a pull
-request: `npm run verify` in `frontend/` typechecks with `tsc -b`, lints,
-runs the test suite, builds, and then runs the repository's own checks for
-shadowed utility classes, sample data leaking into the bundle, the gzip
-bundle budgets and the inline-script CSP hash. A red result is reported, not
-committed around.
+**`.github/workflows/ci.yml` runs on every pull request and every push to
+`main`.** Its jobs are path-filtered:
 
-When the first workflow lands:
+- **`frontend`:** `npm run verify`, the same gate you run locally. It
+  typechecks with `tsc -b`, lints, runs the test suite, builds, and then runs
+  the repository's own checks for shadowed utility classes, sample data
+  leaking into the bundle, the gzip bundle budgets and the inline-script CSP
+  hash.
+- **`backend`:** every pgTAP file against a database built from the
+  migrations alone, then the edge function's Deno tests.
+- **`contracts`:** **both** implementations against the test vectors. That
+  is the check that catches the two sides drifting apart.
 
-- One workflow, `.github/workflows/ci.yml`, with path-filtered jobs
-  `frontend`, `backend` and `contracts`, plus a single aggregator job
-  **`ci-ok`** that is the only required check. A skipped path-filtered job
-  marked required stays pending forever and blocks the merge.
-- The `contracts` job runs **both** implementations against the test vectors.
-  That is the check that catches the two sides drifting apart.
-- The PR that adds CI also adds `ci-ok` to both rulesets (§3.4).
+One aggregator job, **`ci-ok`**, passes when every job that ran passed. It is
+the only check to require: a skipped path-filtered job marked required stays
+pending forever and blocks the merge. Requiring it on `main` is a change to
+the live ruleset, so it is applied by the repository owner once `ci-ok` has
+been seen green (`.github/rulesets/README.md`, *Pending*). Until then the
+gate is still yours to run before opening a pull request. A red result is
+reported, not committed around.
 
 ---
 
