@@ -513,14 +513,16 @@ A PR is done when **all** of these hold. Working code alone does not count.
 
 ## 9. CI
 
-**`.github/workflows/ci.yml` runs on every pull request and every push to
-`main`.** Its jobs are path-filtered:
+**`.github/workflows/ci.yml` runs on every pull request.** Nothing reaches
+`main` except through one, so a second run after the merge would add nothing,
+and a path filter has no pull request to diff against on a push. Its jobs are
+path-filtered:
 
 - **`frontend`:** `npm run verify`, the same gate you run locally. It
   typechecks with `tsc -b`, lints, runs the test suite, builds, and then runs
   the repository's own checks for shadowed utility classes, sample data
-  leaking into the bundle, the gzip bundle budgets and the inline-script CSP
-  hash.
+  leaking into the bundle, the gzip bundle budgets, and that `index.html`
+  contains no inline script.
 - **`backend`:** every pgTAP file against a database built from the
   migrations alone, then the edge function's Deno tests.
 - **`contracts`:** **both** implementations against the test vectors. That
