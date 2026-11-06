@@ -52,3 +52,30 @@ Compare the result against the file. Note that a `PATCH` to a repository
 settings endpoint can return `200` and change nothing when the feature is not
 available on the plan, so confirm a write with a fresh read rather than
 trusting the status code.
+
+## Pending: `ci-ok` on `main`
+
+`.github/workflows/ci.yml` reports one aggregate check, `ci-ok` (CONTRIBUTING
+section 9). It is **not yet required on `main`**, and `main.json` does not list
+it, because this file records what is live. Once a pull request has shown
+`ci-ok` green, the repository owner applies it and records it in the same step:
+
+1. Add this rule to `main.json`'s `rules`:
+
+   ```json
+   {
+     "type": "required_status_checks",
+     "parameters": {
+       "strict_required_status_checks_policy": false,
+       "do_not_enforce_on_create": false,
+       "required_status_checks": [{ "context": "ci-ok" }]
+     }
+   }
+   ```
+
+2. Apply it: `gh api -X PUT repos/PratikKothari34/ClearFunds/rulesets/<id> --input .github/rulesets/main.json`
+3. Confirm with a fresh read (*Verifying the record*, above), then delete this
+   section in the same pull request as the `main.json` change.
+
+Require only `ci-ok`, never `frontend`, `backend` or `contracts`: those are
+path-filtered, and a skipped required job stays pending forever.
