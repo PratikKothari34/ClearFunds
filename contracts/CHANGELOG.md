@@ -20,4 +20,5 @@ Append-only. One line per contract PR:
 2026-10-27 | api.v1 | ADD notice attachments: upload, read link, attachments on drafts | #59 | additive
 2026-10-27 | api.v1 | ADD expense templates: save, retire, list, template_id on /propose | #62 | additive
 2026-10-27 | anchor.v1 | ADD monthly published chain head: paths, file, client check, cadence, failures, account | #1 | new
-2026-11-03 | api.v1 | CHANGE /close-year statement limit: 16,384 UTF-8 bytes, refused with the limit, never truncated | #3 | widens: was 4,000 characters, so nothing accepted before is refused now
+2026-10-27 | api.v1 | ADD api_report_compare: a year beside the one before | #67 | additive
+2026-10-27 | api.v1 | ADD api_signoff_months: open flags, entries and residents per month | #70 | additive
