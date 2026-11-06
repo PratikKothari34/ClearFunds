@@ -24,6 +24,8 @@ create table private.statement_lines (
   primary key (statement_id, line_no)
 );
 create index statement_lines_society on private.statement_lines (society_id);
+create index statements_society on private.statements (society_id);
+create index statements_uploaded_by on private.statements (uploaded_by);
 
 -- The currency's minor-unit exponent (AGENTS.md item 4: never a fixed /100).
 create function cf.currency_exponent(p_currency text) returns int
