@@ -1,0 +1,131 @@
+# CONTRIBUTING.md section 9. Path-filtered jobs, and one aggregator, ci-ok,
+# which is the only required check: a skipped path-filtered job marked
+# required would stay pending forever and block the merge.
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      frontend: ${{ steps.filter.outputs.frontend }}
+      backend: ${{ steps.filter.outputs.backend }}
+      contracts: ${{ steps.filter.outputs.contracts }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            frontend:
+              - 'frontend/**'
+              - '.github/workflows/ci.yml'
+            backend:
+              - 'backend/**'
+              - '.github/workflows/ci.yml'
+            contracts:
+              - 'contracts/**'
+              - 'frontend/src/lib/chain*.ts'
+              - 'backend/supabase/migrations/**'
+              - 'backend/supabase/tests/*_vectors.test.sql'
+              - '.github/workflows/ci.yml'
+
+  # The same gate run locally today: typecheck, lint, tests, CSP and asset
+  # checks, build, bundle budget.
+  frontend:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run verify
+
+  # Every pgTAP file against a database built from the migrations alone,
+  # then the edge function's Deno tests.
+  backend:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.121.0
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - run: supabase db start
+      - run: supabase test db
+      - name: Deno tests
+        run: |
+          shopt -s nullglob
+          tests=(supabase/functions/api/*.test.ts)
+          if [ ${#tests[@]} -eq 0 ]; then echo "no Deno tests"; exit 0; fi
+          deno test -A --config supabase/functions/api/deno.json "${tests[@]}"
+
+  # Both implementations against the contract's test vectors: the check that
+  # catches the two sides drifting apart.
+  contracts:
+    needs: changes
+    if: needs.changes.outputs.contracts == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.121.0
+      - name: Frontend against the vectors
+        working-directory: frontend
+        run: |
+          npm ci
+          npx vitest run src/lib/chain.test.ts
+      - name: Backend against the vectors
+        working-directory: backend
+        run: |
+          supabase db start
+          supabase test db supabase/tests/*_vectors.test.sql
+
+  ci-ok:
+    if: always()
+    needs: [changes, frontend, backend, contracts]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Every job that ran passed
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "results: $RESULTS"
+          for r in $RESULTS; do
+            case "$r" in success|skipped) ;; *) exit 1 ;; esac
+          done
