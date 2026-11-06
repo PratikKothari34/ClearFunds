@@ -32,7 +32,7 @@ Then the frontend, in a second terminal:
 cd frontend
 npm ci
 cp .env.example .env.local   # values are in frontend/README.md
-npm run dev                  # http://127.0.0.1:5173
+npm run dev                  # http://localhost:5173
 ```
 
 Each lane documents the rest of its own stack:
