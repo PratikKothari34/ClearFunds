@@ -6,6 +6,7 @@ import { Refused } from '../lib/supabase'
 import { useMeStrict } from '../lib/session'
 import { actionLabel, ago, categoryLabel, day, plural, proposalTitle, roleLabel, tierLabel } from '../lib/format'
 import { format } from '../lib/money'
+import { countable } from '../lib/countable'
 import { Amount, Avatar, Button, Card, Chip, Empty, Facts, Failed, Loading, Meter, PageTitle, Segmented, Sheet, useToast, cx } from '../components/ui'
 import { waitsOn } from '../components/Shell'
 import type { ProposalRow } from '../lib/types'
@@ -98,7 +99,7 @@ function ProposalCard({ p, canAct }: { p: ProposalRow; canAct: boolean }) {
           )}
         </div>
 
-        <Body p={p} limitNow={limit.data?.current.limit_minor} />
+        <Body p={p} limitNow={countable(limit.data?.current.limit_minor).readable ? limit.data!.current.limit_minor! : undefined} />
 
         <div className="mt-4 space-y-2">
           <Meter have={p.approve_count} need={p.required} declined={p.decline_count} />

@@ -7,6 +7,7 @@ import { supabase, unwrap, Refused } from '../lib/supabase'
 import { useMeStrict, isCommittee } from '../lib/session'
 import { instant, roleLabel, todayIST, fyOf } from '../lib/format'
 import { format, parse } from '../lib/money'
+import { countable } from '../lib/countable'
 import { Avatar, Button, Caption, Card, Chip, Field, Input, Loading, MoneyInput, PageTitle, Segmented, Sheet, useToast } from '../components/ui'
 import type { Role } from '../lib/types'
 
@@ -27,7 +28,10 @@ function Committee() {
   const name = (id: string) => c.data?.people.find((p) => p.id === id)?.full_name ?? 'Member'
   const m = active.length
   const need = Math.max(Math.ceil((2 * m) / 3), 2)
-  const lim = limit.data?.current.limit_minor
+  /* An unreadable limit is left undefined so every surface below shows the
+   * placeholder rather than a figure, and never implies the lower tier. */
+  const limRead = countable(limit.data?.current.limit_minor)
+  const lim = limRead.readable ? limRead.minor : undefined
   const mine = isCommittee(me)
 
   return (
@@ -100,7 +104,7 @@ function Committee() {
         {(limit.data?.history ?? []).toReversed().map((h, i) => (
           <div key={h.seq} className="flex items-center justify-between px-4 py-3 text-sm">
             <span className="text-ink-2">{i === 0 ? 'In force since' : 'From'} {instant(h.recorded_at, { day: 'numeric', month: 'short', year: 'numeric' })} · #{h.seq}</span>
-            <span className="tnum font-medium">{format(h.limit_minor, 'INR', { compact: true })}</span>
+            <span className="tnum font-medium">{countable(h.limit_minor).readable ? format(h.limit_minor!, 'INR', { compact: true }) : 'Not available'}</span>
           </div>
         ))}
       </Card>
