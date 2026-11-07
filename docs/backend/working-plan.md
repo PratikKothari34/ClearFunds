@@ -19,6 +19,8 @@ Last updated 2026-11-07.
   number order, followed by a schema comparison against a local reset. Please
   leave this to me unless we agree otherwise: applying one out of order is what
   would make the comparison fail.
+- **No society is onboarded until migrations 22-30 are on production.** The
+  frontend requires fields that only migration 29 sends.
 - **Contract changes** stay in their own PR, and a new kind ships with vectors.
 - **I never push to a branch of yours**, and a push to mine that you have
   approved will only happen for a merge conflict, with a note saying what
@@ -30,16 +32,13 @@ Last updated 2026-11-07.
    together and waiting for your review.
 2. **#93, then #95 and #96:** the contract rows for #90 and #92, and the ledger
    vectors.
-3. **#97, #98, #101, #114 and #115:** your findings on #66 and #84, the CSP for
-   #5, and the monthly reversal figures you asked for on #109.
+3. **#97, #98 and #101:** your findings on #66 and #84, and the CSP for #5.
 4. **#102:** the contract is in its own PR. The backend follows once you agree it.
 5. **Deploying migrations 22-30 and the `api` function** as one verified batch,
    once 1 is merged. That is also what ends the statement-limit mismatch you
    flagged on #79.
 6. **Budget (#76):** once #85 is approved, a backend PR with migration, report
    section and vectors.
-7. **Rule 19:** decided yes. The server half is in its own PR, and commit 4 of
-   #113 lands with it.
 
 ## Needs someone with an account
 
