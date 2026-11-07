@@ -468,3 +468,47 @@ Point it at [`AGENTS.md`](AGENTS.md) first, then this file. Agents are bound
 by the same lanes. An agent working for the backend owner does not write
 frontend code to unblock itself; it writes the contract request. Strip any
 attribution trailer it adds (§5.5).
+
+### 10.1 Wire the guard, or it is decoration
+
+[`.claude/hooks/guard.py`](.claude/hooks/guard.py) denies four things from a
+command line before the command runs: an attribution trailer in a commit
+message (§5.5), an absolute system path in a commit message, a push whose
+refspec targets `main` (§3), and content piped through a heredoc. It is in
+the repository; **the config that runs it is not**, because it is per-machine
+and is deliberately untracked. A fresh clone therefore has the script and no
+hook, which looks installed and guards nothing.
+
+If your agent reads Claude Code settings, add this to
+`.claude/settings.local.json` yourself:
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          { "type": "command", "command": "py -3.12 \"${CLAUDE_PROJECT_DIR}/.claude/hooks/guard.py\"", "onFailure": "block" }
+        ]
+      }
+    ]
+  }
+}
+```
+
+`"onFailure": "block"` is not optional. Without it a guard that crashes —
+a syntax error, a missing interpreter — **fails open**, and every call it was
+meant to deny goes through while the hook still appears configured. Pin the
+interpreter too: a bare `python` on Windows is frequently a different install
+from the one holding your packages.
+
+Use the absolute form above rather than a bare `.claude/hooks/guard.py`. An
+agent's working directory moves — into `frontend/` to run the suite, into
+`backend/` for a migration — and a relative path then resolves to nothing. A
+hook whose script is missing is a hook failure, so with `onFailure` set it
+denies every command until you notice, and without it guards nothing.
+
+Check it on a command you expect to be denied, not on one you expect to pass:
+a guard that allows everything and a guard that is not running are
+indistinguishable from the passing side.
