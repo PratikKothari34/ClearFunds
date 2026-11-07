@@ -22,3 +22,4 @@ Append-only. One line per contract PR:
 2026-10-27 | anchor.v1 | ADD monthly published chain head: paths, file, client check, cadence, failures, account | #1 | new
 2026-10-27 | api.v1 | ADD api_report_compare: a year beside the one before | #67 | additive
 2026-10-27 | api.v1 | ADD api_signoff_months: open flags, entries and residents per month | #70 | additive
+2026-11-07 | chain-entry.v1 | CLARIFY the auditor posting is the society's authorisation to disclose that year's statement to members | #3 | not breaking
