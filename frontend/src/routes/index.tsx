@@ -4,7 +4,7 @@ import { ArrowRight, CheckCheck, Flag, Gavel, PenLine, Plus, Wallet, Sparkles } 
 import { useDisputes, useDues, useLedger, useNames, useProposals, useSignoffs, useSummary, useTenantFlags, useYears } from '../lib/api'
 import { useMeStrict, isCommittee } from '../lib/session'
 import { owing } from '../lib/countable'
-import { categoryLabel, instant, month, plural, proposalTitle, todayIST } from '../lib/format'
+import { categoryLabel, instant, month, monthOf, plural, proposalTitle, todayIST } from '../lib/format'
 import { Amount, Button, Caption, Card, Facts, Skeleton, cx } from '../components/ui'
 import { EntryRow } from '../components/EntryRow'
 import { Provenance } from '../components/Provenance'
@@ -18,7 +18,7 @@ function Home() {
   const summary = useSummary()
   const ledger = useLedger()
   const s = summary.data
-  const cur = todayIST().slice(0, 7)
+  const cur = monthOf(todayIST())
   const thisMonth = s?.months.find((m) => m.month === cur)
   const recent = useMemo(() => (ledger.data ?? []).slice(-5).toReversed(), [ledger.data])
 
@@ -141,8 +141,8 @@ function NeedsYou({ me }: { me: Me }) {
   }
   if (me.seat?.role === 'president' && signoffs.data) {
     const done = new Set(signoffs.data.map((s) => s.body.month))
-    const cur = todayIST().slice(0, 7)
-    for (const m of recentMonths(cur, 3).filter((m) => m < cur && !done.has(m))) {
+    const cur = monthOf(todayIST())
+    for (const m of recentMonths(cur, 3).filter((r) => r < cur && !done.has(r))) {
       items.push({ key: `s${m}`, icon: PenLine, title: `Sign off ${month(m)}`, sub: 'The month’s expense sheet', to: '/sign-off' })
     }
   }
@@ -175,7 +175,7 @@ function NeedsYou({ me }: { me: Me }) {
   return (
     <section aria-label="What needs you">
       <Caption action={isCommittee(me) && (
-        <Link to="/new"><Button size="sm" tone="quiet" icon={<Plus className="size-4" />}>New entry</Button></Link>
+        <Link to="/new"><Button tone="quiet" icon={<Plus className="size-4" />}>New entry</Button></Link>
       )}>
         Needs you
       </Caption>

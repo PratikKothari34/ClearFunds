@@ -4,7 +4,7 @@ import { Check, CheckCheck, Inbox, Plus, Undo2, X } from 'lucide-react'
 import { useCast, useLimit, useNames, useProposals, useWithdraw } from '../lib/api'
 import { Refused } from '../lib/supabase'
 import { useMeStrict } from '../lib/session'
-import { actionLabel, ago, categoryLabel, day, plural, proposalTitle, roleLabel, tierLabel } from '../lib/format'
+import { actionLabel, ago, categoryLabel, day, flatSetLabel, plural, proposalTitle, roleLabel, tierLabel, writeOutcome } from '../lib/format'
 import { format } from '../lib/money'
 import { countable } from '../lib/countable'
 import { Amount, Avatar, Button, Card, Chip, Empty, Facts, Failed, Loading, Meter, PageTitle, Segmented, Sheet, useToast, cx } from '../components/ui'
@@ -65,11 +65,22 @@ function ProposalCard({ p, canAct }: { p: ProposalRow; canAct: boolean }) {
   const [confirm, setConfirm] = useState(false)
   const [declineOpen, setDeclineOpen] = useState(false)
   const mineToWithdraw = p.state === 'open' && p.proposed_by === me.person
+  /* The narrowed amount, not the raw field re-asserted: a guard that
+   * checks one expression and passes another stops guarding the moment
+   * either is edited, and Body formats this without a second check. */
+  const limRead = countable(limit.data?.current.limit_minor)
+  const limitNow = limRead.readable ? limRead.minor : undefined
 
   const act = async (decision: 'approve' | 'decline') => {
     try {
       const out = await cast.mutateAsync({ seq: p.seq, decision })
-      toast(out.status === 'posted' ? 'Approved. It is now on the ledger.' : out.status === 'declined' ? 'Declined. The proposal is closed.' : 'Signed. Waiting for the others.')
+      const outcome = writeOutcome(out.status)
+      toast(
+        outcome === 'posted' ? 'Approved. It is now on the ledger.'
+        : outcome === 'closed' ? 'Recorded. The proposal is closed.'
+        : outcome === 'open' ? 'Signed. Waiting for the others.'
+        : 'Recorded. Reload to see where the proposal stands.',
+      )
     } catch (e) {
       toast(e instanceof Refused ? e.message : 'Could not record that. Try again.', 'error')
     } finally {
@@ -99,7 +110,7 @@ function ProposalCard({ p, canAct }: { p: ProposalRow; canAct: boolean }) {
           )}
         </div>
 
-        <Body p={p} limitNow={countable(limit.data?.current.limit_minor).readable ? limit.data!.current.limit_minor! : undefined} />
+        <Body p={p} limitNow={limitNow} />
 
         <div className="mt-4 space-y-2">
           <Meter have={p.approve_count} need={p.required} declined={p.decline_count} />
@@ -160,7 +171,7 @@ function Body({ p, limitNow }: { p: ProposalRow; limitNow: number | undefined })
       case 'receipt':
         return <Facts items={[categoryLabel(p.category), day(p.business_date), p.narration]} />
       case 'charge':
-        return <Facts items={[`${p.flat_count} flats`, p.flat_set === 'parking' ? 'Flats with parking' : 'Every flat', day(p.business_date)]} />
+        return <Facts items={[plural(p.flat_count, 'flat'), flatSetLabel(p.flat_set), day(p.business_date)]} />
       case 'reversal':
         return <>Reverses <Link to="/entry/$seq" params={{ seq: String(p.target_seq) }} className="font-medium text-accent">#{p.target_seq}</Link>{p.replacement_amount_minor ? <>, replaced by {format(p.replacement_amount_minor)}</> : null}. {p.reason}</>
       case 'limit_change':

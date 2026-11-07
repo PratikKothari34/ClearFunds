@@ -4,47 +4,44 @@ import { useWindowVirtualizer } from '@tanstack/react-virtual'
 import { Plus, Search, SearchX } from 'lucide-react'
 import { useDisputes, useLedger, useSummary } from '../lib/api'
 import { useMeStrict, isCommittee } from '../lib/session'
-import { categoryLabel, month } from '../lib/format'
+import { month, monthOf } from '../lib/format'
 import { countable, owing } from '../lib/countable'
+import { match } from '../lib/search'
+import { disputedBy } from '../lib/disputed'
 import { Amount, Button, Empty, Facts, Failed, Input, Loading, PageTitle, Segmented } from '../components/ui'
 import { EntryRow } from '../components/EntryRow'
 import type { LedgerRow } from '../lib/types'
 
-type Filter = 'all' | 'in' | 'out' | 'reversed' | 'disputed' | 'charges'
+const FILTERS = ['all', 'in', 'out', 'reversed', 'disputed', 'charges'] as const
+type Filter = (typeof FILTERS)[number]
 
 export const Route = createFileRoute('/ledger')({
   component: Ledger,
   validateSearch: (s: Record<string, unknown>): { f?: Filter | undefined; q?: string | undefined } => ({
-    ...(typeof s.f === 'string' ? { f: s.f as Filter } : {}),
+    /*
+     * CHECKED, not cast. `f` comes from the address bar, so `s.f as Filter`
+     * let any string through as a Filter. The switch below defaults to
+     * showing every row, which is safe - but the same value also drives
+     * `Segmented`, a role="tablist" that marks the matching tab
+     * aria-selected. An unknown filter leaves EVERY tab aria-selected=false:
+     * invalid ARIA, and a screen reader then announces no current filter
+     * while the list silently shows everything. Dropping the value falls
+     * back to 'all', which is what the list was already doing.
+     */
+    ...(FILTERS.includes(s.f as Filter) ? { f: s.f as Filter } : {}),
     ...(typeof s.q === 'string' ? { q: s.q } : {}),
   }),
 })
 
-/** Rows flagged by an open dispute, by entry or by payee. */
+/**
+ * Rows flagged by an open dispute, by entry or by payee.
+ *
+ * The rule itself is `disputedBy` in lib/, where it is tested without a
+ * router. This hook is only the subscription and the memo.
+ */
 export function useDisputed() {
   const disputes = useDisputes()
-  return useMemo(() => {
-    const seqs = new Set<number>()
-    const payees = new Set<string>()
-    for (const d of disputes.data ?? []) {
-      if (!d.is_open) continue
-      for (const s of d.target_seqs) seqs.add(s)
-      if (d.counterparty) payees.add(d.counterparty.toLowerCase())
-    }
-    return (r: LedgerRow) => seqs.has(r.seq) || (!!r.counterparty && payees.has(r.counterparty.toLowerCase()))
-  }, [disputes.data])
-}
-
-function match(r: LedgerRow, q: string) {
-  if (!q) return true
-  if (/^#\d+$/.test(q)) return r.seq === Number(q.slice(1))
-  const hay = `${r.counterparty ?? ''} ${r.narration} ${categoryLabel(r.category)} ${r.reason ?? ''}`.toLowerCase()
-  const digits = q.replace(/[,₹\s]/g, '')
-  /* An unreadable amount matches no digit query rather than matching every
-   * one: countable() refuses it, so the row is found by its text or not at
-   * all. It is never silently dropped from an unfiltered list. */
-  const amount = countable(r.amount_minor)
-  return hay.includes(q) || (/^\d+$/.test(digits) && amount.readable && String(Math.abs(amount.minor)).startsWith(digits))
+  return useMemo(() => disputedBy(disputes.data), [disputes.data])
 }
 
 function Ledger() {
@@ -53,7 +50,7 @@ function Ledger() {
   const nav = Route.useNavigate()
   const filter = search.f ?? 'all'
   const [q, setQ] = useState(search.q ?? '')
-  const dq = useDeferredValue(q.trim().toLowerCase())
+  const dq = useDeferredValue(q)
   const ledger = useLedger()
   const summary = useSummary()
   const disputed = useDisputed()
@@ -84,7 +81,7 @@ function Ledger() {
     const out: ({ k: 'm'; month: string } | { k: 'r'; r: LedgerRow })[] = []
     let cur = ''
     for (const r of rows) {
-      const m = r.business_date.slice(0, 7)
+      const m = monthOf(r.business_date)
       if (m !== cur) { out.push({ k: 'm', month: m }); cur = m }
       out.push({ k: 'r', r })
     }

@@ -6,6 +6,7 @@ import { useMeStrict, isCommittee } from '../lib/session'
 import { day, plural } from '../lib/format'
 import { parts, toInput } from '../lib/money'
 import { countable, owing, partition } from '../lib/countable'
+import { scopeOf } from '../lib/scope'
 import { Amount, Button, Card, Failed, Loading, PageTitle, Segmented, Sheet, cx } from '../components/ui'
 import type { DuesRow } from '../lib/types'
 
@@ -17,6 +18,13 @@ function Dues() {
   const summary = useSummary()
   const [show, setShow] = useState<'all' | 'owing'>('all')
   const [open, setOpen] = useState<DuesRow | null>(null)
+  /*
+   * `flat_dues` is row-filtered by the server and `api_summary`'s totals are
+   * not, so the two halves of this screen can describe different scopes. When
+   * they do, the totals are hidden and the control stops saying "Every flat":
+   * see lib/scope.ts for why this is read off the data and not off the seat.
+   */
+  const scope = scopeOf(dues.data, summary.data?.flats)
   const wings = useMemo(() => {
     const m = new Map<string, DuesRow[]>()
     /*
@@ -38,10 +46,12 @@ function Dues() {
 
   return (
     <div>
-      <PageTitle title="Dues" sub="Charged to each flat, against what each flat has paid."
+      <PageTitle title="Dues" sub={scope.kind === 'partial'
+        ? 'Charged to your flat, against what has been paid.'
+        : 'Charged to each flat, against what each flat has paid.'}
         action={isCommittee(me) && <Link to="/new" search={{ kind: 'charge' }}><Button tone="primary" icon={<Receipt className="size-4" />}>Bill flats</Button></Link>} />
 
-      {summary.data && (
+      {summary.data && scope.kind !== 'partial' && (
         <div className="mb-6 grid grid-cols-2 gap-3">
           <Card className="p-4">
             <p className="text-[13px] text-ink-2">Outstanding</p>
@@ -54,8 +64,15 @@ function Dues() {
         </div>
       )}
 
+      {scope.kind === 'partial' && (
+        <Card className="mb-4 px-4 py-3 text-[13px] text-ink-2">
+          You can see {plural(scope.got, 'flat')} of {scope.total}. Dues for the rest are
+          visible to the committee. <Link to="/reports" className="font-medium text-accent">Society totals are in Reports.</Link>
+        </Card>
+      )}
+
       <Segmented<'all' | 'owing'> className="mb-4" label="Show" value={show} onChange={setShow}
-        options={[{ value: 'all', label: 'Every flat' }, { value: 'owing', label: 'Owing' }]} />
+        options={[{ value: 'all', label: scope.kind === 'partial' ? 'Your flats' : 'Every flat' }, { value: 'owing', label: 'Owing' }]} />
 
       {dues.isPending ? <Loading rows={3} /> : dues.isError ? <Failed error={dues.error} retry={() => dues.refetch()} /> : (
         <div className="space-y-6">

@@ -4,7 +4,7 @@ import { useRaiseFlag } from '../lib/api'
 import { Refused } from '../lib/supabase'
 import { useMeStrict } from '../lib/session'
 import { Button, Field, Input, Segmented, Sheet, Textarea, useToast } from './ui'
-import { todayIST } from '../lib/format'
+import { monthOf, todayIST } from '../lib/format'
 
 type Scope = 'entries' | 'counterparty' | 'period'
 
@@ -18,7 +18,7 @@ export function RaiseDispute({ open, onClose, seq, counterparty }: { open: boole
   const toast = useToast()
   const [scope, setScope] = useState<Scope>(seq ? 'entries' : 'counterparty')
   const [payee, setPayee] = useState(counterparty ?? '')
-  const [period, setPeriod] = useState(todayIST().slice(0, 7))
+  const [period, setPeriod] = useState(monthOf(todayIST()))
   const [text, setText] = useState('')
   const [error, setError] = useState<string | null>(null)
 
