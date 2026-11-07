@@ -45,6 +45,12 @@ Mail sent locally (sign-in codes) lands in Mailpit at http://127.0.0.1:54324.
 | `…20_attachments.sql` | Files attached to notice drafts, part of the approved revision, readable by residents once published |
 | `…21_templates.sql` | Expense templates: saved payee, category, description and fixed amount that pre-fill a proposal, never chained |
 | `…22_anchor.sql` | Which months' chain heads are due for publishing, and what was published; the daily job that triggers it |
+| `…23_report_compare.sql` | A year's report beside the year before, from `api_report`'s own figures |
+| `…24_signoff_months.sql` | Per month, for its sign-off: open flags, the postings they concern and the residents who raised them |
+| `…25_statements.sql` | Bank statement credits in exact minor units, matched to claims by UTR when read; nothing chained. Also `money_text` without floating point |
+| `…26_dues_visibility.sql` | `flat_dues`: the committee reads every flat, anyone else only the flats they hold an open tenure on |
+| `…27_statement_limit.sql` | The auditor's year-close statement: required, at most 16,384 bytes of UTF-8, refused with the limit, never truncated |
+| `…28_perf.sql` | `auth.uid()` once per query in RLS, an index under every foreign key, a key on `dues_reminders` |
 | `supabase/functions/api/` | The signing boundary: authenticates, derives the admin's Ed25519 key, registers it, signs |
 | `supabase/tests/` | pgTAP. `chain_vectors.test.sql` is generated from the contract vectors |
 | `scripts/seed.ts` | Local demo data, driven through the real rule functions |
