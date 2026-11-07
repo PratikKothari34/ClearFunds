@@ -40,13 +40,15 @@ Then:
   opening a PR.
 - **`frontend/README.md`** — how to install, run, test and build the
   frontend. Each lane documents its own stack, so this is the file to read
-  before running anything in `frontend/`. There is **no root `README.md`
-  yet**: by `CONTRIBUTING.md` it is created once both stacks run, and it will
-  hold repository-wide setup and link to the two lane READMEs. Until then its
-  absence is deliberate, not an omission to fix.
+  before running anything in `frontend/`. The root
+  [`README.md`](README.md) covers what the product is and how the two lanes
+  fit together, and links to both lane READMEs.
 
-**The frontend exists and runs.** `frontend/` holds a React 19 + TypeScript
-SPA on Vite. The backend does not exist yet.
+**Both stacks exist and run.** `frontend/` holds a React 19 + TypeScript SPA
+on Vite. `backend/` holds the Supabase stack — 21 migrations under
+`backend/supabase/migrations/`, one edge function at
+`backend/supabase/functions/api/`, and a local seed script. Run the backend
+with `supabase start`; the seed targets the local API only.
 
 ## Who builds what
 
@@ -71,7 +73,8 @@ there is nothing to build — ask for one rather than picking a starting point.
 Each issue carries its own scope and the contract the frontend expects;
 anything outside that scope is a separate issue.
 
-**The frontend is built; the backend has not started.** The frontend is
+**Both stacks are built; what is not finished is the boundary between
+them.** The frontend is
 React 19 + TypeScript on Vite, deployed as a static SPA, with TanStack Router
 (route-level code splitting), TanStack Query, TanStack Virtual for the ledger,
 and Tailwind v4 reading its theme from CSS tokens. **English only**, and
@@ -81,11 +84,18 @@ together, not one array entry. It holds
 no signing keys, renders no reports, and performs no money arithmetic — see
 the settled items in the next section.
 
-It currently reads sample data from one module; every place a server payload
-belongs is marked there, and the per-band `failed` props are where each
-query's error state wires in.
-**The backend stack is `tadiPro250`'s to choose**, constrained only by the
-contract those items describe.
+It reads live data: every route queries the API through `lib/api.ts`, and each
+response is parsed against a row shape in `lib/rows.ts` rather than cast, so a
+payload that does not match the contract surfaces as a failure instead of
+rendering as a wrong figure. The sample-data module it used to read from has
+been deleted.
+
+**What remains is contract gaps, not missing stacks.** Where the two sides
+disagree today, an open issue names it — a response field the contract does
+not describe, a status value the contract does not list, a limit whose units
+differ between the deployed function and the specification. Those issues carry
+the contract the frontend needs; they are the work, and the list in them is
+authoritative over any summary here.
 
 ## Before you change anything
 

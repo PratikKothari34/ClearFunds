@@ -72,7 +72,7 @@ two disagree, fix CODEOWNERS in its own PR.
 |---|---|---|
 | `AGENTS.md` | Both | A settled rule changes, or the orientation for agents goes stale |
 | `CONTRIBUTING.md` | Both | The way we work changes. Edit it instead of agreeing in chat |
-| `README.md` (root) | Both | Created once both stacks run. It holds setup for the whole repo and links to the two lane READMEs |
+| `README.md` (root) | Both | What the product is, or how the two lanes fit together, changes. It links to the two lane READMEs rather than repeating them |
 | `docs/GOALS.md` | Both | An open question is settled or a new one is raised |
 | `docs/decisions/README.md` and entries | Both | A load-bearing decision is made (§5.4) |
 | `frontend/README.md` | Pratik | How to run, build and test the frontend changes |
