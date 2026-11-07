@@ -30,7 +30,7 @@ Last updated 2026-11-07.
    together and waiting for your review.
 2. **#93, then #95 and #96:** the contract rows for #90 and #92, and the ledger
    vectors.
-3. **#97, #98, #101, #113 and #114:** your findings on #66 and #84, the CSP for
+3. **#97, #98, #101, #114 and #115:** your findings on #66 and #84, the CSP for
    #5, and the monthly reversal figures you asked for on #109.
 4. **#102:** the contract is in its own PR. The backend follows once you agree it.
 5. **Deploying migrations 22-29 and the `api` function** as one verified batch,
