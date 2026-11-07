@@ -468,3 +468,60 @@ Point it at [`AGENTS.md`](AGENTS.md) first, then this file. Agents are bound
 by the same lanes. An agent working for the backend owner does not write
 frontend code to unblock itself; it writes the contract request. Strip any
 attribution trailer it adds (§5.5).
+
+### 10.1 Wire the guard, or it is decoration
+
+[`.claude/hooks/guard.py`](.claude/hooks/guard.py) denies four things from a
+command line before the command runs: an attribution trailer in a commit
+message (§5.5), an absolute system path in a commit message, a push whose
+refspec targets `main` (§3), and content piped through a heredoc. It is in
+the repository; **the config that runs it is not**, because it is per-machine
+and is deliberately untracked. A fresh clone therefore has the script and no
+hook, which looks installed and guards nothing.
+
+If your agent reads Claude Code settings, add this to
+`.claude/settings.local.json` yourself:
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          { "type": "command", "command": "python3 \"${CLAUDE_PROJECT_DIR}/.claude/hooks/guard.py\"", "onFailure": "block" }
+        ]
+      }
+    ]
+  }
+}
+```
+
+**Use the interpreter your machine actually has, and check it before you paste
+the block.** `python3` above suits macOS and Linux. On Windows use
+`py -3.12`, because a bare `python` there is frequently a different install
+from the one holding your packages. Either way, run
+`<interpreter> .claude/hooks/guard.py` once by hand first and confirm it
+starts — the next paragraph is why that one check matters.
+
+`"onFailure": "block"` is not optional. Without it a guard that crashes —
+a syntax error, a missing interpreter — **fails open**, and every call it was
+meant to deny goes through while the hook still appears configured.
+
+The two rules combine in a way worth knowing before it happens to you: with
+`block` set, an interpreter that is not on your `PATH` does not merely leave
+the guard uninstalled, it **denies every `Bash` and `PowerShell` call** the
+matcher covers. That is the correct behaviour — a guard that cannot run must
+not wave work through — but the symptom is a repository that appears broken
+rather than one that appears unguarded, so verify the interpreter rather than
+trusting the paste.
+
+Use the absolute form above rather than a bare `.claude/hooks/guard.py`. An
+agent's working directory moves — into `frontend/` to run the suite, into
+`backend/` for a migration — and a relative path then resolves to nothing. A
+hook whose script is missing is a hook failure, so with `onFailure` set it
+denies every command until you notice, and without it guards nothing.
+
+Check it on a command you expect to be denied, not on one you expect to pass:
+a guard that allows everything and a guard that is not running are
+indistinguishable from the passing side.
