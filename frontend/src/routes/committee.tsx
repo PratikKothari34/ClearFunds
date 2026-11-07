@@ -64,10 +64,10 @@ function Committee() {
 
       {mine && (
         <div className="mt-4 flex flex-wrap gap-2">
-          <Button size="sm" icon={<Scale className="size-4" />} onClick={() => setAction('limit')}>Change limit</Button>
-          <Button size="sm" icon={<UserPlus className="size-4" />} onClick={() => setAction('seat')}>Seat a member</Button>
-          <Button size="sm" icon={<Gavel className="size-4" />} onClick={() => setAction('auditor')}>Appoint auditor</Button>
-          <Button size="sm" icon={<UserPlus className="size-4" />} onClick={() => setAction('resident')}>Add resident</Button>
+          <Button icon={<Scale className="size-4" />} onClick={() => setAction('limit')}>Change limit</Button>
+          <Button icon={<UserPlus className="size-4" />} onClick={() => setAction('seat')}>Seat a member</Button>
+          <Button icon={<Gavel className="size-4" />} onClick={() => setAction('auditor')}>Appoint auditor</Button>
+          <Button icon={<UserPlus className="size-4" />} onClick={() => setAction('resident')}>Add resident</Button>
         </div>
       )}
 

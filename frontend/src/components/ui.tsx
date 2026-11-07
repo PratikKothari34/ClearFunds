@@ -245,7 +245,7 @@ export function Failed({ error, retry }: { error: unknown; retry?: () => void })
     <Card className="p-5">
       <p className="font-medium text-break">Could not load this.</p>
       <p className="mt-1 text-sm text-ink-2">{error instanceof Error ? error.message : 'The server did not answer.'}</p>
-      {retry && <Button size="sm" className="mt-3" onClick={retry}>Try again</Button>}
+      {retry && <Button className="mt-3" onClick={retry}>Try again</Button>}
     </Card>
   )
 }

@@ -175,7 +175,7 @@ function NeedsYou({ me }: { me: Me }) {
   return (
     <section aria-label="What needs you">
       <Caption action={isCommittee(me) && (
-        <Link to="/new"><Button size="sm" tone="quiet" icon={<Plus className="size-4" />}>New entry</Button></Link>
+        <Link to="/new"><Button tone="quiet" icon={<Plus className="size-4" />}>New entry</Button></Link>
       )}>
         Needs you
       </Caption>

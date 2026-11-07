@@ -49,8 +49,8 @@ function YearCard({ y, mine }: { y: Year; mine: boolean }) {
         <p key={h.seq} className="mt-2 text-[13px] text-ink-2">{opinionLabel[h.opinion]} by {h.auditor}, {instant(h.recorded_at)}</p>
       ))}
       <div className="mt-4 flex flex-wrap gap-2">
-        <Link to="/reports"><Button size="sm">Read the statements</Button></Link>
-        {can && <Button size="sm" tone="primary" icon={<Gavel className="size-4" />} onClick={() => setOpen(true)}>Give opinion and close</Button>}
+        <Link to="/reports"><Button>Read the statements</Button></Link>
+        {can && <Button tone="primary" icon={<Gavel className="size-4" />} onClick={() => setOpen(true)}>Give opinion and close</Button>}
       </div>
       {can && <CloseSheet y={y} open={open} onClose={() => setOpen(false)} />}
     </Card>

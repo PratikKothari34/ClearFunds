@@ -43,7 +43,7 @@ function SignOff() {
                   </p>
                 </div>
                 {t && <span className="hidden text-right text-xs sm:block"><Amount minor={t.out_minor} size="sm" className="text-debit" /><span className="block text-ink-2">spent</span></span>}
-                {due ? <Button size="sm" tone="primary" onClick={() => setOpen(m)}>Sign</Button> : s ? <Chip tone="anchor">Signed</Chip> : null}
+                {due ? <Button tone="primary" onClick={() => setOpen(m)}>Sign</Button> : s ? <Chip tone="anchor">Signed</Chip> : null}
               </div>
             )
           })}
