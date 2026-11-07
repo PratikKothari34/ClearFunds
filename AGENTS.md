@@ -45,7 +45,7 @@ Then:
   fit together, and links to both lane READMEs.
 
 **Both stacks exist and run.** `frontend/` holds a React 19 + TypeScript SPA
-on Vite. `backend/` holds the Supabase stack — 21 migrations under
+on Vite. `backend/` holds the Supabase stack — the migrations under
 `backend/supabase/migrations/`, one edge function at
 `backend/supabase/functions/api/`, and a local seed script. Run the backend
 with `supabase start`; the seed targets the local API only.
@@ -101,8 +101,8 @@ authoritative over any summary here.
 
 **The reasoning behind every rule below is in `docs/GOALS.md` → "The hard
 decisions".** Read it when you need to know *why*; the rules here are what
-binds. Two decisions are still open — head publication and auditor identity —
-and neither blocks a first schema.
+binds. One decision is still open, auditor identity, and it does not block a
+schema.
 
 Settled, and binding on backend work. **Each is a rule, not an argument** —
 the reasoning behind them is in `docs/GOALS.md` and the decision records, and
@@ -117,7 +117,8 @@ none of it needs re-deriving to follow the rule.
    may say he certified, verified or confirmed that the accounts are correct.
 3. **A hash miss reads "no entry in the chain this server sent you has this
    hash"** — never "invalid" or "fake". Absence from a served chain proves
-   nothing on its own (rule 13).
+   nothing on its own (rule 13). Any member can look up any hash, and the lookup
+   **returns nothing a member could not already read.**
 
 **Money:**
 
@@ -206,12 +207,15 @@ none of it needs re-deriving to follow the rule.
    serve entries renumbered 1..N under a head it signed, every check passing,
    the concealed entries simply absent. **So the published head must be
    fetchable by the client directly** — a recipient that takes delivery but
-   exposes no client-readable endpoint does not close this.
+   exposes no client-readable endpoint does not close this. Until a client
+   holds that anchor, **a "no unresolved disputes" figure detects an operator
+   who edits, not one who omits, and must be worded that way.**
 14. **Signing keys are server-held**, so no key material reaches the client —
    and that is exactly why **the published head is part of the feature, not a
    later addition.** The operator could mint an approval, and hash-chaining
    inside a database the admins control detects nothing an admin with database
-   access cannot repair. Mechanism and cadence are still open.
+   access cannot repair. Mechanism and cadence are in
+   [`contracts/anchor/v1.md`](contracts/anchor/v1.md).
 15. **Reports are generated server-side from signed data**; a client-rendered
    report can be altered before it is read. **Reversed entries always appear
    in reports** — omitting them conceals what the chain exists to prove.
@@ -275,8 +279,9 @@ none of it needs re-deriving to follow the rule.
    link is **server-side and must never enter a preimage**, and the tenant must
    never be given the owner's handle. **The owner may see what their own tenant
    raised and nothing more** — a fourth visibility rule, scoped to that owner's
-   own tenant, with no power to withdraw, edit or resolve it. **The tenant is
-   told that their owner can see this**, at enrolment and on the flag surface.
+   own tenant, with no power to withdraw, edit or resolve it, and **the tenant's
+   handle must not appear on a shared or public surface.** **The tenant is told
+   that their owner can see this**, at enrolment and on the flag surface.
    A tenant tenure closes independently; **closing an owner tenure cascades**
    to its tenant tenures.
 25. **Flags are append-only: nothing is withdrawn or hidden.** A resident may
@@ -304,8 +309,9 @@ none of it needs re-deriving to follow the rule.
    sequence 2.
 28. **Custom posts are display titles over the `member` seat**, and **tasks
    never complete a money movement** — a task lets someone start or prepare
-   work, checked server-side, and who approves stays as rules 7–9 fix it. Every
-   assignment change is chained (`tasks_set`).
+   work, checked server-side, and who approves stays as rules 7–9 fix it. The
+   president changes assignments alone, and every change is chained
+   (`tasks_set`).
 29. **An opening balance and pre-existing arrears enter after open as ordinary
    proposals** with category `opening`, needing the committee vote. **No import
    path bypasses approval.**
@@ -330,7 +336,7 @@ none of it needs re-deriving to follow the rule.
    reference — online only (`upi`, `bank_transfer`), UTR mandatory. **Its actor
    is absent and it never carries the claimant's pseudonym**: a pseudonym
    beside a flat id maps that pseudonym to a flat and unmasks every flag it
-   raised. A reviewer turns a claim into a `receipt` proposal needing the
+   raised. Who claimed is held server-side. A reviewer turns a claim into a `receipt` proposal needing the
    approvals of rules 7–9, or rejects it with a mandatory reason; both outcomes
    are chained (`claim_closed`), and a declined or withdrawn receipt reopens the
    claim. Open more than 7 days shows as unreviewed.
@@ -339,7 +345,8 @@ none of it needs re-deriving to follow the rule.
    the current revision** — an edit clears earlier ones — snapshotted at first
    submission and only ever raised. **Votes are one per flat**, cast by any
    owner or the resident tenant, first ballot counting, eligible flats
-   snapshotted when the vote opens; named or anonymous per vote. A named ballot
+   snapshotted when the vote opens. The committee chooses named or anonymous
+   per vote, and may allow more than one pick. A named ballot
    carries the `flat_id`, an anonymous one `H(society_salt || vote_seq ||
    flat_id)`, and **a ballot never carries a person or a pseudonym** (rule 32).
    **A proposal may cite a closed vote and still needs its own approvals**, as

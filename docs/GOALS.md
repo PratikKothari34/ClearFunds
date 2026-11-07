@@ -191,11 +191,8 @@ entries are chained and real money is recorded. **Nearly all of them are
 settled** — this section is the reasoning, and `AGENTS.md` states the resulting
 rules in the form that binds code.
 
-**Two things are genuinely still open**, and both are called out in place
-below: **how the chain head is published** (mechanism, cadence, recipients —
-with one requirement already fixed: residents' own software must be able to
-fetch it directly), and **how an auditor proves who they are** when they come
-to sign off.
+**One thing is genuinely still open**, called out in place below: **how an
+auditor proves who they are** when they come to sign off.
 
 **Tamper-evident is not tamper-proof.** Hash-chaining makes tampering
 *detectable* by anyone who verifies the chain. It does not make tampering
@@ -210,8 +207,9 @@ optional. The claim the product makes is **the record cannot be changed
 quietly** — never that it cannot be forged by whoever runs the server.
 *Tamper-evident*, consistently; never *tamper-proof*.
 
-**Still open:** the publication mechanism, cadence and recipients — now with
-one requirement attached. **Whatever holds the published head, residents' own
+**Settled 2026-10-27:** the head is published monthly to a repository the
+committee does not control; [`contracts/anchor/v1.md`](../contracts/anchor/v1.md)
+is the mechanism. The requirement behind it stands: **whatever holds the published head, residents' own
 software must be able to fetch it directly.** A recipient that merely receives
 a head and exposes nothing readable does not close the gap it exists to close:
 on a first-ever load, a server can serve a smaller, internally consistent
