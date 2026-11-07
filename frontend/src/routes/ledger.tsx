@@ -6,6 +6,7 @@ import { useDisputes, useLedger, useSummary } from '../lib/api'
 import { useMeStrict, isCommittee } from '../lib/session'
 import { month, monthOf } from '../lib/format'
 import { countable, owing } from '../lib/countable'
+import { monthHasReversal as monthReversal } from '../lib/reversed'
 import { match } from '../lib/search'
 import { disputedBy } from '../lib/disputed'
 import { Amount, Button, Empty, Facts, Failed, Input, Loading, PageTitle, Segmented } from '../components/ui'
@@ -141,6 +142,26 @@ function Ledger() {
                           <Facts items={[
                             <span key="i">In <Amount minor={months.get(it.month)!.in_minor} size="sm" className="text-xs text-credit" /></span>,
                             <span key="o">Out <Amount minor={months.get(it.month)!.out_minor} size="sm" className="text-xs text-debit" /></span>,
+                            /*
+                             * Both figures above carry reversals gross, so
+                             * this says when part of them is a correction
+                             * rather than money that moved. One fact for the
+                             * month, not one per side: this header is a
+                             * virtualized item whose height is measured, and
+                             * a block disclosure under each figure would both
+                             * break the row and remeasure it. The per-side
+                             * split is on the dashboard, which has the room.
+                             *
+                             * `monthReversal` is what decides; a reader who
+                             * sees nothing here is being told the month holds
+                             * no reversals, which is why 'unknown' renders a
+                             * phrase instead of nothing.
+                             */
+                            ...(monthReversal(months.get(it.month)!) === 'none' ? [] : [
+                              <span key="r">{monthReversal(months.get(it.month)!) === 'unknown'
+                                ? 'may include corrections'
+                                : 'includes corrections'}</span>,
+                            ]),
                           ]} />
                         </span>
                       )}

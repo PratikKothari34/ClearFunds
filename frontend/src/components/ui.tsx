@@ -10,6 +10,7 @@ import {
 import { parts } from '../lib/money'
 import { countable } from '../lib/countable'
 import { initials } from '../lib/format'
+import type { Reversed } from '../lib/reversed'
 
 export const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(' ')
 
@@ -161,6 +162,37 @@ const toneClass: Record<Tone, string> = {
   anchor: 'bg-anchor-soft text-anchor',
   break: 'bg-break-soft text-break',
   accent: 'bg-accent-soft text-accent',
+}
+
+/*
+ * WHAT A GROSS FIGURE DOES NOT SAY ON ITS OWN.
+ *
+ * `in_minor` and `out_minor` carry reversals gross, so a month holding one
+ * reversed expense reads "In Rs 9,000" though nobody paid the society
+ * anything. The figure is correct and the screen is wrong about what it
+ * means. This is the sentence that fixes the meaning rather than the figure -
+ * no arithmetic here, and none at any call site: `0002` keeps money
+ * arithmetic out of this lane entirely, and netting would also conceal the
+ * reversal, which `0004` says must always appear.
+ *
+ * Three states because reversed.ts has three. `unknown` says so rather than
+ * rendering nothing: silence here is indistinguishable from "no reversals",
+ * which is the overstatement this component exists to prevent.
+ */
+export function ReversedNote({ of, className }: { of: Reversed; className?: string }) {
+  if (of.kind === 'none') return null
+  if (of.kind === 'unknown') {
+    return (
+      <p className={cx('text-xs text-ink-2', className)} title="Whether this includes corrections could not be read from the record.">
+        may include corrections
+      </p>
+    )
+  }
+  return (
+    <p className={cx('text-xs text-ink-2', className)}>
+      includes <Amount minor={of.minor} size="sm" tone="muted" /> of corrections
+    </p>
+  )
 }
 
 export function Chip({ tone = 'neutral', children, icon, className }: { tone?: Tone; children: ReactNode; icon?: ReactNode; className?: string }) {
