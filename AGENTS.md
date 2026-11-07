@@ -240,10 +240,12 @@ none of it needs re-deriving to follow the rule.
    year**. **Severity is ordered `clean` < `qualified` < `adverse` <
    `disclaimer`**: a disclaimer is *worse* than adverse. The headline is **the
    most serious opinion ever received** (never "most adverse", ambiguous under
-   this ranking), with history beneath it. **No opinion ever supersedes an
-   earlier one — do not implement a newest-wins or changed-committee
-   exception.** An earlier draft allowed one where the appointing admin set had
-   changed; it was **removed, not narrowed**, for three reasons that each stand
+   this ranking), with history beneath it. **A later opinion takes the headline
+   only by being more serious** — so a `disclaimer` does displace an earlier
+   `adverse`, and a `clean` never displaces anything. **Do not implement a
+   newest-wins or changed-committee exception.** An earlier draft allowed one
+   where the appointing admin set had changed; it was **removed, not
+   narrowed**, for three reasons that each stand
    alone: any exception keyed on something the committee controls hands the
    committee the key, and a changed appointing set costs one appointment; it
    fires with nobody acting in bad faith, because the statutory auditor cannot

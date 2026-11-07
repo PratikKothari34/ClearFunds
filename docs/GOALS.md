@@ -333,12 +333,23 @@ complaints.
 auditor records when the records they asked for were never produced, so no
 opinion can honestly be formed. Sealing a year and endorsing it are different
 things. A year shows **the most serious opinion it has ever received**, with the
-full history beneath it, and a later audit can only govern over an earlier one
-if the committee that appointed it had itself changed. Both halves matter: one
-sour auditor should not mark an honest society permanently, and a committee
-should not be able to appoint its way to a clean report. Nothing about
-superseding changes a sealed year's figures. The auditor keeps no private
-notes — what they record, residents read.
+full history beneath it. **A later audit takes the headline only by being more
+serious** — never by being newer, and never because the committee that
+appointed it had changed. An earlier draft allowed that second route, and it was
+removed rather than narrowed: a committee controls who it appoints, so an
+exception keyed on the appointing committee hands the committee the key; and
+because a society's auditor cannot serve more than two consecutive years, a
+differently-appointed auditor arrives by law every two years or so, which would
+have made the exception the normal case rather than the rare one.
+
+The cost is real and worth naming: a society that was marked unfairly leads with
+that verdict until a more serious one displaces it, which is to say it may lead
+with it for good. What answers that is the history, not the headline — **every
+opinion stays listed, each with its date and the auditor's own stated reason**,
+and the number of opinions is not in the headline, so a year that was audited
+four times does not read as worse than one audited once. A later opinion never
+changes a sealed year's figures either; it is recorded beside the others, not
+applied. The auditor keeps no private notes — what they record, residents read.
 
 **Severity runs `clean`, `qualified`, `adverse`, `disclaimer`, in that order.**
 A disclaimer is **more serious** than an adverse opinion: an auditor who was
