@@ -1,6 +1,7 @@
 import * as ed from '@noble/ed25519'
 import { ChainError, signedMessage, unhex, walk, type Entry } from './chain'
 import { fetchChain } from './api'
+import { opening, openingLine, type Opening } from './opening'
 
 // What this device can establish on its own, and nothing more. Every claim
 // a screen makes about the record comes from a Check produced here.
@@ -10,6 +11,10 @@ import { fetchChain } from './api'
 // before has changed. It proves nothing about entries that were never
 // served. Only a head published outside the committee, fetched directly,
 // closes that, and until one is configured the screen says so.
+//
+// It proves nothing about whether the RIGHT thing was written either. A
+// chain opened with no election minutes hashes perfectly, so consistency and
+// constitution are separate questions - see opening.ts.
 
 export type Head = { hash: string; highest_sequence: number; entry_count: number; as_of: number; format_version: number }
 
@@ -82,6 +87,19 @@ export type Check = {
   device: 'first' | 'consistent' | { changed: number }
   anchor: 'unpublished' | 'unreachable' | 'matches' | 'behind' | { mismatch: Head }
   anchorHead?: Head
+  /*
+   * How the society was opened - society.v1.md's sequence 1 and 2 rule, which
+   * a hash walk cannot check because a wrongly-opened chain hashes perfectly.
+   *
+   * OPTIONAL ON PURPOSE, and this is the field-addition hazard the comment on
+   * asCheck() records: `regressed` was added to this type and every cached
+   * Check written before that shipped it as `undefined`, which would have
+   * blanked the dashboard on `c.regressed.length`. So this field is optional
+   * in the type, absent is accepted by the parse, and verdict() treats absent
+   * as "not determined" rather than dereferencing it. An old cache must
+   * degrade to no claim, never to a false one and never to a crash.
+   */
+  opening?: Opening
 }
 
 const memKey = (s: string) => `cf-seen:${s}`
@@ -137,6 +155,20 @@ export function asCheck(v: unknown): Check | null {
   const named = anchor === 'unpublished' || anchor === 'unreachable' || anchor === 'matches' || anchor === 'behind'
   if (!named && !(typeof anchor === 'object' && anchor !== null && isHead((anchor as { mismatch?: unknown }).mismatch))) return null
   if (c.anchorHead !== undefined && !isHead(c.anchorHead)) return null
+  /*
+   * ABSENT IS ACCEPTED, because every Check cached before this field existed
+   * has no `opening` - refusing those would discard the stored evidence of a
+   * change on upgrade, which is the one thing the memory exists to keep.
+   * A PRESENT BUT MALFORMED value is refused, because verdict() reads
+   * `.wrong` and `.found` off the object form.
+   */
+  const o = c.opening
+  if (o !== undefined && o !== 'ok' && o !== 'short') {
+    if (typeof o !== 'object' || o === null || Array.isArray(o)) return null
+    const w = (o as { wrong?: unknown }).wrong
+    if (w !== 'kind' && w !== 'purpose' && w !== 'first') return null
+    if (typeof (o as { found?: unknown }).found !== 'string') return null
+  }
   return c as unknown as Check
 }
 
@@ -359,9 +391,17 @@ export async function runCheck(society: string, onStep: OnStep = () => {}): Prom
   else if (hashes[a.highest_sequence - 1] !== a.hash) anchor = { mismatch: a }
   else anchor = a.entry_count === a.highest_sequence ? 'matches' : { mismatch: a }
 
+  /*
+   * Read from the entries the server served, independent of whether the walk
+   * succeeded: a chain that fails its hashes is already reported as 'break',
+   * and one that passes them can still have been opened wrongly. The two
+   * findings are about different things, so neither gates the other.
+   */
+  const open = opening(entries)
+
   const check: Check = {
     at, entries: entries.length, head: { seq: headSeq, hash: headHash }, chain, unchecked, regressed,
-    signatures, device, anchor,
+    signatures, device, anchor, opening: open,
     ...(typeof a === 'object' ? { anchorHead: a } : {}),
   }
   write(checkKey(society), check)
@@ -426,6 +466,20 @@ export function verdict(c: Check): { tone: 'ok' | 'warn' | 'break'; line: string
           ? `Entry ${c.unchecked[0]} is of a kind this app version does not recognise, so its contents were not checked. Update the app to check it.`
           : `${n} entries are of a kind this app version does not recognise, so their contents were not checked. Update the app to check them.`,
     }
+  }
+  /*
+   * How the society was opened. Below every 'break' because it is not
+   * evidence of tampering - an older server is the likelier cause - and
+   * ABOVE both reassurances because "Matches the published fingerprint" must
+   * not be the last word on a chain that was never properly opened. The
+   * fingerprint genuinely does match; it is simply not the question.
+   *
+   * `undefined` falls through deliberately: a cache from before this field
+   * makes no claim either way, and inventing one from its absence would be a
+   * false finding on an old device.
+   */
+  if (c.opening !== undefined && c.opening !== 'ok') {
+    return { tone: 'warn', line: openingLine(c.opening)! }
   }
   if (c.anchor === 'matches') return { tone: 'ok', line: 'Matches the published fingerprint.' }
   return { tone: 'warn', line: 'Consistent on this phone. Not yet compared with a published fingerprint.' }
