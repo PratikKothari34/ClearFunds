@@ -22,4 +22,5 @@ Append-only. One line per contract PR:
 2026-10-27 | anchor.v1 | ADD monthly published chain head: paths, file, client check, cadence, failures, account | #1 | new
 2026-10-27 | api.v1 | ADD api_report_compare: a year beside the one before | #67 | additive
 2026-10-27 | api.v1 | ADD api_signoff_months: open flags, entries and residents per month | #70 | additive
+2026-11-07 | api.v1 | ADD reversed_in_minor, reversed_out_minor on api_summary months | #112 | additive
 2026-11-07 | api.v1 | ADD api_ledger_page, api_flat_statement, api_recent_receipts, api_payees, api_structuring_hint | #102 | additive

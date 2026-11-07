@@ -299,7 +299,7 @@ describe('limitEntries', () => {
 describe('summary', () => {
   const base = {
     balance_minor: 400000, entries: 42, head_seq: 42, as_of: 1_700_000_000, fy: '2026-27',
-    months: [{ month: '2026-10', in_minor: 1, out_minor: 2, charged_minor: 3, entries: 4 }],
+    months: [{ month: '2026-10', in_minor: 1, out_minor: 2, reversed_in_minor: 0, reversed_out_minor: 0, charged_minor: 3, entries: 4 }],
     fy_spend: [{ category: 'lift', amount_minor: 5 }],
     fy_spend_total_minor: 5, outstanding_minor: 125000, flats_outstanding: 7, flats: 120,
   }
@@ -323,6 +323,58 @@ describe('summary', () => {
   it('rejects a malformed figure nested in the months array', () => {
     expect(() => summary({ ...base, months: [{ ...base.months[0], in_minor: null }] }, 'useSummary'))
       .toThrow(ShapeError)
+  })
+
+  /*
+   * The reversed keys are `coalesce(..., 0)` server-side, so a month with no
+   * reversals reports 0 and ABSENT means the summary is broken, not clean.
+   * They must fail HERE rather than reach a surface as undefined: `undefined
+   * > 0` is false, so a disclosure keyed off them would silently never
+   * render and the screen would go back to reading a reversed Rs 9,000
+   * expense as Rs 9,000 the society received.
+   *
+   * These assert the REJECTION, not the wrapper. `required(int)` and a bare
+   * `int` return the same verdict on every input, because `int` already
+   * throws on null and undefined - neither is a safe-integer number. Removing
+   * `required` here is an unkillable mutant by construction, and the
+   * assertion below on the message is the only thing that distinguishes the
+   * two, so it is the one that would catch the removal. Stated rather than
+   * papered over, per the redundant-guard rule.
+   *
+   * This is also the first of two guards on this path: reversed.ts refuses
+   * the same values again at the decision, where the surface asks. That
+   * redundancy is mutated both-at-once in reversed.test.ts.
+   */
+  it.each(['reversed_in_minor', 'reversed_out_minor'])(
+    'rejects a month missing %s rather than letting it reach a surface as undefined', (key) => {
+      const { [key]: _dropped, ...without } = base.months[0] as Record<string, unknown>
+      expect(() => summary({ ...base, months: [without] }, 'useSummary')).toThrow(ShapeError)
+    },
+  )
+
+  it.each(['reversed_in_minor', 'reversed_out_minor'])('rejects a null %s', (key) => {
+    expect(() => summary({ ...base, months: [{ ...base.months[0], [key]: null }] }, 'useSummary'))
+      .toThrow(ShapeError)
+  })
+
+  it('says a null reversed figure contradicts the contract, not that it is the wrong type', () => {
+    /*
+     * The one observable difference between `required(int)` and `int` on this
+     * field. A developer handed "expected a safe integer, got null" goes
+     * looking for a type bug; the contract wording says the server broke a
+     * promise, which is the actual fault and points at the right lane.
+     */
+    try {
+      summary({ ...base, months: [{ ...base.months[0], reversed_in_minor: null }] }, 'useSummary')
+      expect.unreachable('a null reversed figure must throw')
+    } catch (e) {
+      expect((e as ShapeError).message).toContain('never null')
+      expect((e as ShapeError).path).toContain('reversed_in_minor')
+    }
+  })
+
+  it('accepts a month that reports zero reversals, which is the common case', () => {
+    expect(() => summary(base, 'useSummary')).not.toThrow()
   })
 
   it('names the nested path, not just the top-level field', () => {

@@ -82,3 +82,7 @@ $RECYCLE.BIN/
 # of the product and the repo is public.
 *.zip
 Screenshot*.png
+# Review drafts written before they are posted. Local-only: the repo is
+# public, and an unposted review comment is working material, not a
+# published artefact.
+docs/pending-reviews/
