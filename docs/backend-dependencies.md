@@ -7,8 +7,23 @@ built without reading the frontend source.
 **This document states dependencies. It does not specify how to build them** -
 schema, RLS, function bodies and deployment are the backend lane's calls.
 
-Status as of 2026-11-05. The deployed site is live but shows no data: every
-dependency below is unmet.
+**Status as of 2026-11-07, and most of this list is now met.** The migrations
+define every RPC, table and function named below, and the four edge functions
+exist. What remains is noted per section rather than at the top, because the
+sections are no longer in the same state as each other:
+
+- **§1 environment variables** - the two Supabase values are supplied. The
+  anchor template is still empty, deliberately: nothing publishes a head yet,
+  and an unset template degrades to no claim rather than a false one.
+- **§2 auth configuration** - unverified from this side. It is dashboard
+  state, not code, so the frontend cannot assert it; the failure it produces
+  looks like a mail problem, which is why it stays on the list.
+- **§3 RPCs, §4 tables, §5 edge functions** - defined in the migrations.
+  "Defined in a migration" is not "reachable in the deployed project" and
+  this document cannot tell the difference, so what each section now records
+  is the **contract gaps**, not the absence of the thing.
+- **§6 chain kinds** - met, and the ledger vectors are now in flight.
+- **§7 response headers** - met and verified live.
 
 ## 1. Three environment variables
 
@@ -47,8 +62,9 @@ Sign-in is a six-digit emailed code (`signInWithOtp` then `verifyOtp`).
 
 ## 3. Fourteen RPCs
 
-All called through PostgREST. **Thirteen are specified in `contracts/api/v1.md`
-and need only to exist.**
+All called through PostgREST, and all fourteen are now defined in the
+migrations. **Thirteen are specified in `contracts/api/v1.md`**; the
+outstanding item is the fourteenth, below.
 
 ```
 api_add_person        api_add_tenure       api_flag_note
@@ -118,12 +134,24 @@ of what it means for a kind added later.
   sides agree about the *layout*; only a vector proves they agree about the
   *bytes*. The encoders are independent implementations and share no code,
   and `ledger.v1.md` - which defines every kind that moves money - still has
-  no vector file.
+  no vector file **on `main`** - the vectors for it are now in review, and
+  the frontend suite discovers vector files from the directory rather than
+  from a hand-written list, so they are picked up on merge with no frontend
+  change needed.
 - **One thing a layout cannot express**, asserted over the vectors instead: a
   `ballot` carries exactly one of `flat_id` and `flat_token`. Both present
   would place a flat beside its own anonymous token and unmask the ballot.
-  The frontend also recomputes the token from the salt, vote and flat, so a
-  change to that derivation is a breaking change on this side.
+- **The token derivation is duplicated on this side, from the vectors only.**
+  To be exact about what that does and does not mean, because the previous
+  wording read as though a resident's browser derives tokens from a secret:
+  the frontend has **no society salt** and is never sent one. It implements
+  the derivation so it can check the `flat_token` vectors in
+  `society-kinds.v1.json`, which carry a salt as *test data*. A ballot's
+  token is read from the entry, not recomputed from a salt the client holds.
+  What follows for the backend is only this: **changing the derivation
+  changes the vectors, and a vector the frontend cannot reproduce fails the
+  suite** - so it is a breaking change on this side, in the test lane rather
+  than at runtime.
 
 ## 7. Response headers the SPA cannot set
 
