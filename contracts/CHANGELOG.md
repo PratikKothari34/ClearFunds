@@ -1,6 +1,8 @@
 # Contract changelog
+
 Append-only. One line per contract PR:
 `date | contract | change | issue | breaking or not`
+
 2026-10-23 | chain-entry.v1 | ADD preimage encoding, envelope, sequence rule, reserved test_vector kind, test vectors | #2 | new
 2026-10-26 | chain-entry.v1 | ADD kinds society_opened, key_registered, proposal, approval, posting, proposal_closed, flag, flag_note, month_signoff, year_close; pseudonym and signature messages | revamp | new, additive
 2026-10-26 | api.v1 | ADD read views, RPCs and the signing edge function | revamp | new
@@ -20,4 +22,4 @@ Append-only. One line per contract PR:
 2026-10-27 | anchor.v1 | ADD monthly published chain head: paths, file, client check, cadence, failures, account | #1 | new
 2026-10-27 | api.v1 | ADD api_report_compare: a year beside the one before | #67 | additive
 2026-10-27 | api.v1 | ADD api_signoff_months: open flags, entries and residents per month | #70 | additive
-2026-11-03 | budget.v1 | DRAFT budget kinds: proposal action budget, budget_lines, posting effect budget (no amount) | #76 | additive; draft, not for implementation
+2026-11-07 | chain-entry.v1 | ADD budget kinds: proposal action budget, budget_lines, posting effect budget (no amount) | #76 | additive
