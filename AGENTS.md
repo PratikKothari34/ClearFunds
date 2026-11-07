@@ -253,8 +253,9 @@ none of it needs re-deriving to follow the rule.
    exception existed to solve. The accepted cost is that an honestly maligned
    society leads with its worst opinion — **the full list, each with its date
    and the auditor's stated reason, stays one tap away**, and the count is not
-   in the headline. Superseding **never changes a closed year's figures**, and
-   there are **no private auditor notes.**
+   in the headline. A later opinion **never changes a closed year's figures**
+   either — it is recorded beside the others, not applied — and there are **no
+   private auditor notes.**
 20. **The report's body is the balance sheet and the P&L**, generated
    server-side from chained entries, both carrying the **true and fair**
    wording. Not attachments. **An adjusting entry against a closed year is
