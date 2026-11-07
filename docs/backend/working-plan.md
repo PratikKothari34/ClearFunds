@@ -13,7 +13,7 @@ Last updated 2026-11-07.
 - **Give me side tasks as issues assigned to `tadiPro250`.** I watch the repo
   and pick them up in the order you assign them. If one is urgent, say so on it.
 - **Migrations:** the next free number is the highest on `main` or in an open
-  PR, plus one. It is **30** now. Say on the issue which number you are taking,
+  PR, plus one. It is **31** now. Say on the issue which number you are taking,
   so two PRs never hold the same one.
 - **Production:** one of us deploys, and only from `main`. Migrations go in
   number order, followed by a schema comparison against a local reset. Please
@@ -33,13 +33,13 @@ Last updated 2026-11-07.
 3. **#97, #98, #101, #114 and #115:** your findings on #66 and #84, the CSP for
    #5, and the monthly reversal figures you asked for on #109.
 4. **#102:** the contract is in its own PR. The backend follows once you agree it.
-5. **Deploying migrations 22-29 and the `api` function** as one verified batch,
+5. **Deploying migrations 22-30 and the `api` function** as one verified batch,
    once 1 is merged. That is also what ends the statement-limit mismatch you
    flagged on #79.
 6. **Budget (#76):** once #85 is approved, a backend PR with migration, report
    section and vectors.
-7. **#111:** waiting on a decision. It removes a rule the server still applies,
-   so the server half has to land with it.
+7. **Rule 19:** decided yes. The server half is in its own PR, and commit 4 of
+   #113 lands with it.
 
 ## Needs someone with an account
 
