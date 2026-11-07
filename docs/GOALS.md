@@ -39,9 +39,9 @@ What all six want is the same thing: **trust and accountability.**
 
 The president signs off each month, and that sign-off is not the same thing as
 closing the financial year — **only an auditor closes a year.** Below a
-committee-set rupee limit the treasurer and secretary approve together;
-above it, and to change the limit itself, approval is N-of-M. No role, the
-president included, moves the ledger alone.
+committee-set rupee limit the treasurer and secretary approve together; above
+it, and to change the limit itself, approval is N-of-M. No role, the president
+included, moves the ledger alone.
 
 ---
 
@@ -49,9 +49,7 @@ president included, moves the ledger alone.
 
 Societies run their finances on a patchwork of disconnected informal tools —
 Excel spreadsheets, paper registers, manual signatures, WhatsApp updates —
-rather than anything built for the job.
-
-That produces:
+rather than anything built for the job. That produces:
 
 - Opaque record-keeping, and transactions that go missing
 - Risk of unauthorized edits, or one person controlling the funds
@@ -155,14 +153,13 @@ on phones.
 
 - Simple interface
 - Mobile-first
-- Multiple languages — **future scope. English only ships today**
-  (2026-10-25). The translation library is wired in and loaded lazily, so a
-  second language costs a catalogue rather than a retrofit; the reason for
-  wiring it before it was needed is that a retrofit misses the rare strings
-  — error states, the published-record mismatch warning, reversal copy —
-  and those are the ones a resident most needs in their own language. Until
-  a catalogue lands, no reach or accessibility claim may assume a resident
-  can read the ledger in anything but English
+- **English only.** Multiple languages are future scope, and the translation
+  scaffolding that once existed has been removed (2026-10-25). Re-adding a
+  language is real work rather than one catalogue file, because a retrofit
+  misses the rare strings — error states, the published-record mismatch
+  warning, reversal copy — which are the ones a resident most needs in their
+  own language. Until a language ships, no reach or accessibility claim may
+  assume a resident can read the ledger in anything but English
 - Onboarding and training for committee members — a guided setup for the
   president and a short tour for everyone on first sign-in
 - WhatsApp integration — **future scope, not a current delivery channel.**
@@ -176,11 +173,12 @@ on phones.
 Increased transparency. Greater accountability. Improved resident trust. Fewer
 financial disputes. Better financial management overall.
 
-**Not a faster audit — a more transparent one.** How long an audit takes
-depends on the auditor's own procedures, not on our data model, so the claim was
-withdrawn on 2026-10-22. What the ledger removes is the time spent reconstructing
-what happened from paper and chat messages; what it cannot do is shorten the
-auditor's work. Promising speed invites the one comparison the product loses.
+**Not a faster audit — a more transparent one.** How long an audit takes depends
+on the auditor's own procedures, not on our data model, so the claim was
+withdrawn on 2026-10-22. What the ledger removes is the time spent
+reconstructing what happened from paper and chat messages; what it cannot do is
+shorten the auditor's work. Promising speed invites the one comparison the
+product loses.
 
 ---
 
@@ -210,14 +208,14 @@ optional. The claim the product makes is **the record cannot be changed
 quietly** — never that it cannot be forged by whoever runs the server.
 *Tamper-evident*, consistently; never *tamper-proof*.
 
-**Still open:** the publication mechanism, cadence and recipients — now with
-one requirement attached. **Whatever holds the published head, residents' own
-software must be able to fetch it directly.** A recipient that merely receives
-a head and exposes nothing readable does not close the gap it exists to close:
-on a first-ever load, a server can serve a smaller, internally consistent
-ledger under a head it signed itself, and every check still passes while the
-concealed entries are simply absent. This rules out any arrangement where only
-the operator can reach the record of what the head used to be.
+**Still open:** the publication mechanism, cadence and recipients — with one
+requirement attached. **Whatever holds the published head, residents' own
+software must be able to fetch it directly.** A recipient that merely receives a
+head and exposes nothing readable does not close the gap it exists to close: on
+a first-ever load, a server can serve a smaller, internally consistent ledger
+under a head it signed itself, and every check still passes while the concealed
+entries are simply absent. This rules out any arrangement where only the
+operator can reach the record of what the head used to be.
 
 **Corrections are settled 2026-10-22.** Nothing is ever edited or deleted. A
 correction is a **new signed, chained entry referencing the one it corrects**,
@@ -247,10 +245,9 @@ several that each sit below the limit. No threshold rule can catch that, because
 each piece really is below the limit with two real approvals. So when payments
 to the same payee add up past the limit, the ledger stops showing them as
 unrelated small items and shows **one total, marked as having crossed the
-limit**, with the pieces listed under it, and it goes in the AGM report. It
-is not blocked: blocking punishes a genuine run of small repairs to one
-contractor, and teaches splitting across different payees, which is far harder
-to spot.
+limit**, with the pieces listed under it, and it goes in the AGM report. It is
+not blocked: blocking punishes a genuine run of small repairs to one contractor,
+and teaches splitting across different payees, which is far harder to spot.
 
 **Above the limit, approval requires at least two-thirds of admins, rounded up**
 (`ceil(2 × M / 3)`: 4 of 5, 5 of 7). A society may configure a **higher**
@@ -271,14 +268,14 @@ and over. "Reversed at most once" therefore counts reversals that actually
 **The admin count follows the society's statutory committee strength.** The
 Maharashtra model bye-laws set the managing committee at 11 members for a
 society of up to 100 flats and 13 for 101 to 200 — which is the whole band this
-product is for — so the earlier plan to recommend four or five admins was
-simply wrong about its own market and has been dropped. Three remains a hard
-floor, but only for a narrow reason: a dispute has to be able to reach someone
-who is not the person being disputed, which is impossible with two. It is *not*
-that three is safer to approve with — counted out, 2-of-3 collusion takes 67%
-of the committee against 75% at four admins and 80% at five, so three is the
-weakest setting for approval integrity, not the floor that delivers it. A
-three-admin society can set its threshold to 3 and get unanimity back.
+product is for — so the earlier plan to recommend four or five admins was simply
+wrong about its own market and has been dropped. Three remains a hard floor, but
+only for a narrow reason: a dispute has to be able to reach someone who is not
+the person being disputed, which is impossible with two. It is *not* that three
+is safer to approve with — counted out, 2-of-3 collusion takes 67% of the
+committee against 75% at four admins and 80% at five, so three is the weakest
+setting for approval integrity, not the floor that delivers it. A three-admin
+society can set its threshold to 3 and get unanimity back.
 
 Two results from working the arithmetic out properly are worth stating, because
 both are the opposite of what intuition suggests. A 13-admin committee needs a
@@ -295,16 +292,16 @@ not against admins being *added*: once a group holds the threshold in a
 three-admin committee, every further appointment pays for itself, because
 seating an ally adds a vote while the required threshold rises only two times in
 every three. Working the margin out, it never turns negative and keeps growing.
-The practical consequence is that a single appointment made without a vote —
-the kind an emergency rule has to allow when a committee has collapsed — is
-enough to end up with a completely different set of admins, for the price of a
-few resignation letters. So an admin seated that way is permanently marked in
-the record, and that mark costs them exactly one thing: a vote on seating
-further admins. They approve expenses, reversals and year-end closes like
-anyone else. The mark clears once the ordinary admins vote to clear it, or at
-the next election. A society genuinely rebuilding after a walkout is unaffected
-— two honest admins can take a committee from two members back to a full
-eleven without ever stalling.
+The practical consequence is that a single appointment made without a vote — the
+kind an emergency rule has to allow when a committee has collapsed — is enough
+to end up with a completely different set of admins, for the price of a few
+resignation letters. So an admin seated that way is permanently marked in the
+record, and that mark costs them exactly one thing: a vote on seating further
+admins. They approve expenses, reversals and year-end closes like anyone else.
+The mark clears once the ordinary admins vote to clear it, or at the next
+election. A society genuinely rebuilding after a walkout is unaffected — two
+honest admins can take a committee from two members back to a full eleven
+without ever stalling.
 
 **An entry in a closed financial year cannot be reversed in that year** —
 confirmed with a practising chartered accountant. The reversal posts in the
@@ -313,37 +310,47 @@ year boundary, so the closed year's filed figures stay intact. Reversed entries
 always appear in reports; an audit report that omits them conceals exactly what
 the chain exists to prove.
 
-**A financial year is closed by an auditor's sign-off** — not by an admin
-action and not by a date rolling over. The committee cannot close its own
-books, for the same reason it cannot approve an entry alone: the party being
-checked does not declare the check complete. Until the auditor signs off the
-year stays open and entries in it remain reversible normally.
+**A financial year is closed by an auditor's sign-off** — not by an admin action
+and not by a date rolling over. The committee cannot close its own books, for
+the same reason it cannot approve an entry alone: the party being checked does
+not declare the check complete. Until the auditor signs off the year stays open
+and entries in it remain reversible normally.
 
 **A flag cannot be withdrawn — settled 2026-10-22.** Nothing in the ledger is
 ever removed, and a dispute is no exception. A resident who raised one in error
 can append that; a resident who is satisfied can append that too, and **only
 they can mark their own flag resolved.** The point is to leave nothing worth
 pressuring anyone over: there is no delete button to be talked into pressing.
-Admins can respond, and **a response does not stop the clock** — otherwise
-"we replied" becomes a way to postpone indefinitely. A flag can also cover a
-vendor, a period, or a group of entries as a single dispute, so that a sum
-split across forty small entries does not cost a resident forty separate
-complaints.
+Admins can respond, and **a response does not stop the clock** — otherwise "we
+replied" becomes a way to postpone indefinitely. A flag can also cover a vendor,
+a period, or a group of entries as a single dispute, so that a sum split across
+forty small entries does not cost a resident forty separate complaints.
 
 **The auditor's verdict is one of four, and a bad one still closes the year.**
-`clean`, `qualified`, `adverse`, or `disclaimer` — the last being what an
-auditor records when the records they asked for were never produced, so no
-opinion can honestly be formed. Sealing a year and endorsing it are different
-things. A year shows **the most serious opinion it has ever received**, with the
-full history beneath it, and a later audit can only govern over an earlier one
-if the committee that appointed it had itself changed. Both halves matter: one
-sour auditor should not mark an honest society permanently, and a committee
-should not be able to appoint its way to a clean report. Nothing about
-superseding changes a sealed year's figures. The auditor keeps no private
-notes — what they record, residents read.
+`clean`, `qualified`, `adverse`, or `disclaimer` — the last being what an auditor
+records when the records they asked for were never produced, so no opinion can
+honestly be formed. Sealing a year and endorsing it are different things. A year
+shows **the most serious opinion it has ever received**, with the full history
+beneath it. Nothing about superseding changes a sealed year's figures. The
+auditor keeps no private notes — what they record, residents read.
 
-**Severity runs `clean`, `qualified`, `adverse`, `disclaimer`, in that order.**
-A disclaimer is **more serious** than an adverse opinion: an auditor who was
+**A later audit never governs over an earlier one.** An earlier draft allowed it
+where the appointing committee had itself changed, on the reasoning that one
+sour auditor should not mark an honest society permanently. That exception was
+**removed rather than narrowed**, for three reasons that each hold on their own.
+Any exception keyed on something the committee controls hands the committee the
+key, and a changed appointing committee costs one appointment. It also fires
+with nobody acting in bad faith at all: the statutory auditor cannot serve more
+than two consecutive years, so a differently-appointed auditor arrives by
+operation of law every two years. And superseding in one direction only leaves a
+wrongly-maligned society no route back, which is the problem the exception was
+meant to solve. The cost is accepted and stated rather than hidden: an honestly
+maligned society leads with its worst opinion, and there is no one-line headline
+that is simultaneously unspinnable and fair to them. The full list of opinions,
+each with its date and the auditor's stated reason, stays one tap away.
+
+**Severity runs `clean`, `qualified`, `adverse`, `disclaimer`, in that order.** A
+disclaimer is **more serious** than an adverse opinion: an auditor who was
 blocked from doing the work at all is a louder warning than one who did it and
 found the accounts wrong.
 
@@ -354,16 +361,20 @@ Nothing in the product may claim he verified or certified them. This is the same
 kind of honesty rule as *tamper-evident, never tamper-proof*: the weaker, true
 claim is the one that survives contact with someone who checks.
 
-**The report's body is the balance sheet and the profit and loss account**, each
-carrying the **true and fair view** wording, both generated from chained entries.
-**An adjusting entry that corrects a closed year must be disclosed at the AGM** —
-it is not enough for it to sit in the current year's ledger. That disclosure is
-generated, not typed, so it cannot be left out.
+**Audit report format is settled 2026-10-22, confirmed with a practising
+chartered accountant.** The annual audit is legally mandated, so the report's
+contents were not a free choice. The report's body is the **balance sheet and
+the profit and loss account**, each carrying the **true and fair view** wording
+and each generated server-side from chained entries. And a cross-year adjusting
+entry — a correction to a sealed year, posted in the current one — **must be
+disclosed at the AGM**; it is not enough for it to sit in the current year's
+ledger. That disclosure is generated, not typed, in a section naming the entry,
+the year it corrects, the amount and the reason, so it cannot be left out.
 
-**Still open: how an auditor proves who they are** when they come to sign
-off. A login emailed to a committee-controlled mailbox would give back most of
-what the appointment rules were designed to prevent. This is an authentication
-question, so it belongs to the backend lane rather than to this document.
+**Still open: how an auditor proves who they are** when they come to sign off. A
+login emailed to a committee-controlled mailbox would give back most of what the
+appointment rules were designed to prevent. This is an authentication question,
+so it belongs to the backend lane rather than to this document.
 
 **Key custody is settled, and it was settled against the stronger
 cryptography.** Per-action signatures have to work for non-technical volunteers
@@ -375,27 +386,16 @@ login they all use — N-of-M back to one person, while believing it is
 cryptographically secure. **Keys are therefore server-held**, and the published
 chain head above is what bounds the resulting trust in the operator.
 
-**Audit report format is settled 2026-10-22, confirmed with a practising
-chartered accountant.** The annual audit is legally mandated, so the report's
-contents were not a free choice. Both questions that were outstanding here are
-answered, and the answers are stated in full further up this document: the
-report's body is the **balance sheet and the profit and loss account**, each
-carrying the **true and fair view** wording and each generated server-side from
-chained entries; and a cross-year adjusting entry — a correction to a sealed
-year, posted in the current one — **must be disclosed at the AGM**, in a
-generated section naming the entry, the year it corrects, the amount and the
-reason, so it cannot be left out.
-
 **Money representation is settled 2026-10-22.** Every amount is an **integer
 count of the currency's minor units** (₹1,250.75 is `125075`) stored alongside
 an explicit **ISO 4217 currency code**. Floating-point currency is ruled out at
-every layer: the errors surface only at reconciliation, and retrofitting the
-fix once entries are hash-chained means rewriting the chain. The currency code
-is carried from the first schema even though it is always `INR` today —
-**INR now, other currencies are future scope**, and backfilling that column
-later would touch hash-chained rows. The unit is always *minor units of the
-stated currency*, never hardcoded paise: INR has 2 decimal places, JPY has 0,
-KWD has 3.
+every layer: the errors surface only at reconciliation, and retrofitting the fix
+once entries are hash-chained means rewriting the chain. The currency code is
+carried from the first schema even though it is always `INR` today — **INR now,
+other currencies are future scope**, and backfilling that column later would
+touch hash-chained rows. The unit is always *minor units of the stated
+currency*, never hardcoded paise: INR has 2 decimal places, JPY has 0, KWD has
+3.
 
 **Rounding is settled 2026-10-22: half-up to the minor unit**, and the paisa
 that will not divide evenly goes to **whichever flats have received it least
@@ -403,13 +403,13 @@ often so far**, counted separately for each group of flats a charge is split
 between. This sounds like a triviality and is not. Splitting a bill across 100
 flats leaves a paisa over almost every month, and handing it to the same flat
 each time compounds into a visible, indefensible gap by the AGM — measured at
-twelve paise over a year, which is small money and a bad conversation.
-Rotating by "who has had it least" keeps the lifetime difference between any
-two flats at a single paisa even after five years. Counting separately per
-group matters for the same reason: when a parking charge is split across only
-the flats that have parking, a shared counter quietly pushes the odd paisa onto
-everyone else, producing exactly the sentence nobody wants to defend — *"the
-software charges flats without parking more maintenance."*
+twelve paise over a year, which is small money and a bad conversation. Rotating
+by "who has had it least" keeps the lifetime difference between any two flats at
+a single paisa even after five years. Counting separately per group matters for
+the same reason: when a parking charge is split across only the flats that have
+parking, a shared counter quietly pushes the odd paisa onto everyone else,
+producing exactly the sentence nobody wants to defend — *"the software charges
+flats without parking more maintenance."*
 
 **A new flat starts in the middle of the pack, not at zero**, or the newest
 owner — the one with least reason to trust the committee — receives the odd
@@ -417,8 +417,8 @@ paisa in ten of their first twelve months.
 
 **A correction reverses the stored per-flat split line by line; it never
 recalculates it.** Recalculating leaves a one-paisa error on roughly two thirds
-of flats while the total still comes to zero, so no total ever looks wrong
-while individual residents' figures are permanently off.
+of flats while the total still comes to zero, so no total ever looks wrong while
+individual residents' figures are permanently off.
 
 ---
 
@@ -433,10 +433,10 @@ a template or an earlier draft, and should not be read as product direction.
 
 ## Who residents are, and where the proof is published
 
-**Settled 2026-10-22.** A resident is identified by phone number, email and
-flat number, and the society's own admin creates the accounts rather than
-residents signing themselves up. Residents are anonymous to each other, while
-the treasurer, secretary and admin can see who is who.
+**Settled 2026-10-22.** A resident is identified by phone number, email and flat
+number, and the society's own admin creates the accounts rather than residents
+signing themselves up. Residents are anonymous to each other, while the
+treasurer, secretary and admin can see who is who.
 
 Those two things are harder to hold together than they sound, and the obvious
 implementation fails badly. Whoever raised a dispute is written into the
@@ -448,8 +448,8 @@ all, and a neighbour can work out who complained in a fraction of a second.
 Scrambling a phone number is no better, because a neighbour already has the
 society phone list.
 
-What goes into the record instead is a handle derived from the resident's
-details **and a secret belonging to that society**, held by the server and never
+What goes into the record instead is a handle derived from the resident's details
+**and a secret belonging to that society**, held by the server and never
 published. The record still proves who raised what, and nobody can swap it. A
 resident sees only a meaningless handle. The committee looks up the real person.
 And because the handle is the same every time for the same resident, the product
@@ -482,8 +482,7 @@ This needs the society to keep track of who occupies which flat and between
 which dates — and that record, not a separate list of permissions, is what
 decides who can see what. Two people can hold the same flat at once, which
 happens with joint owners and when a buyer moves in before the paperwork
-finishes, so the system has to allow it rather than assume one resident per
-flat.
+finishes, so the system has to allow it rather than assume one resident per flat.
 
 **Tenants get their own account, held under the owner.** A tenant can raise
 disputes in their own name, and the owner of that flat can see what their tenant
@@ -499,9 +498,11 @@ twice. Both of those are the product lying about its own history, which is the
 one thing it exists not to do.
 
 The owner's view of their tenant is deliberately narrow. They can see what was
-raised. They cannot withdraw it, change it, or mark it settled — only the
-person who raised a dispute can say it is resolved — and they gain no visibility
-of any other resident in the society.
+raised. They cannot withdraw it, change it, or mark it settled — only the person
+who raised a dispute can say it is resolved — and they gain no visibility of any
+other resident in the society. When an owner's occupancy ends, their tenant's
+ends with it, so nobody keeps access under a landlord who no longer owns the
+flat.
 
 **And the tenant is told this.** Anonymity between neighbours is a promise the
 product makes, so an exception that quietly includes a tenant's own landlord
@@ -533,15 +534,15 @@ one property the whole arrangement exists to provide is gone.
 
 ## From purchase to a working ledger
 
-**Settled 2026-10-26.** A society buys ClearFunds; it does not sign up for
-it. Someone at ClearFunds creates the society and registers its president,
-and from then on has no way to write anything into it. The president works
-through a setup — the society's posts, who holds them, the flats, who owns and
-who lives in each, the approval limit and who does which tasks — and none of
-it is written into the record until the president opens the ledger. Opening
-writes the whole elected committee in at once, alongside a fingerprint of the
-election minutes, so the first thing every resident can check is who the
-society says it elected and the document that says so.
+**Settled 2026-10-26.** A society buys ClearFunds; it does not sign up for it.
+Someone at ClearFunds creates the society and registers its president, and from
+then on has no way to write anything into it. The president works through a
+setup — the society's posts, who holds them, the flats, who owns and who lives
+in each, the approval limit and who does which tasks — and none of it is written
+into the record until the president opens the ledger. Opening writes the whole
+elected committee in at once, alongside a fingerprint of the election minutes,
+so the first thing every resident can check is who the society says it elected
+and the document that says so.
 
 Societies name their posts differently, so a president can add any post they
 like. A new post is a title, not a new kind of power: the rules about who
@@ -558,47 +559,46 @@ address. The ID is a name, not a mailbox. There are no passwords to forget or
 share. A post's ID passes to the next person who holds the post; a resident's
 ends when they move out, and whoever moves in gets their own.
 
-**A resident can say "I've paid".** The claim goes into the record straight
-away, so a payment the committee ignores does not disappear. It becomes money
-in the ledger only when a reviewer checks it against the bank and proposes it
-as a receipt, and that receipt is approved like any other. Only online
-payments with a bank reference are accepted; cash is where money goes missing
-most easily. A rejected claim stays visible with the reason, and the resident
-can dispute it.
+**A resident can say "I've paid".** The claim goes into the record straight away,
+so a payment the committee ignores does not disappear. It becomes money in the
+ledger only when a reviewer checks it against the bank and proposes it as a
+receipt, and that receipt is approved like any other. Only online payments with
+a bank reference are accepted; cash is where money goes missing most easily. A
+rejected claim stays visible with the reason, and the resident can dispute it.
 
 **Notices go through the committee before residents see them.** The president
-writes, and the committee approves or asks for changes, much as a team reviews
-a document before it goes out. A notice can carry a vote. Each flat gets one
-vote, cast by the owner or by the tenant who lives there, and the committee
-decides each time whether the vote is named or anonymous. A vote can be cited
-by a later decision — "authorised by the vote on painting" — but it never
-replaces the approvals that decision needs. Otherwise whoever controlled who
-was allowed to vote would control the money.
+writes, and the committee approves or asks for changes, much as a team reviews a
+document before it goes out. A notice can carry a vote. Each flat gets one vote,
+cast by the owner or by the tenant who lives there, and the committee decides
+each time whether the vote is named or anonymous. A vote can be cited by a later
+decision — "authorised by the vote on painting" — but it never replaces the
+approvals that decision needs. Otherwise whoever controlled who was allowed to
+vote would control the money.
 
 **Every fingerprint can be looked up.** Anyone can paste a fingerprint from
-anywhere in the product and see what it refers to: what it means in plain
-words, exactly what went into it, and everything linked to it. If nothing
-matches, the product says that nothing in the record it was given matches —
-not that the fingerprint is fake, because a record can be incomplete.
+anywhere in the product and see what it refers to: what it means in plain words,
+exactly what went into it, and everything linked to it. If nothing matches, the
+product says that nothing in the record it was given matches — not that the
+fingerprint is fake, because a record can be incomplete.
 
-**Money that was already owed comes in through the committee, not the
-setup.** Almost every society arrives with a bank balance and a list of flats
-already behind on their maintenance, and those figures decide what each
-resident sees as owing on day one. They are entered after the ledger opens, as
-ordinary proposals needing the committee's approval, marked as carried over
-from before. Nobody can type an arrears figure against a neighbour's flat
-during setup and have it stand as the record: the same vote is needed for a
-balance brought forward as for money spent next month. A resident who
-disagrees with the figure their flat opened with can flag it, like any other
-entry, and the committee's correction stays visible beside it.
+**Money that was already owed comes in through the committee, not the setup.**
+Almost every society arrives with a bank balance and a list of flats already
+behind on their maintenance, and those figures decide what each resident sees as
+owing on day one. They are entered after the ledger opens, as ordinary proposals
+needing the committee's approval, marked as carried over from before. Nobody can
+type an arrears figure against a neighbour's flat during setup and have it stand
+as the record: the same vote is needed for a balance brought forward as for money
+spent next month. A resident who disagrees with the figure their flat opened with
+can flag it, like any other entry, and the committee's correction stays visible
+beside it.
 
 **Settled 2026-10-26, with a risk accepted: the president enters officers'
 emails.** Each officer gets a mail telling them their ClearFunds ID, their post
-and what it involves. Nothing else checks that the address really is theirs.
-With codes sent by email and no password, that mailbox is the only thing
-between someone else and their approvals, so a president who typed in an
-address they control for the treasurer could approve as both, and the rule that
-no one person moves money would be quietly gone. The warning sign is an officer
-who never received their mail; the product must never describe enrolment as
-having checked anyone. A check that does not rest on the president's word
-remains worth adding — the same problem as the auditor's identity above.
+and what it involves. Nothing else checks that the address really is theirs. With
+codes sent by email and no password, that mailbox is the only thing between
+someone else and their approvals, so a president who typed in an address they
+control for the treasurer could approve as both, and the rule that no one person
+moves money would be quietly gone. The warning sign is an officer who never
+received their mail; the product must never describe enrolment as having checked
+anyone. A check that does not rest on the president's word remains worth adding —
+the same problem as the auditor's identity above.
