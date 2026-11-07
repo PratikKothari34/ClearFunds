@@ -25,6 +25,11 @@ A chain whose sequence 2 is not a `document_attached` with `purpose`
 `election_minutes` was not opened under this contract. A verifier reports it,
 not passes it.
 
+The rule applies to every chain, with no exemption by date. A verifier reports
+such a chain in **its own category**, neither a tamper break nor an unrecognised
+kind: it says what the record it was given does not show ("this record was not
+opened under the published rules"), and never calls the chain fake.
+
 ---
 
 ### `document_attached` (actor: the president)
