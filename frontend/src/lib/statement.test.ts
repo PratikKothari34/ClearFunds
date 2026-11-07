@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { STATEMENT_MAX_BYTES, STATEMENT_MAX_CHARS, bytes, chars, checkStatement } from './statement'
@@ -172,8 +172,42 @@ describe('checkStatement', () => {
  * counts bytes this says to drop the character rule.
  */
 describe('the limit the deployed server actually enforces', () => {
-  const RULES = resolve(__dirname, '../../../backend/supabase/migrations/20261026000003_rules.sql')
-  const sql = readFileSync(RULES, 'utf8')
+  /*
+   * READ EVERY MIGRATION IN APPLY ORDER, NOT ONE FILE.
+   *
+   * `cf.check_close` is defined in `..._rules.sql` and a later migration may
+   * `create or replace` it from a file of its own - which is exactly how the
+   * byte limit arrives. Reading only `rules.sql` therefore reports the
+   * ORIGINAL definition forever: the character check sits there untouched, so
+   * this suite would stay green through the very change it exists to detect,
+   * and the obsolete 4,000-character ceiling would start refusing statements
+   * the server accepts. A guard that cannot observe the change it watches for
+   * is indistinguishable from no guard.
+   *
+   * So the effective definition is the LAST one in filename order, which is
+   * the order Supabase applies them in.
+   */
+  const MIGRATIONS = resolve(__dirname, '../../../backend/supabase/migrations')
+  const applied = readdirSync(MIGRATIONS)
+    .filter((f) => f.endsWith('.sql'))
+    .sort()
+    .map((f) => readFileSync(resolve(MIGRATIONS, f), 'utf8'))
+
+  /*
+   * A pattern that matches NOTHING must fail rather than report success, the
+   * same rule the asset and budget checks follow: if `check_close` is ever
+   * renamed, every assertion below would pass vacuously on an empty string.
+   */
+  const defs = applied.filter((sql) => /function cf\.check_close\b/.test(sql))
+  const sql = defs.at(-1) ?? ''
+
+  it('finds the function it is asserting about', () => {
+    expect(
+      defs.length,
+      'no migration defines cf.check_close: this suite would pass vacuously',
+    ).toBeGreaterThan(0)
+  })
+
   const charCheck = /cf\.text_ok\(p_statement,\s*(\d+)\)/.exec(sql)
   const byteCheck = /octet_length\(normalize\(btrim\(p_statement\),\s*nfc\)\)/.test(sql)
 
@@ -211,7 +245,8 @@ describe('the limit the deployed server actually enforces', () => {
      * counts bytes. The two limits in this module are in different units
      * only because of this one function, so it is asserted directly.
      */
-    const fn = /create function cf\.text_ok[\s\S]*?\$\$;/.exec(sql)
+    const rules = applied.find((m) => /create function cf\.text_ok/.test(m)) ?? ''
+    const fn = /create function cf\.text_ok[\s\S]*?\$\$;/.exec(rules)
     expect(fn, 'cf.text_ok is gone').not.toBeNull()
     expect(fn![0], 'cf.text_ok no longer measures characters with length()').toContain('length(btrim(v))')
     expect(fn![0], 'cf.text_ok now measures bytes').not.toContain('octet_length')
