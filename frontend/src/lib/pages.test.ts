@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { PAGE, restPages } from './api'
+import { MAX_ROWS, PAGE, restPages, walkStep } from './api'
 
 /*
  * restPages plans the parallel half of the ledger read.
@@ -49,6 +49,19 @@ describe('restPages', () => {
     }
   })
 
+  it('refuses to plan from a total that contradicts the page just read', () => {
+    /*
+     * A full first page proves at least PAGE rows exist. A count below that
+     * is nonsense, and the dangerous answer is [] - "that was everything" -
+     * which would truncate the ledger to one page and report nothing. The
+     * running balance would then be computed from rows the device did not
+     * have, which is the failure this product exists to prevent.
+     */
+    for (const bad of [0, 1, PAGE - 1, -1, -PAGE]) {
+      expect(restPages(PAGE, bad)).toBeUndefined()
+    }
+  })
+
   it('refuses to plan when the server reported no count', () => {
     // undefined is NOT the same answer as []. [] says "that was everything",
     // which would return a truncated ledger as though it were complete; the
@@ -69,5 +82,45 @@ describe('restPages', () => {
     for (const total of [PAGE, PAGE * 3, PAGE * 3 + 1]) {
       for (const from of restPages(PAGE, total)!) expect(from).toBeGreaterThanOrEqual(PAGE)
     }
+  })
+})
+
+/*
+ * walkStep is the sequential fallback's stop decision. The loop around it
+ * cannot be reached without a network, so without this the ceiling would be
+ * an untested guard - something that looks like protection and waves through
+ * the case it exists to stop.
+ */
+describe('walkStep', () => {
+  it('stops as soon as a page comes back short', () => {
+    // A short page is conclusive wherever it lands, including at the ceiling.
+    for (const from of [PAGE, PAGE * 7, MAX_ROWS, MAX_ROWS + PAGE]) {
+      expect(walkStep(0, from)).toBe('done')
+      expect(walkStep(PAGE - 1, from)).toBe('done')
+    }
+  })
+
+  it('keeps walking while a full page leaves room under the ceiling', () => {
+    for (const from of [PAGE, PAGE * 2, MAX_ROWS]) {
+      expect(walkStep(PAGE, from)).toBe('continue')
+    }
+  })
+
+  it('refuses rather than return a possibly truncated history', () => {
+    /*
+     * The dangerous answer here is 'done'. Full pages that never run short
+     * mean the exit condition is not coming, and answering 'done' would hand
+     * back a ledger missing everything past the ceiling while reporting it
+     * complete - the running balance would be computed from rows the device
+     * never had.
+     */
+    expect(walkStep(PAGE, MAX_ROWS + PAGE)).toBe('refuse')
+    expect(walkStep(PAGE, MAX_ROWS * 2)).toBe('refuse')
+  })
+
+  it('puts the ceiling far above any society this product is for', () => {
+    // 150 flats appending for decades is tens of thousands of entries, so a
+    // refusal must mean something is broken, never that a committee was busy.
+    expect(MAX_ROWS).toBeGreaterThan(PAGE * 100)
   })
 })

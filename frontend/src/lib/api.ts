@@ -19,6 +19,38 @@ import type { Entry } from './chain'
 export const PAGE = 1000
 
 /**
+ * The ceiling on the sequential fallback walk, NOT a limit on a society's
+ * history - the planned path has no such bound and never consults this.
+ *
+ * It exists so a loop whose only exit is a short page cannot run forever.
+ * Set far above any real society: 150 flats appending for decades is tens of
+ * thousands of entries, so this is centuries of headroom and a refusal here
+ * means something is broken, never that a committee was too busy.
+ */
+export const MAX_ROWS = 500_000
+
+/**
+ * The sequential walk's stop decision, extracted so it can be tested.
+ *
+ * `all()` itself needs a network, so the loop around this was unreachable by
+ * any test - and an untested bound is the dead-check class: it looks like a
+ * guard and would wave through the thing it was added to stop.
+ *
+ * Three answers, and the middle one is the whole point:
+ *   'done'     - a short page, so that was the end of the view
+ *   'continue' - a full page and room left under the ceiling
+ *   'refuse'   - a full page at the ceiling, which means the exit condition
+ *                is never coming. THROW, never return what we have: a
+ *                truncated history reported as complete is a wrong running
+ *                balance, and that is the failure this product exists to
+ *                prevent.
+ */
+export function walkStep(lastLen: number, nextFrom: number): 'done' | 'continue' | 'refuse' {
+  if (lastLen < PAGE) return 'done'
+  return nextFrom <= MAX_ROWS ? 'continue' : 'refuse'
+}
+
+/**
  * The `from` offsets still to fetch after the first page has come back.
  *
  * Extracted because the decision is the whole risk of paginating in parallel
@@ -31,12 +63,25 @@ export const PAGE = 1000
  *   - a short first page means that was everything -> nothing more to fetch
  *   - no count means we cannot plan -> undefined, and the caller walks in
  *     sequence instead of assuming one page was all of it
+ *   - a count BELOW the page just read contradicts it -> undefined too, for
+ *     the same reason: a full page proves those rows exist, so a total of 0
+ *     or -1 is nonsense and must not be planned from
+ *   - otherwise, one offset per remaining page
  */
 export function restPages(firstLen: number, total: number | null | undefined): number[] | undefined {
   if (firstLen < PAGE) return []
   if (typeof total !== 'number' || !Number.isFinite(total)) return undefined
+  /*
+   * A full first page is direct evidence of at least PAGE rows, so a total
+   * BELOW that contradicts what we just read and cannot be planned from.
+   * Without this, a count of 0 or -1 took the `pages - 1 = 0` path and
+   * returned [] - "that was everything" - truncating the ledger to its first
+   * page and reporting no error. Math.max(0, ...) made that look deliberate.
+   * Falling through to the sequential walk is slow and right.
+   */
+  if (total < firstLen) return undefined
   const pages = Math.ceil(total / PAGE)
-  return Array.from({ length: Math.max(0, pages - 1) }, (_, i) => (i + 1) * PAGE)
+  return Array.from({ length: pages - 1 }, (_, i) => (i + 1) * PAGE)
 }
 
 /**
@@ -86,10 +131,33 @@ async function all<T>(
    */
   if (offsets === undefined) {
     const out = [...first]
+    /*
+     * The `for` header carries no bound: `walkStep` holds it, so the stop
+     * decision is testable without a network. The loop is bounded all the
+     * same - 'refuse' throws out of it.
+     *
+     * It needs one, because the exit condition is a short page and nothing
+     * here enforces what makes that certain. `order` defaults to 'seq', which is
+     * unique and append-only, so `range` walks a stable result set - but a
+     * caller passing a non-unique column, or a server returning a full page
+     * past the end, would spin forever allocating rows in a tab that cannot
+     * be closed by a resident who only wanted to read a balance.
+     *
+     * A throw is the right failure: it reaches the render boundary, names
+     * the view, and loses one screen. The silent alternative is returning
+     * `out` as though it were complete, which is the truncated-ledger bug
+     * this whole path exists to avoid.
+     */
     for (let from = PAGE; ; from += PAGE) {
       const rows = take(unwrap(await page(from)), from)
       out.push(...rows)
-      if (rows.length < PAGE) return out
+      const step = walkStep(rows.length, from + PAGE)
+      if (step === 'done') return out
+      if (step === 'refuse') {
+        throw new Error(
+          `${view}: more than ${MAX_ROWS} rows without a short page; refusing to return a possibly truncated history`,
+        )
+      }
     }
   }
 
