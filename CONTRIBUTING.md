@@ -14,7 +14,7 @@ Two rules outrank everything below:
    something from the other side, state the contract you need and raise it
    (§2.2). Two implementations of the same boundary are worse than a blocked
    branch.
-2. **Nothing reaches `dev` or `main` on one person's say-so.** That includes
+2. **Nothing reaches `main` on one person's say-so.** That includes
    the repository admin. The product exists so that no single admin can move
    the ledger alone. A repository where one of its two maintainers can merge
    alone fails that same test, so we hold ourselves to it (§3.4).
@@ -31,21 +31,19 @@ This file does not repeat them. Read them before your first PR.
 ClearFunds/
 ├── .github/            CODEOWNERS, PR + issue templates, rulesets of record, CI (when it exists)
 ├── frontend/           React + TypeScript on Vite, TanStack Router + Query      → Pratik
-├── backend/            server, schema, migrations, signing, chain, reports       → Prem
+├── backend/            Supabase: migrations, the edge function, the pgTAP suite  → Prem
 ├── contracts/          the boundary: API spec, chain preimage spec, test vectors → both
 │   └── CHANGELOG.md    append-only log of every contract change
 ├── docs/
 │   ├── GOALS.md        what the product is for, and the open questions           → both
 │   ├── decisions/      one file per load-bearing decision                        → both
-│   ├── frontend/       frontend-only design notes, if any                        → Pratik
-│   └── backend/        backend-only design notes, if any                         → Prem
+│   └── design/         the frontend design                                       → Pratik
 ├── AGENTS.md  CONTRIBUTING.md  README.md                                         → both
 └── LICENSE  COPYRIGHT  .gitattributes  .gitignore                                → both
 ```
 
-`frontend/` exists. `backend/` and `contracts/` do not yet — **each is created
-by its owner's first PR.** Nobody creates a placeholder in the other person's
-lane, and that includes empty directories and READMEs.
+All three lanes exist. **Nobody creates a placeholder in the other person's
+lane**, and that includes empty directories and READMEs.
 
 ### 1.1 Owners by path
 
@@ -59,8 +57,7 @@ two disagree, fix CODEOWNERS in its own PR.
 | `backend/**` | Prem | Pratik (the other person, §4.2) |
 | `contracts/**` | **Both** | Both: author + reviewer, and it is always its own PR (§6) |
 | `docs/GOALS.md`, `docs/decisions/**` | **Both** | Both |
-| `docs/frontend/**` | Pratik | Prem |
-| `docs/backend/**` | Prem | Pratik |
+| `docs/design/**` | Pratik | Prem |
 | `AGENTS.md`, `CONTRIBUTING.md`, `README.md` | **Both** | Both |
 | `.github/**` (templates, CODEOWNERS, rulesets, workflows) | **Both** | Both |
 | `.gitignore`, `.gitattributes`, `COPYRIGHT` | **Both** | Both |
@@ -72,7 +69,7 @@ two disagree, fix CODEOWNERS in its own PR.
 |---|---|---|
 | `AGENTS.md` | Both | A settled rule changes, or the orientation for agents goes stale |
 | `CONTRIBUTING.md` | Both | The way we work changes. Edit it instead of agreeing in chat |
-| `README.md` (root) | Both | Created once both stacks run. It holds setup for the whole repo and links to the two lane READMEs |
+| `README.md` (root) | Both | What the product is, or how the two lanes fit together, changes. It links to the two lane READMEs rather than repeating them |
 | `docs/GOALS.md` | Both | An open question is settled or a new one is raised |
 | `docs/decisions/README.md` and entries | Both | A load-bearing decision is made (§5.4) |
 | `frontend/README.md` | Pratik | How to run, build and test the frontend changes |
@@ -131,21 +128,17 @@ produces or checks a chain hash or signature, and `contracts/**`.
 ### 3.1 Model
 
 ```
-<area>/<issue>-<slug>   ->   dev   ->   main
-   your branch          integration   released
+<area>/<issue>-<slug>   ->   main
+   your branch          released
 ```
 
-- **Work happens on a short branch cut from `dev`.** `git switch dev && git pull && git switch -c backend/2-chain-preimage`.
-- **PRs target `dev`.** Squash-merged.
-- **`main` only ever receives `dev`**, through a promote PR (§3.5). No feature
-  branch and no hotfix targets `main` directly. An urgent fix goes to `dev`
-  first and is promoted straight away, so the path stays the same and only
-  the timing changes.
-- **Nobody commits directly to `dev` or `main`.** Both are PR-only, enforced
-  by the rulesets in §3.4.
-- **`dev` is the default branch.** A clone lands on it, new PRs target it, and
-  `Closes #N` works. GitHub only auto-closes an issue when the PR merges into
-  the default branch.
+- **Work happens on a short branch cut from `main`.** `git switch main && git pull && git switch -c backend/2-chain-preimage`.
+- **PRs target `main`**, and are squash- or rebase-merged. `main` enforces
+  linear history, so a merge commit cannot land.
+- **Nobody commits directly to `main`.** It is PR-only, enforced by the
+  ruleset in §3.4.
+- **`main` is the default branch**, so `Closes #N` works: GitHub auto-closes
+  an issue only when the PR merges into the default branch.
 
 ### 3.2 Names
 
@@ -177,107 +170,40 @@ person's week of work.
 You may stack a branch on your own unmerged branch **within your own lane**.
 Never stack on the other person's branch.
 
-### 3.4 Protections, and what is actually configured
+### 3.4 Protections
 
-**The table below is a proposal, not what is configured today.** Read the
-live state first, because the two differ on three points that change how you
-merge:
+Live on `main`, ruleset "main protection":
 
-| | Live on `main` today | This section's target |
-|---|---|---|
-| Merge method | **squash or rebase** | merge commit only |
-| Linear history | **enforced** | not enforced |
-| Admin bypass | **the admin can bypass** | nobody can bypass |
-| `dev` branch | **does not exist** | protected |
+| Setting | `main` |
+|---|---|
+| PR required | yes |
+| Approving reviews | 1 (the other person) |
+| Stale approvals dismissed on push | yes |
+| All review threads resolved | yes |
+| Allowed merge method | **squash or rebase** |
+| Linear history | **enforced**, so a merge commit cannot land |
+| Force push / deletion | blocked |
+| Required status check | `ci-ok`, once CI exists |
+| Bypass list | the Admin repository role |
 
-So, today: **a merge commit cannot land on `main`** — rebase or squash — and
-there is no `dev` branch to target, so open your pull request against `main`.
-One approving review, stale approvals dismissed on a new push, and every
-review thread resolved: those three are the same live as proposed. You have no
-bypass, so your work goes through a pull request either way.
-
-The rulesets of record are in `.github/rulesets/`, with
-`.github/rulesets/README.md` saying which of them is applied; `main.json` is a
-transcription of the live rule, and `dev.json` is unapplied. **Only the
-repository admin (Pratik) can change any of this**, and the `dev` model below
-stays a proposal until that branch exists and the owner decides to adopt it.
-Verify the live state yourself at any time with
-`gh api repos/PratikKothari34/ClearFunds/rulesets`.
-
-| Setting | `dev` | `main` |
-|---|---|---|
-| PR required | yes | yes |
-| Approving reviews | 1 (the other person) | 1 (the other person) |
-| Stale approvals dismissed on push | yes | yes |
-| All review threads resolved | yes | yes |
-| Allowed merge method | **squash only** | **merge commit only** (promotes) |
-| Linear history | yes | no (the promote merge commits are the history) |
-| Force push / deletion | blocked | blocked |
-| Required status check | `ci-ok`, once CI exists | `ci-ok`, once CI exists |
-| **Bypass list** | **empty, including the admin** | **empty, including the admin** |
-
-Why each of these is set the way it is:
-
+- **Push before asking for review, not after.** A new push dismisses existing
+  approvals.
 - **Code-owner review is off on purpose.** GitHub never lets the author
-  approve their own PR. With two people, "1 approval" already means "the
-  other person", in every lane. If code-owner review were on, a PR in your
-  own lane would wait for an approval from you, which can never arrive.
-  CODEOWNERS is still committed: it auto-requests the owner when someone
-  crosses into their lane, and it is the ownership table of record.
-- **`main` is merge-commit only, and `dev` is squash only.** GitHub's
-  "rebase and merge" always rewrites commits. If promotes were rebased, `main`
-  and `dev` would stop sharing history after the first promote, and every
-  later promote would conflict with itself. A merge commit keeps `dev` an
-  ancestor of `main`. It also makes `git log --first-parent main` read as a
-  list of releases.
-- **The bypass list is empty in the proposal, but not live.** The live
-  `main` rule lets the Admin repository role bypass, which is how the owner
-  pushes to `main` directly; such a push prints
-  `remote: Bypassed rule violations for refs/heads/main` on success. A
-  collaborator has no bypass in either model. See rule 2 at the top of this
-  file for why the proposal removes it.
+  approve their own PR, so with two people "1 approval" already means "the
+  other person", in every lane. With code-owner review on, a PR in your own
+  lane would wait for an approval from you, which can never arrive. CODEOWNERS
+  is still committed: it auto-requests the owner when someone crosses into
+  their lane, and it is the ownership table of record.
+- **The Admin role can bypass, and does not.** That is how a direct push to
+  `main` can succeed at all; such a push prints
+  `remote: Bypassed rule violations for refs/heads/main` **on success**, which
+  is the bypass working, not a rejection. Rule 2 at the top of this file is
+  why it is not used. A collaborator has no bypass.
 
-**Applying it (admin only, once).** Run these after this file merges:
-
-```bash
-R=PratikKothari34/ClearFunds
-# 1. Create dev from main and make it the default branch
-gh api -X POST repos/$R/git/refs -f ref=refs/heads/dev -f sha=$(gh api repos/$R/git/ref/heads/main -q .object.sha)
-gh repo edit $R --default-branch dev
-# 2. Replace the existing main ruleset (id 25568002) and add dev's
-gh api -X PUT  repos/$R/rulesets/25568002 --input .github/rulesets/main.json
-gh api -X POST repos/$R/rulesets          --input .github/rulesets/dev.json
-# 3. Labels (§5.3). Only the ones GitHub does not create by default:
-#    `bug` and `documentation` already exist on a new repo — reuse them
-#    rather than adding a second label that means the same thing.
-for l in "frontend:1d76db" "backend:5319e7" "contract:fbca04" "decision:0e8a16" \
-         "blocked:b60205" "chore:c5def5"; do
-  gh label create "${l%%:*}" --color "${l##*:}" -R $R --force; done
-```
-
-Run steps 1 and 2 together. Between them, the old ruleset follows the
-default branch to `dev` and leaves `main` unprotected. After applying, check
-that a direct push to `dev` is rejected from both accounts.
-
-### 3.5 Promoting `dev` to `main`
-
-Either person opens it, and the other approves. Every condition must hold:
-
-- `ci-ok` is green on `dev`, once CI exists
-- both stacks run from a clean clone of `dev` following the READMEs
-- no PR into `dev` is mid-review with changes requested
-- every contract change since the last promote is in `contracts/CHANGELOG.md`
-
-The PR goes from `dev` into `main`, with the title `promote: <one line on what
-shipped>`. Merge it with **Create a merge commit**. Then tag it:
-
-```bash
-git switch main && git pull
-git tag -a v0.<n>.0 -m "<one line on what shipped>" && git push origin v0.<n>.0
-```
-
-If a promote conflicts, something reached `main` without going through `dev`.
-Fix that first; resolving the conflict alone leaves the cause in place.
+The ruleset of record is `.github/rulesets/main.json`, a transcription of the
+live rule — a record, not the mechanism. **Only the repository admin (Pratik)
+can change it.** Verify the live state at any time with
+`gh api repos/PratikKothari34/ClearFunds/rulesets`.
 
 ---
 
@@ -401,7 +327,7 @@ rest) are not used.
 ### 5.5 Commits
 
 Your own branch can say `wip` forty times. Only the squash title lands on
-`dev`, so that is the one place the format matters:
+`main`, so that is the one place the format matters:
 
 `feat` · `fix` · `refactor` · `docs` · `test` · `chore` · `perf`, with scope
 `frontend` · `backend` · `contracts` · `docs` · `ci`.
@@ -493,13 +419,13 @@ A PR is done when **all** of these hold. Working code alone does not count.
 
 ## 8. Conflict avoidance
 
-- **Rebase your branch on `dev`**, never merge `dev` into it:
-  `git pull --rebase origin dev`, then `git push --force-with-lease` to
-  **your own branch only**.
-- **Lockfiles** (`package-lock.json`/`pnpm-lock.yaml` in `frontend/`, and
-  whatever the backend stack uses in `backend/`) belong to their lane owner.
-  On conflict, take `dev`'s copy and regenerate it. Never resolve one by
-  hand.
+- **Rebase your branch on `main`**, never merge `main` into it:
+  `git pull --rebase origin main`, then `git push --force-with-lease` to
+  **your own branch only**. Rewriting history that is already pushed needs the
+  branch owner's go-ahead first.
+- **Lockfiles** (`package-lock.json` in `frontend/`, and whatever the backend
+  stack uses in `backend/`) belong to their lane owner. On conflict, take
+  `main`'s copy and regenerate it. Never resolve one by hand.
 - **Line endings** are set by `.gitattributes`: LF everywhere, CRLF for
   `.ps1`, `.cmd` and `.bat`, and `binary` for fonts, images and documents so
   git never rewrites their bytes. Do not override it. If you add a binary

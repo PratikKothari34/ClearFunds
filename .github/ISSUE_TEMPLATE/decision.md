@@ -24,6 +24,7 @@ assignees: ""
 
 ## Done when
 
-- [ ] `docs/GOALS.md` moves it from open to settled, with the date
-- [ ] `AGENTS.md` is updated if it binds code
-- [ ] A `docs/decisions/NNNN-*.md` entry exists if it is load-bearing
+- [ ] `docs/GOALS.md` records the outcome and the date
+- [ ] `AGENTS.md` states it as a rule if it binds code
+- [ ] A decision log entry exists if it is load-bearing
+      (`docs/decisions/README.md` has the format)

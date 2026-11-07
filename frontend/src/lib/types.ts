@@ -2,6 +2,18 @@
 // Views report every column as nullable; these state what the view
 // actually guarantees.
 
+/*
+ * Every state a proposal can end in. `cf.proposal_status` answers 'posted',
+ * 'open', or the `outcome` of a `proposal_closed` entry, and
+ * `chain/kinds/ledger.v1.md` item 121 lists those four outcomes. One source,
+ * because the list was duplicated in rows.ts and drifted from the API
+ * contract, which still documents only three of the six.
+ */
+export const PROPOSAL_STATES = [
+  'open', 'posted', 'declined', 'withdrawn', 'superseded', 'year_closed',
+] as const
+export type ProposalState = (typeof PROPOSAL_STATES)[number]
+
 export type Role = 'president' | 'treasurer' | 'secretary' | 'member'
 export type Effect = 'expense' | 'receipt' | 'charge' | 'reversal' | 'charge_reversal'
 export type Action =
@@ -98,7 +110,7 @@ export type ProposalRow = {
   required: number
   seated: number
   limit_minor: number
-  state: 'open' | 'posted' | 'declined' | 'withdrawn' | 'superseded' | 'year_closed'
+  state: ProposalState
   posted_seq: number | null
   approvals: Approval[]
   approve_count: number

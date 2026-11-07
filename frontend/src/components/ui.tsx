@@ -74,6 +74,17 @@ type AmountProps = {
   className?: string
 }
 
+/*
+ * A caller's classes minus any money colour, for the branch that must not
+ * claim a direction. Only the two money colours are dropped: font weight,
+ * size and layout from a call site are still wanted on the disclosure.
+ */
+const uncoloured = (cls: string | undefined): string | undefined =>
+  cls
+    ?.split(/\s+/)
+    .filter((k) => k !== 'text-debit' && k !== 'text-credit')
+    .join(' ') || undefined
+
 /** The most important pixels on every screen. Sign and colour together, never colour alone. */
 export function Amount({ minor, currency = 'INR', signed, size = 'md', tone = 'ink', struck, className }: AmountProps) {
   /*
@@ -85,8 +96,20 @@ export function Amount({ minor, currency = 'INR', signed, size = 'md', tone = 'i
    */
   const c = countable(minor)
   if (!c.readable) {
+    /*
+     * The disclosure owns its own colour. Six call sites hardcode a money
+     * colour through className - `text-debit` under an "Out" heading, where
+     * the COLUMN asserts the direction and the magnitude has no sign to
+     * contradict - and appending that here would paint "not available" in
+     * debit red, signalling money went out for a figure nobody could read.
+     *
+     * It rendered correctly only because Tailwind happens to emit
+     * .text-debit before .text-ink-2, so source order decided it. A utility
+     * reorder or a renamed class flips that silently, with no test failing,
+     * so the caller's money colours are dropped rather than out-ordered.
+     */
     return (
-      <span className={cx('text-ink-2', size === 'sm' && 'text-sm', size === 'md' && 'text-base', className)}
+      <span className={cx('text-ink-2', size === 'sm' && 'text-sm', size === 'md' && 'text-base', uncoloured(className))}
         title="This figure could not be read from the record.">
         not available
       </span>
@@ -94,6 +117,17 @@ export function Amount({ minor, currency = 'INR', signed, size = 'md', tone = 'i
   }
   const p = parts(c.minor, currency, { signed: signed ?? false })
   const color = tone === 'muted' ? 'text-ink-2' : tone === 'auto' ? (c.minor < 0 ? 'text-debit' : c.minor > 0 ? 'text-credit' : 'text-ink') : 'text-ink'
+  /*
+   * When `tone` is deciding the colour, it wins outright and a caller's money
+   * colour is dropped. Both used to render - `text-debit text-credit` on one
+   * element - and which the resident saw was decided by stylesheet emission
+   * order, not by any code here.
+   *
+   * At the default tone the caller's colour IS the intent: six call sites
+   * pass one under an "In"/"Out" heading, where the column asserts the
+   * direction and the magnitude has no sign to contradict. Those are kept.
+   */
+  const own = tone === 'auto' || tone === 'muted'
   const Tag = struck ? 's' : 'span'
   return (
     <Tag
@@ -105,7 +139,7 @@ export function Amount({ minor, currency = 'INR', signed, size = 'md', tone = 'i
         size === 'hero' && 'text-[2.75rem] leading-none font-semibold tracking-[-0.03em] sm:text-6xl',
         color,
         struck && 'decoration-[1.5px] opacity-70',
-        className,
+        own ? uncoloured(className) : className,
       )}
     >
       {p.sign === '-' ? '−' : p.sign}
@@ -211,7 +245,7 @@ export function Failed({ error, retry }: { error: unknown; retry?: () => void })
     <Card className="p-5">
       <p className="font-medium text-break">Could not load this.</p>
       <p className="mt-1 text-sm text-ink-2">{error instanceof Error ? error.message : 'The server did not answer.'}</p>
-      {retry && <Button size="sm" className="mt-3" onClick={retry}>Try again</Button>}
+      {retry && <Button className="mt-3" onClick={retry}>Try again</Button>}
     </Card>
   )
 }
