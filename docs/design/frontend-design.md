@@ -1,36 +1,19 @@
 # The ClearFunds frontend design
 
-**Status: the chosen frontend vertical.** Three earlier explorations were built
-and audited before this one, each committed to a *single organising idea*:
+**Status: the built frontend design, called D throughout.** Three earlier
+explorations — **A** *The Passbook* (the ledger is ink on paper), **B** *The
+Noticeboard* (what changed since I last looked), **C** *The Chain* (every row
+carries its hash link visibly) — were each built and taken through the full
+six-step pass before this one. They are referred to by letter below, where a
+position or a security finding was inherited from them; **they are not live
+and are not built.**
 
-| | The exploration | Its one idea |
-|---|---|---|
-| **A** | *The Passbook* | The ledger is ink on paper. Monochrome but for money in and money out; a society passbook a resident already knows how to read. |
-| **B** | *The Noticeboard* | The app answers "what changed since I last looked". A dashboard of what needs *you*, nothing more. |
-| **C** | *The Chain* | The integrity claim is the interface. Every row carries its link in the hash chain, visibly. |
-
-Each was taken through the full six-step pass. **Each was strongest exactly
-where the other two were weakest**, which is the finding that produced this
-document. The three are referred to by letter throughout; this table is the
-only place their names are needed.
-
-D is **a fourth design, not a blend of the three.** It starts from a different
-question: **which surface does each idea actually earn its place on?**
-
-The audience settles it. **Non-technical residents and committee volunteers,
-handling money that is not theirs.** For that reader, the three ideas are not
-competing — they answer three different questions a person asks at three
-different moments:
-
-| The moment | The question | Whose idea answers it |
-|---|---|---|
-| Opening the app | "What happened since I last looked?" | **B** |
-| Reading the ledger | "Is my ₹2,500 there, and does this add up?" | **A** |
-| Doubting it | "How do I know this wasn't edited?" | **C** |
-
-A design that answers only one of these fails the other two. **That is the
-argument for D, and it is the honest reason the single-philosophy designs were
-each weakest exactly where another was strongest.**
+D places each idea on the one surface where the reader is actually asking its
+question: **B's** on opening the app, **A's** on reading the ledger, **C's** on
+doubting it. Each idea owns one surface and does not leak onto the others —
+that rule is what keeps three ideas from reading as noise to a non-technical
+reader, and it is why **C's per-row spine, B's cards and A's full monochrome
+discipline are all deliberately absent.**
 
 ---
 
@@ -57,34 +40,6 @@ fingerprint, and the fingerprint comes from a different origin. That wait is
 real, so it gets designed. **No fake progress bar** — a bar that fills on a
 timer while a fetch is still pending is the product lying on its first screen,
 which is the one thing it cannot afford.
-
----
-
-## 1. What a merge is allowed to take, and what it must not
-
-**The danger in combining designs is real and worth naming first.** The usual
-failure of a synthesis is that it takes the *surface* of each design — a
-colour, a card, a graphic — and loses the *discipline* that made each one work.
-Three sets of visual ideas layered together is not three strengths; it is
-noise, and noise is the one thing this audience cannot afford.
-
-So every borrowing below is tested against one rule:
-
-> **Take the idea where it answers a question the reader is actually asking.
-> Leave the idea where it is the design's signature but not the reader's need.**
-
-What that excludes, concretely:
-
-- **C's per-row spine does not come.** It is C's signature and its best
-  graphic, and on a ledger a non-technical resident reads daily it is visual
-  weight carrying no answer to any question they have at that moment. C's
-  *claim* comes; C's *decoration* does not.
-- **B's card treatment does not come.** B earned cards twice. D has a different
-  dashboard and does not need them at all.
-- **A's full monochrome discipline does not come unchanged.** A forbids colour
-  outside credit/debit, which would ban B's attention band — the single most
-  useful thing B invented. D keeps the *spirit* (colour means something) with
-  one more meaning allowed.
 
 ---
 
@@ -599,113 +554,37 @@ Frontend-only project; this is what D needs and does not implement.
 
 ---
 
-## 3. What this costs, stated plainly
+## 3. What this costs, measured
 
-**A synthesis that claims only advantages is lying.** Four real costs:
+**The resident read path is 50.2 KB of font, downloaded once**, measured off
+`frontend/public/fonts/`, not estimated: Latin subsets only —
+`source-sans-3-latin-400` and `-500` at 15.3 KB each,
+`source-serif-4-latin-400` at 19.6 KB. Opening `Verify` adds nothing, because
+fingerprints use the platform monospace stack and **no mono face exists in the
+tree.** At ~10 Mbps on a working 4G connection that is 0.04 s, so **font
+weight is not a design argument at this throughput** — the serif was dropped
+on the grounds in `0007`, that it looked generated, not on bytes.
 
-**1. ~~It carries a font the others do not~~ — withdrawn.** This cost was
-planned, then not incurred. A mono face for fingerprints on one route was
-specified here; the build uses the platform monospace stack instead, so there
-is no extra family and no extra route cost. The design is **three real
-families**, two of them on first paint. Stated as "it is the heaviest design"
-in the first draft, which the arithmetic never supported and which is now
-wrong twice over.
+**The budget still holds regardless**, because `scripts/budget.mjs` sets its
+ceilings just above the measured baseline rather than against a transfer time:
+a careless import is a regression at 10 Mbps exactly as it was at 1.5.
 
-At ~10 Mbps effective on a working 4G connection, transfer time is
-`KB * 8 / 10000` seconds. **Restated 2026-10-25**: these figures were
-computed at 1.5 Mbps, a degraded-connection assumption that made every
-payload look urgent.
+**`src/styles/fonts.test.ts` guards three things**, and each was a live risk:
+no font stylesheet outside the Latin faces; **no woff2 in `public/fonts/` that
+no `@font-face` declares** (deleting a rule but leaving the bytes); and no
+non-Latin family named in `--cf-sans` — a stack position for a face nothing
+loads silently renders the UI in a different font on any device that happens to
+have that face installed.
 
-| Payload | Families | Total | 4G transfer |
-|---|---|---|---|
-| **D, resident read path, measured** | **Source Sans 3 (400+500) + Source Serif 4** | **50.2 KB** | **0.04 s** |
-| **D, after opening `Verify`** | **No change — no mono face exists** | **50.2 KB** | **0.04 s** |
-| For reference: a single-family design | Inter | ~36 KB | 0.03 s |
-| For reference: a mono-forward design | IBM Plex Sans + Mono | ~98 KB | 0.08 s |
+**The brand mark, as submitted, was 347 KB — larger than the entire font
+payload.** Prepared: `mark-240.webp` at **29.3 KB**, `mark-120.webp` at 10.0 KB
+for the smaller `srcset` candidate, a 91% reduction, and `/login` is the only
+route that loads either. **The hero stays wordmark-only** — the mark is not on
+a returning resident's critical path, and the first-paint budget is what keeps
+it off.
 
-**At this throughput the font differences stop being a design argument.**
-The spread between the lightest and heaviest option above is ~50 ms, which
-no resident perceives. That is a reason to drop the serif on the grounds
-in `0007` — it looked generated — and not on the grounds of bytes; and it
-removes the payload objection to any future type decision. **The budget
-still holds**, because its ceilings are set against the measured baseline
-rather than against a transfer time: a careless import is a regression at
-10 Mbps exactly as it was at 1.5.
-
-**The submitted brand mark, unprepared, was 347 KB — larger than the entire
-font payload and ~1.9 s on its own.** That is the whole reason the hero is
-wordmark-only and the reason asset preparation was a before-build requirement
-rather than a polish task.
-
-**Prepared and now in the tree:** `mark-240.webp` is **29.3 KB** (0.16 s at
-1.5 Mbps) with `mark-120.webp` at 10.0 KB for the smaller `srcset` candidate.
-A **91% reduction**, and the only route that loads either is `/login`. The
-hero stays wordmark-only regardless: the mark is not on the critical path for
-a returning resident, and the first-paint budget in `scripts/budget.mjs` is
-the check that keeps it that way.
-
-**The figures above are MEASURED off `frontend/public/fonts/`, not estimated**
-— every earlier version of this table was an estimate, and each one was wrong
-in the same direction. The history, because the size of the error is the point:
-~192 KB in the first draft, corrected to ~181 KB by arithmetic, and **actually
-50.2 KB** on the resident read path.
-
-The estimates were wrong because they costed full character sets. The faces
-that ship are Latin subsets: `source-sans-3-latin-400` and `-500` at 15.3 KB
-each, `source-serif-4-latin-400` at 19.6 KB.
-
-**Devanagari was the heavy pair (49.2 + 52.4 KB) and is now gone entirely**
-(2026-10-25). It was lazily loaded while Hindi and Marathi shipped; with the
-product on English only, both faces, `fonts.devanagari.css` and the Fontsource
-package were deleted rather than left unreachable. `src/styles/fonts.test.ts`
-still guards the budget, with the assertions re-aimed: no font stylesheet
-outside the Latin faces, **no woff2 in `public/fonts/` that no `@font-face`
-declares** (deleting a rule but leaving the bytes was the live risk), and no
-non-Latin family named in `--cf-sans` - a stack position for a face nothing
-loads silently renders the UI in a different font on any device that happens
-to have it installed.
-
-**A resident downloads 50.2 KB of font, once** - and now there is no other
-case, so this is the only figure. It is under a third of what this document
-claimed when the design was chosen.
-
-**The consequence is the finding that matters: the fingerprint idea costs the
-resident read path nothing.** The one asset it needs lives on a route most
-residents never open. **D is not a weight compromise — on the path that
-matters it is the two-family base, and the verification claim rides along for
-free.**
-
-**2. It carries B's backend dependency.** The watermark. A and C needed nothing
-of the kind. This is filed with the other backend needs.
-
-**3. It is the most work to build.** Three surfaces each designed properly
-rather than one idea applied three times.
-
-**4. More places to be inconsistent.** Mitigated by the rule in §1 — each idea
-owns one surface and does not leak onto the others — but it is a standing risk
-that a single-philosophy design does not carry.
-
----
-
-## 4. Why the costs are worth paying for *this* audience
-
-**Because the failure modes of the single-philosophy designs are worse than one
-backend call — and, as the corrected table above shows, there is no font cost
-at all on the resident read path.**
-
-- **A alone:** a resident opens it weekly and has to find the new rows
-  themselves. The most common interaction in the product is unsupported.
-- **B alone:** the reversed entry — the most confusable surface for a
-  non-technical reader — is handled by the design that is worst at it, because
-  glanceability and a reversed entry are in direct conflict.
-- **C alone:** the treasurer who has run Excel for eleven years opens it, sees
-  structure they did not ask for, and does not come back. The product's
-  adoption depends on a volunteer, not on a CA.
-
-**For a non-technical, money-handling audience the question is not which single
-idea is strongest. It is which failure is least acceptable** — and all three
-single-design failures above are worse than one more endpoint and 5 KB on a
-route most residents never open.
+**The one standing cost is B's backend dependency**, the watermark, filed with
+the other backend needs. A and C needed nothing of the kind.
 
 ---
 

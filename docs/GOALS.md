@@ -121,8 +121,8 @@ The ledger's integrity rests on five mechanisms:
 - **A public audit trail** anyone with access can verify
 
 Taken together these make the history **tamper-evident**: a change cannot be
-made quietly. See *Open questions* below for what that word does and does not
-promise.
+made quietly. See *The hard decisions* below for what that word does and does
+not promise.
 
 ---
 
@@ -184,11 +184,18 @@ auditor's work. Promising speed invites the one comparison the product loses.
 
 ---
 
-## Open questions
+## The hard decisions, and why they went the way they did
 
-Decisions the research raises but does not settle. Each is load-bearing, and
-each gets more expensive to change once entries are chained and real money is
-recorded.
+Each of these is load-bearing, and each gets more expensive to change once
+entries are chained and real money is recorded. **Nearly all of them are
+settled** — this section is the reasoning, and `AGENTS.md` states the resulting
+rules in the form that binds code.
+
+**Two things are genuinely still open**, and both are called out in place
+below: **how the chain head is published** (mechanism, cadence, recipients —
+with one requirement already fixed: residents' own software must be able to
+fetch it directly), and **how an auditor proves who they are** when they come
+to sign off.
 
 **Tamper-evident is not tamper-proof.** Hash-chaining makes tampering
 *detectable* by anyone who verifies the chain. It does not make tampering

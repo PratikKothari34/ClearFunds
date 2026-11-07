@@ -1,8 +1,8 @@
 # Rulesets of record
 
-The JSON next to this file records the branch protection that is **live on
-GitHub**, so the rules travel with a clone and a change to them is reviewable
-like any other change.
+`main.json` records the branch protection that is **live on GitHub**, so the
+rules travel with a clone and a change to them is reviewable like any other
+change.
 
 These files are a record, not the mechanism. Editing one protects nothing:
 GitHub is the authority, and a ruleset changes only when it is applied through
@@ -33,13 +33,6 @@ Three things in it are load-bearing and easy to get wrong:
 - **`~DEFAULT_BRANCH`** rather than a literal `refs/heads/main`. The rule
   follows the default branch if it is ever renamed, instead of silently
   protecting a branch that no longer exists.
-
-## `dev.json` — not applied
-
-There is no `dev` branch on the remote and no ruleset for one. This file is a
-proposal kept for the day that branch is created; it protects nothing today.
-Create the branch and apply the ruleset together, or neither — an unapplied
-file reads exactly like an applied one.
 
 ## Verifying the record
 
