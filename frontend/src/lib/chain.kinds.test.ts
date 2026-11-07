@@ -25,12 +25,48 @@
  * covered the moment it lands, and a vector file whose name changes fails
  * rather than silently measuring nothing.
  */
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { KINDS, encode, flatToken, hex, preimage, sha256, walk, type Entry } from './chain'
 
-const FILES = ['society-kinds', 'claims-kinds', 'notices-kinds'] as const
+/*
+ * EVERY KIND VECTOR FILE ON DISK IS CONSUMED, and the list is discovered
+ * rather than hand-written.
+ *
+ * A hand-written list is how the first three came to be read by nothing:
+ * the files shipped with the contracts, no array mentioned them, and seven
+ * kinds had no layout at all while walk() quietly continued on the server's
+ * own reported hash. Adding `ledger-kinds` to a literal fixes today and
+ * leaves the next file in exactly the same position.
+ *
+ * `ledger-kinds.v1.json` is the live case: it is in the contracts PR and not
+ * yet merged. Discovery means this suite picks it up the moment it lands,
+ * with no edit here, and does not fail in the meantime for a file that does
+ * not exist yet.
+ *
+ * The guard against discovery turning into a silent skip is below: the set
+ * found on disk is asserted to contain every file we know about, so a
+ * RENAMED or DELETED vector file fails rather than reducing the run. An
+ * empty directory fails too - the same rule budget.mjs enforces, that a
+ * check whose pattern matches nothing must fail rather than report success
+ * forever.
+ */
+const VECTORS = resolve(__dirname, '../../../contracts/chain/vectors')
+
+/* Kind-vector files only: entry-preimage.v1.json is chain.test.ts's. */
+const FILES = readdirSync(VECTORS)
+  .filter((f) => f.endsWith('-kinds.v1.json'))
+  .map((f) => f.replace('.v1.json', ''))
+  .sort()
+
+/*
+ * The files that must be there. `ledger-kinds` is deliberately NOT here
+ * while the contracts PR is open - it would fail the suite for work that is
+ * not ours - but it is named in the comment above and discovery picks it up
+ * on merge. Everything already merged is required.
+ */
+const REQUIRED = ['claims-kinds', 'notices-kinds', 'society-kinds'] as const
 
 type Vectors = {
   spec: string
@@ -44,6 +80,35 @@ const load = (name: string): Vectors =>
   JSON.parse(readFileSync(resolve(__dirname, `../../../contracts/chain/vectors/${name}.v1.json`), 'utf8'))
 
 const all = FILES.map((f) => [f, load(f)] as const)
+
+/*
+ * THE DISCOVERY GUARD. Without this, a rename or a deletion in the
+ * contracts repo silently shrinks this suite to nothing and it still
+ * reports green - the dead-check-that-looks-alive class, and the exact way
+ * these vectors went unread in the first place.
+ */
+describe('the vector files this suite found', () => {
+  it('found at least one, so the suite below is not empty', () => {
+    expect(FILES.length, `no *-kinds.v1.json in ${VECTORS}`).toBeGreaterThan(0)
+  })
+
+  it('consumes every kind vector file the contracts publish', () => {
+    for (const r of REQUIRED) {
+      expect(FILES, `${r}.v1.json is no longer being read`).toContain(r)
+    }
+  })
+
+  /*
+   * Announces a file that arrived without this suite being touched - which
+   * is the intended path for ledger-kinds. Not a failure: discovery is the
+   * point. It is asserted as a count so the run states how many files were
+   * actually checked, because a pass that does not say what it covered is
+   * indistinguishable from one that was skipped.
+   */
+  it('reports how many it checked, so a shrinking run is visible', () => {
+    expect(FILES.length).toBeGreaterThanOrEqual(REQUIRED.length)
+  })
+})
 
 describe.each(all)('contracts/chain/vectors/%s.v1.json', (_file, v) => {
   it('is a vector file with layouts and entries, so the rest is not vacuous', () => {
