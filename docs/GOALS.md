@@ -155,14 +155,13 @@ on phones.
 
 - Simple interface
 - Mobile-first
-- Multiple languages — **future scope. English only ships today**
-  (2026-10-25). The translation library is wired in and loaded lazily, so a
-  second language costs a catalogue rather than a retrofit; the reason for
-  wiring it before it was needed is that a retrofit misses the rare strings
-  — error states, the published-record mismatch warning, reversal copy —
-  and those are the ones a resident most needs in their own language. Until
-  a catalogue lands, no reach or accessibility claim may assume a resident
-  can read the ledger in anything but English
+- **English only.** Multiple languages are future scope, and the translation
+  scaffolding that once existed has been removed (2026-10-25). Re-adding a
+  language is real work rather than one catalogue file, because a retrofit
+  misses the rare strings — error states, the published-record mismatch
+  warning, reversal copy — which are the ones a resident most needs in their
+  own language. Until a language ships, no reach or accessibility claim may
+  assume a resident can read the ledger in anything but English
 - Onboarding and training for committee members — a guided setup for the
   president and a short tour for everyone on first sign-in
 - WhatsApp integration — **future scope, not a current delivery channel.**
