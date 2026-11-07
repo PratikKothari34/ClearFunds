@@ -2,7 +2,8 @@
 
 `main.json` records the branch protection that is **live on GitHub**, so the
 rules travel with a clone and a change to them is reviewable like any other
-change.
+change. `dev.json` is a prepared ruleset that has **not** been applied; each
+file says which it is, because the difference is invisible from the JSON.
 
 These files are a record, not the mechanism. Editing one protects nothing:
 GitHub is the authority, and a ruleset changes only when it is applied through
@@ -33,6 +34,24 @@ Three things in it are load-bearing and easy to get wrong:
 - **`~DEFAULT_BRANCH`** rather than a literal `refs/heads/main`. The rule
   follows the default branch if it is ever renamed, instead of silently
   protecting a branch that no longer exists.
+
+## `dev.json` — not applied
+
+A prepared ruleset for a `refs/heads/dev` branch. **Neither the branch nor the
+ruleset exists on GitHub** — `gh api .../rulesets` returns `main protection`
+alone — so nothing in this file protects anything today. It is kept because it
+is where the protection for a `dev` branch is decided and reviewed before it is
+applied, and because it carries the `ci-ok` required status check, which has to
+agree with whatever the CI workflow actually names its aggregate job.
+
+Two consequences of it being unapplied, both easy to misread:
+
+- **`enforcement: "active"` in this file is a statement of intent, not a live
+  state.** A ruleset that was never created enforces nothing regardless of what
+  the field says.
+- **It has no `bypass_actors`.** If it is ever applied, the owner gets no
+  bypass on `dev` — deliberate, but it means a direct push to `dev` would be
+  rejected outright rather than printing the bypass warning that `main` does.
 
 ## Verifying the record
 
