@@ -1,10 +1,10 @@
 # Budget kinds, format_version 1
 
-- **Status:** draft (#76). Not to be built until both sides agree
+- **Status:** proposed (#76). Shape and the three open questions agreed on #85
 - **Extends:** [`../entry-preimage.v1.md`](../entry-preimage.v1.md) §5 and
   [`ledger.v1.md`](ledger.v1.md). Additive: no existing hash changes
 - **Producer:** backend (`cf.kinds`) · **Consumer:** frontend verifier (`KINDS`)
-- **Test vectors:** to follow, as `../vectors/budget-kinds.v1.json`, once this is agreed
+- **Test vectors:** [`../vectors/budget-kinds.v1.json`](../vectors/budget-kinds.v1.json) follow with the backend PR
 
 A year's budget is set by the committee, through the same approvals as an
 approval-limit change, and recorded where it cannot be quietly lowered after
@@ -22,7 +22,7 @@ excludes `limit` and `seat`.
 
 ## The flow
 
-1. A committee member proposes with `action` **`budget`**, `fy` set, and
+1. Any seat proposes with `action` **`budget`**, `fy` set, and
    `amount_minor`, `counterparty`, `category` and `flat_id` all null. The
    tier is always **`committee`** (N-of-M), as for `limit_change`, whatever
    the total.
@@ -47,10 +47,17 @@ widening old ones).
 | 2 | `currency` | text | The society's currency |
 | 3 | `categories` | list\<text\> | Expense categories, distinct, in ascending byte order of their UTF-8 |
 | 4 | `amounts_minor` | list\<int\> | Same order. Each ≥ 0, in minor units of `currency` |
+| 5 | `income_categories` | list\<text\> | Income categories, same rule. Empty if none are budgeted |
+| 6 | `income_amounts_minor` | list\<int\> | Same order. Each ≥ 0 |
 
 A verifier checks that entry `proposal_seq` is a `proposal` with `action`
-`budget`, that it is the immediately preceding sequence, that the lists are the
-same length, and that `categories` is strictly ascending.
+`budget`, that it is the immediately preceding sequence, that each pair of lists
+is the same length, and that `categories` and `income_categories` are each
+strictly ascending.
+
+Income is in the layout from the start, because a field added to this kind later
+would rehash every entry of it (AGENTS.md item 15). A budget with no income lines
+is valid: its two lists are empty, not absent.
 
 ---
 
@@ -72,20 +79,20 @@ same length, and that `categories` is strictly ascending.
   they reverse) and `business_date` in the year, grouped by the proposal's
   `category` byte for byte. Spend in a category with no budget line is listed
   as **unbudgeted**, never dropped.
-- **No income budget in this version.** Receipts are dues and are tracked by
-  `flat_dues`. Say if the AGM needs one.
+- **Income is budgeted the same way.** Actual income for a category is the
+  figure `api_report` gives on its income line for that category. An AGM needs
+  it to ask whether the society planned to collect enough to cover the spending:
+  an expenditure-only report shows a shortfall as a clean variance on every line.
+- **Variance is computed on the server** (AGENTS.md item 3), as a signed integer:
+  `variance_minor = actual_minor - final_minor`. Positive means more than
+  budgeted on either side, so an overspend on an expenditure line and a surplus
+  on an income line are both positive, and the report says which in words. **No
+  percentage:** a category with no budget line has no denominator.
 
 ## API (sketch, for agreement)
 
 | Change | Shape |
 |---|---|
-| `/propose` with `proposal.action = "budget"` | `{ fy, narration, lines: [{ category, amount_minor }] }`. The server sorts the lines, refuses duplicate or empty categories and negative amounts, and appends `proposal` then `budget_lines` |
-| `proposals` view | A `budget` proposal carries `lines` beside the usual approval fields |
-| `api_report(p_society, p_fy)` | Adds `budget: { first_seq, final_seq, revisions: [{ posting_seq, posted_at, after_year_end }], lines: [{ category, first_minor, final_minor, actual_minor }], unbudgeted: [{ category, actual_minor }] }` |
-
-## Open questions
-
-1. Should the AGM report show variance (`actual − final`) as a figure, or
-   leave it to the reader? Computing it server-side follows AGENTS.md item 3.
-2. Does a budget need the treasurer as proposer, or may any seat propose one?
-   This draft allows any seat; approval is N-of-M either way.
+| `/propose` with `proposal.action = "budget"` | `{ fy, narration, lines: [{ category, amount_minor }], income_lines: [{ category, amount_minor }] }`. The server sorts each list, refuses duplicate or empty categories and negative amounts, and appends `proposal` then `budget_lines`. At least one line in total |
+| `proposals` view | A `budget` proposal carries `lines` and `income_lines` beside the usual approval fields |
+| `api_report(p_society, p_fy)` | Adds `budget: { first_seq, final_seq, revisions: [{ posting_seq, posted_at, after_year_end }], expenditure: [line], income: [line], unbudgeted_expenditure: [{ category, actual_minor }], unbudgeted_income: [{ category, actual_minor }] }`, where `line` is `{ category, first_minor, final_minor, actual_minor, variance_minor }`. `budget` is `null` for a year with no budget |
