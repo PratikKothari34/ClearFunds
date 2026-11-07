@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { AlertTriangle, Printer } from 'lucide-react'
 import { useReport, useYears } from '../lib/api'
-import { categoryLabel, day, instant, longDay, month, opinionHint, opinionLabel, opinionTone } from '../lib/format'
+import { auditChip, categoryLabel, day, instant, longDay, month, opinionHint, opinionLabel, opinionTone } from '../lib/format'
+import { checkHeadline, governingSeq } from '../lib/opinion'
 import { Amount, Button, Caption, Card, Chip, Failed, Fingerprint, Loading, PageTitle, Segmented, cx } from '../components/ui'
 import type { Report } from '../lib/types'
 
@@ -34,6 +35,14 @@ function Body({ r }: { r: Report }) {
   const ie = r.income_expenditure
   const bs = r.balance_sheet
   const op = r.opinions
+  /* The headline is the server's claim ABOUT the history rendered below it,
+   * so it is recomputed rather than trusted. An opinion on screen more
+   * serious than the headline cannot be right whatever the server knows. */
+  const headline = checkHeadline(op.headline, op.history)
+  const governs = governingSeq(op.headline, op.headline_seq, op.history)
+  const audit = headline.state === 'understated'
+    ? auditChip(op.closed, headline.worst)
+    : auditChip(op.closed, op.headline)
   return (
     <div className="space-y-6">
       <Card className="rise p-5">
@@ -44,10 +53,19 @@ function Body({ r }: { r: Report }) {
             <p className="text-[13px] text-ink-2">{longDay(r.starts)} to {longDay(r.ends)}</p>
           </div>
           <div className="text-right">
-            <Chip tone={opinionTone(op.headline)}>{op.headline ? `Audit: ${opinionLabel[op.headline]}` : 'Not yet audited'}</Chip>
+            {/* `headline === null` on an OPEN year is the ordinary state for
+              * most of a year and must read calm; on a CLOSED year it is a gap
+              * in the record, and "Not yet audited" would be a false
+              * reassurance. auditChip makes that distinction once. */}
+            <Chip tone={audit.tone}>{audit.text}</Chip>
           </div>
         </div>
-        {op.headline && <p className="mt-3 text-sm text-ink-2">{opinionHint[op.headline]}</p>}
+        {headline.state === 'understated'
+          ? <p className="mt-3 text-sm text-attention">
+              This report was sent with a milder headline than the opinions recorded below it.
+              The most serious one is shown instead.
+            </p>
+          : op.headline && <p className="mt-3 text-sm text-ink-2">{opinionHint[op.headline]}</p>}
         <div className="mt-4 grid grid-cols-3 gap-2 text-center">
           <Mini label="Income" minor={ie.total_income_minor} className="text-credit" />
           <Mini label="Spent" minor={ie.total_expenditure_minor} className="text-debit" />
@@ -157,7 +175,7 @@ function Body({ r }: { r: Report }) {
             <div key={h.seq} className="py-2">
               <div className="flex items-center justify-between gap-3">
                 <span className="text-sm font-medium">{h.auditor}</span>
-                <Chip tone={opinionTone(h.opinion)}>{opinionLabel[h.opinion]}{h.seq === op.headline_seq && op.history.length > 1 ? ', governs' : ''}</Chip>
+                <Chip tone={opinionTone(h.opinion)}>{opinionLabel[h.opinion]}{h.seq === governs && op.history.length > 1 ? ', governs' : ''}</Chip>
               </div>
               <p className="mt-2 text-sm leading-relaxed text-ink-2">{h.statement}</p>
               <p className="mt-1 text-xs text-ink-2">Signed {instant(h.recorded_at)} · #{h.seq}</p>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { countable, owing, partition } from './countable'
+import { countable, direction, owing, partition } from './countable'
 import { parts } from './money'
 
 /*
@@ -113,5 +113,83 @@ describe('partition', () => {
   it('keeps an empty input empty in all three buckets', () => {
     const p = partition([], (r: { v: unknown }) => r.v)
     expect([p.owing, p.settled, p.unreadable].every((b) => b.length === 0)).toBe(true)
+  })
+})
+
+/* ui.tsx:96's own partition, as the reference the chip must agree with. */
+const colour = (m: number) => (m < 0 ? 'debit' : m > 0 ? 'credit' : 'ink')
+
+describe('direction', () => {
+  /*
+   * The defect: `minor < 0 ? out : in` on the entry screen, so a zero
+   * amount asserted "Money in" about an entry that moved nothing. The proof
+   * it was wrong rather than merely unusual is that <Amount> on the SAME
+   * screen, reading the SAME field, already partitioned three ways - so the
+   * hero figure rendered neutral while the chip beside it claimed credit.
+   */
+
+  it('answers four ways, because a signed amount has three states', () => {
+    expect(direction(-1)).toBe('out')
+    expect(direction(1)).toBe('in')
+    expect(direction(0)).toBe('flat')
+    expect(direction(null)).toBe('unreadable')
+  })
+
+  it('never calls a zero amount a direction', () => {
+    // The whole bug in one assertion. Both halves matter: a fix that
+    // flipped the fallthrough would make zero read as "Money out" instead,
+    // which is equally a claim about money that did not move.
+    expect(direction(0)).not.toBe('in')
+    expect(direction(0)).not.toBe('out')
+  })
+
+  it('never calls an unreadable amount flat, which would read as settled', () => {
+    // 'flat' is a positive claim: the balance did not change. An amount
+    // nobody could read supports no claim at all, and `null > 0` is false
+    // while `null < 0` is false too - so a two-way test lands here by
+    // accident rather than by decision.
+    for (const [name, v] of unreadable) {
+      expect(direction(v), `${name} read as a flat balance`).toBe('unreadable')
+    }
+  })
+
+  it('agrees with countable about what is readable', () => {
+    // Two readers of one field. If they ever disagree, one surface shows a
+    // figure the other refuses, which is how the entry screen and the
+    // ledger came to describe the same row differently.
+    for (const v of [...unreadable.map(([, x]) => x), -250000, -1, 0, 1, 250000]) {
+      expect(direction(v) === 'unreadable', `disagreed about ${String(v)}`).toBe(!countable(v).readable)
+    }
+  })
+
+  it('agrees with owing() on which amounts are money in', () => {
+    for (const v of [...unreadable.map(([, x]) => x), -1, 0, 1, 999]) {
+      expect(direction(v) === 'in', `disagreed about ${String(v)}`).toBe(owing(v))
+    }
+  })
+
+  it('matches the three-way partition <Amount> colours by', () => {
+    /*
+     * ui.tsx:96 is `minor < 0 ? debit : minor > 0 ? credit : ink`. That line
+     * is the one that was already right, so it is the reference here: a
+     * direction that disagreed with the colour beside it is the defect
+     * reappearing on another surface.
+     */
+    const expected = { out: 'debit', in: 'credit', flat: 'ink' } as const
+    for (const m of [-999999, -1, 0, 1, 999999]) {
+      const d = direction(m)
+      expect(d === 'unreadable').toBe(false)
+      expect(expected[d as 'out' | 'in' | 'flat'], `direction disagreed with the colour at ${m}`).toBe(colour(m))
+    }
+  })
+
+  it('reads a reversal as the opposite of its target, with no third source of truth', () => {
+    // A reversal is the negation of what it reverses (ledger.v1.md:104), so
+    // the direction of the pair must be opposite for every readable amount
+    // - asserted as a rule over the sign, not against a sample figure.
+    for (const m of [1, 250000, Number.MAX_SAFE_INTEGER]) {
+      expect(direction(m)).toBe('in')
+      expect(direction(-m)).toBe('out')
+    }
   })
 })

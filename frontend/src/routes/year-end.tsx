@@ -3,8 +3,9 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import { Gavel, Lock } from 'lucide-react'
 import { useCloseYear, useYears } from '../lib/api'
 import { Refused } from '../lib/supabase'
+import { checkStatement } from '../lib/statement'
 import { useMeStrict } from '../lib/session'
-import { instant, longDay, opinionHint, opinionLabel, opinionTone } from '../lib/format'
+import { instant, longDay, opinionChip, opinionHint, opinionLabel, opinionTone } from '../lib/format'
 import { Button, Card, Caption, Chip, Empty, Field, Loading, PageTitle, Sheet, Textarea, useToast, cx } from '../components/ui'
 import type { Opinion, Year } from '../lib/types'
 
@@ -38,7 +39,7 @@ function YearCard({ y, mine }: { y: Year; mine: boolean }) {
           <h2 className="text-lg font-semibold tracking-tight">FY {y.fy}</h2>
           <p className="text-[13px] text-ink-2">{longDay(y.starts)} to {longDay(y.ends)}</p>
         </div>
-        {y.closed ? <Chip tone={opinionTone(y.headline)} icon={<Lock className="size-3" />}>{opinionLabel[y.headline!]}</Chip>
+        {y.closed ? <Chip tone={opinionTone(y.headline)} icon={<Lock className="size-3" />}>{opinionChip(y.headline)}</Chip>
           : <Chip>{y.ended ? 'Ended, open' : 'In progress'}</Chip>}
       </div>
       <p className="mt-3 text-sm text-ink-2">
@@ -48,8 +49,8 @@ function YearCard({ y, mine }: { y: Year; mine: boolean }) {
         <p key={h.seq} className="mt-2 text-[13px] text-ink-2">{opinionLabel[h.opinion]} by {h.auditor}, {instant(h.recorded_at)}</p>
       ))}
       <div className="mt-4 flex flex-wrap gap-2">
-        <Link to="/reports"><Button size="sm">Read the statements</Button></Link>
-        {can && <Button size="sm" tone="primary" icon={<Gavel className="size-4" />} onClick={() => setOpen(true)}>Give opinion and close</Button>}
+        <Link to="/reports"><Button>Read the statements</Button></Link>
+        {can && <Button tone="primary" icon={<Gavel className="size-4" />} onClick={() => setOpen(true)}>Give opinion and close</Button>}
       </div>
       {can && <CloseSheet y={y} open={open} onClose={() => setOpen(false)} />}
     </Card>
@@ -62,10 +63,36 @@ function CloseSheet({ y, open, onClose }: { y: Year; open: boolean; onClose: () 
   const [opinion, setOpinion] = useState<Opinion | null>(null)
   const [statement, setStatement] = useState('')
   const [error, setError] = useState<string | null>(null)
+  /*
+   * Bytes, not characters: `/close-year` bounds the statement in UTF-8 bytes
+   * and refuses rather than truncates. See lib/statement.ts - a character
+   * count passes 16,000 Devanagari characters at three bytes each and loses
+   * the whole statement at the one irreversible action in the product.
+   */
+  const st = checkStatement(statement)
+  /*
+   * The threshold is a fraction of whichever rule binds, which `st` has
+   * already resolved: a Devanagari statement reaches the character ceiling
+   * at a third of the bytes an English one does, and an English one reaches
+   * the byte ceiling first. Comparing `used` to `max` is correct for both
+   * because both are reported in the same unit.
+   */
+  const near = st.used > st.max * 0.9
   const submit = async () => {
     setError(null)
+    /* Closing a year is irreversible, so the precondition is enforced here
+     * and not only by the disabled button: a disabled attribute is a UI
+     * guarantee, and this writes a seal to the chain. */
+    if (!opinion) { setError('Choose an opinion before closing the year.'); return }
+    /*
+     * Checked here as well as on the disabled button, for the same reason the
+     * opinion is: a disabled attribute is a UI guarantee and this writes a
+     * seal to the chain. The server refuses it too; this is so the auditor
+     * learns it before signing rather than after.
+     */
+    if (st.over) { setError(`Your statement is ${st.used.toLocaleString('en-IN')} ${st.unit === 'chars' ? 'characters' : 'bytes'}. The limit is ${st.max.toLocaleString('en-IN')}. Shorten it before closing the year.`); return }
     try {
-      await close.mutateAsync({ fy: y.fy, opinion: opinion!, statement })
+      await close.mutateAsync({ fy: y.fy, opinion, statement: st.value })
       toast(`FY ${y.fy} is closed.`)
       onClose()
     } catch (e) {
@@ -74,7 +101,7 @@ function CloseSheet({ y, open, onClose }: { y: Year; open: boolean; onClose: () 
   }
   return (
     <Sheet open={open} onClose={onClose} title={`Close FY ${y.fy}`} wide
-      footer={<Button tone="primary" className="w-full" busy={close.isPending} disabled={!opinion || !statement.trim()} onClick={submit}>Sign and close the year</Button>}>
+      footer={<Button tone="primary" className="w-full" busy={close.isPending} disabled={!opinion || st.empty || st.over} onClick={submit}>Sign and close the year</Button>}>
       <div className="space-y-5">
         <Caption className="mb-0 px-0">Opinion, least to most serious</Caption>
         <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Opinion">
@@ -92,7 +119,27 @@ function CloseSheet({ y, open, onClose }: { y: Year; open: boolean; onClose: () 
         </div>
         <Field label="Your statement" htmlFor="st" hint="Public and chained. There are no private notes." error={error}>
           <Textarea id="st" value={statement} onChange={(e) => setStatement(e.target.value)} className="min-h-36"
-            placeholder="In my opinion… Basis for opinion…" />
+            placeholder="In my opinion… Basis for opinion…" aria-describedby={near ? 'st-left' : undefined} />
+          {/*
+            * Shown only near the limit. A counter on a two-paragraph opinion
+            * is noise that suggests brevity is wanted, and brevity is not
+            * what an adverse opinion needs. It appears in time to matter and
+            * is announced politely, so it does not interrupt typing.
+            */}
+          {near && (
+            <p id="st-left" aria-live="polite" className={cx('mt-1.5 text-right text-xs tnum', st.over ? 'text-debit' : 'text-ink-2')}>
+              {/*
+                * Labelled from `st.unit`, never hardcoded. The server bounds
+                * the statement two ways - bytes of UTF-8 and characters -
+                * and a Devanagari statement hits the character ceiling
+                * first. Calling that figure "bytes" would show the auditor
+                * a wrong number at the one irreversible action here.
+                */}
+              {st.over
+                ? `${(st.used - st.max).toLocaleString('en-IN')} ${st.unit === 'chars' ? 'characters' : 'bytes'} over the limit`
+                : `${(st.max - st.used).toLocaleString('en-IN')} ${st.unit === 'chars' ? 'characters' : 'bytes'} left`}
+            </p>
+          )}
         </Field>
         <ul className="space-y-1.5 text-[13px] text-ink-2">
           <li>Any opinion closes the year, including adverse and disclaimer. Closing seals it; it does not endorse it.</li>
