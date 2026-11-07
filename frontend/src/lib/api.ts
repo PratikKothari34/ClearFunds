@@ -16,7 +16,28 @@ import {
 } from './rows'
 import type { Entry } from './chain'
 
-const PAGE = 1000
+export const PAGE = 1000
+
+/**
+ * The `from` offsets still to fetch after the first page has come back.
+ *
+ * Extracted because the decision is the whole risk of paginating in parallel
+ * and it cannot be tested through `all()` without a network: get it wrong by
+ * one page and the ledger silently loses or duplicates a thousand entries,
+ * which a running balance reports as a wrong figure rather than an error.
+ *
+ * `total` is the row count the server reported, or undefined when it did not
+ * report one.
+ *   - a short first page means that was everything -> nothing more to fetch
+ *   - no count means we cannot plan -> undefined, and the caller walks in
+ *     sequence instead of assuming one page was all of it
+ */
+export function restPages(firstLen: number, total: number | null | undefined): number[] | undefined {
+  if (firstLen < PAGE) return []
+  if (typeof total !== 'number' || !Number.isFinite(total)) return undefined
+  const pages = Math.ceil(total / PAGE)
+  return Array.from({ length: Math.max(0, pages - 1) }, (_, i) => (i + 1) * PAGE)
+}
 
 /**
  * Reads every row of a view in pages, in sequence order.
@@ -26,6 +47,18 @@ const PAGE = 1000
  * shape of the entire ledger with nothing checking a single field at
  * runtime. Each page is parsed as it arrives, so a malformed row fails the
  * query at the page that contained it, naming the field.
+ *
+ * The pages after the first go out TOGETHER. Walking them in sequence meant
+ * each round-trip waited on the one before it, and this is the app's largest
+ * read: a 150-flat society five years in carries roughly 11,000 entries, so
+ * eleven chained requests stood between opening the app and seeing a figure.
+ * `count: 'exact'` on the first page says how many rows exist, and the rest
+ * are fetched in parallel and stitched back in range order.
+ *
+ * Still parsed per page, with the same range in the label, so a malformed row
+ * names the page it came from whether that page was fetched first or last.
+ * Promise.all rejects on the first failure, which is what a ledger wants - a
+ * partial history would compute a running balance from rows it did not have.
  */
 async function all<T>(
   view: 'ledger' | 'proposals' | 'disputes',
@@ -33,16 +66,35 @@ async function all<T>(
   society: string,
   order = 'seq',
 ): Promise<T[]> {
-  const out: T[] = []
   const pageParser = array(rowParser)
-  for (let from = 0; ; from += PAGE) {
-    const raw = unwrap(
-      await supabase.from(view).select('*').eq('society_id', society).order(order).range(from, from + PAGE - 1),
-    )
-    const rows = parse(pageParser, raw, `${view} rows ${from}-${from + PAGE - 1}`)
-    out.push(...rows)
-    if (rows.length < PAGE) return out
+  const page = (from: number, count?: 'exact') =>
+    supabase.from(view).select('*', count ? { count } : undefined)
+      .eq('society_id', society).order(order).range(from, from + PAGE - 1)
+  const take = (raw: unknown, from: number) =>
+    parse(pageParser, raw, `${view} rows ${from}-${from + PAGE - 1}`)
+
+  const head = await page(0, 'exact')
+  const first = take(unwrap(head), 0)
+
+  const offsets = restPages(first.length, head.count)
+
+  /*
+   * undefined means the server reported no count, so there is no way to know
+   * whether more rows exist. Walk in sequence rather than return what might
+   * be a truncated ledger - slow is recoverable, a silently short history is
+   * a wrong running balance.
+   */
+  if (offsets === undefined) {
+    const out = [...first]
+    for (let from = PAGE; ; from += PAGE) {
+      const rows = take(unwrap(await page(from)), from)
+      out.push(...rows)
+      if (rows.length < PAGE) return out
+    }
   }
+
+  const rest = await Promise.all(offsets.map(async (from) => take(unwrap(await page(from)), from)))
+  return [first, ...rest].flat()
 }
 
 export function useSociety() {
@@ -92,21 +144,27 @@ export function useCommittee() {
   const s = useSociety()
   return useQuery({
     queryKey: ['committee', s.id],
+    /*
+     * The two reads are INDEPENDENT, so they go out together. Awaiting seats
+     * and then people made one round-trip wait on the other for no reason,
+     * and this hook gates /committee and /new.
+     *
+     * Each response is still parsed with its own label, so a malformed row
+     * still names which read it came from. Promise.all rejects on the first
+     * failure, which is what the query wants: a partial committee is not a
+     * committee, and showing seats without the names to resolve them would
+     * render every member as an unknown id.
+     */
     queryFn: async () => {
-      const seats = parse(
-        seatRows,
-        unwrap(
-          await supabase.from('committee_seats').select('person_id,role,derived,seated_seq,unseated_seq')
-            .eq('society_id', s.id).order('seated_seq'),
-        ),
-        'useCommittee seats',
-      )
-      const people = parse(
-        peopleRows,
-        unwrap(await supabase.from('people').select('id,full_name,email,phone').eq('society_id', s.id)),
-        'useCommittee people',
-      )
-      return { seats, people }
+      const [rawSeats, rawPeople] = await Promise.all([
+        supabase.from('committee_seats').select('person_id,role,derived,seated_seq,unseated_seq')
+          .eq('society_id', s.id).order('seated_seq'),
+        supabase.from('people').select('id,full_name,email,phone').eq('society_id', s.id),
+      ])
+      return {
+        seats: parse(seatRows, unwrap(rawSeats), 'useCommittee seats'),
+        people: parse(peopleRows, unwrap(rawPeople), 'useCommittee people'),
+      }
     },
   })
 }
@@ -221,6 +279,21 @@ export async function fetchChain(society: string, onPage?: (n: number) => void):
 }
 
 /** Keeps open screens current: a new entry anywhere refreshes the read models. */
+/*
+ * Every read this society has cached. A chain entry can change any of them -
+ * the kind is not in the realtime payload, so narrowing by kind would mean
+ * trusting a guess about what an insert touched.
+ *
+ * Two of the names this list used to carry, 'head' and 'structuring', were
+ * never query keys at all: invalidating them did nothing in either
+ * direction. 'tenant-flags' IS a query key and was missing, so a flag raised
+ * on another device left this one's set stale until a reload.
+ */
+const LIVE_KEYS = [
+  'ledger', 'proposals', 'disputes', 'dues', 'committee',
+  'years', 'report', 'signoffs', 'limit', 'tenant-flags',
+] as const
+
 export function useLive(society: string) {
   const qc = useQueryClient()
   useEffect(() => {
@@ -231,8 +304,36 @@ export function useLive(society: string) {
         () => {
           clearTimeout(t)
           t = setTimeout(() => {
-            for (const k of ['ledger', 'proposals', 'disputes', 'dues', 'committee', 'years', 'report', 'structuring', 'signoffs', 'limit', 'head'])
-              qc.invalidateQueries({ queryKey: [k] })
+            /*
+             * Everything the viewer is looking at refetches, because these
+             * are the figures on screen and an append-only ledger that shows
+             * yesterday's total is wrong, not merely slow. The dashboard
+             * mounts nine of these and they are all small reads.
+             *
+             * The LEDGER is the exception, and the reason this is not one
+             * call. `all()` walks the society's entire history in 1000-row
+             * pages, each waiting on the last, so refetching it per insert is
+             * the one genuinely expensive thing here - a committee working
+             * through a backlog paid that repeatedly. It is marked stale
+             * WITHOUT refetching (`refetchType: 'none'`): the rows already on
+             * screen stay, and Query re-reads on the next mount or window
+             * focus.
+             *
+             * Any query NOT mounted is left stale either way - no inactive
+             * read is fetched here just to warm a cache.
+             *
+             * `exact: true` on the ledger matters: Query matches by key
+             * PREFIX, and useSummary's key is ['ledger', 'summary', id]. A
+             * prefix invalidation would sweep the summary in with the full
+             * history and leave the dashboard's headline balance stale with
+             * nothing refetching it - the one figure a resident opens the app
+             * to read.
+             */
+            qc.invalidateQueries({ queryKey: ['ledger', society], exact: true, refetchType: 'none' })
+            qc.invalidateQueries({ queryKey: ['ledger', 'summary', society], exact: true, refetchType: 'active' })
+            for (const k of LIVE_KEYS) {
+              if (k !== 'ledger') qc.invalidateQueries({ queryKey: [k], refetchType: 'active' })
+            }
           }, 400)
         })
       .subscribe()

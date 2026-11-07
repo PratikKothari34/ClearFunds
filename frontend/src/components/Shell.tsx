@@ -159,7 +159,11 @@ export function Shell({ children }: { children: ReactNode }) {
       <Sheet open={moreOpen} onClose={() => setMoreOpen(false)} title="More">
         <div className="grid grid-cols-3 gap-2">
           {more.map((it) => (
-            <Link key={it.id} to={it.to} className="flex flex-col items-center gap-2 rounded-2xl bg-sunken px-2 py-4 text-sm font-medium">
+            // Preloads when the sheet opens, not when the Shell mounts: these
+            // are exactly the routes that did NOT make the five tabs, so they
+            // are the cold ones, and the tap that opens the sheet buys the
+            // chunk time to arrive before the tap that picks a route.
+            <Link key={it.id} to={it.to} preload={NAV_PRELOAD} className="flex flex-col items-center gap-2 rounded-2xl bg-sunken px-2 py-4 text-sm font-medium">
               <it.icon className="size-6 text-ink-2" strokeWidth={1.8} />{it.label}
             </Link>
           ))}
@@ -177,9 +181,31 @@ export function Shell({ children }: { children: ReactNode }) {
   )
 }
 
+/*
+ * preload="viewport" on every nav link, overriding the router's global
+ * 'intent'.
+ *
+ * 'intent' preloads on hover or focus. A PHONE HAS NEITHER - a tap is not a
+ * hover - so on the device the bundle budget is written for, mid-range Android
+ * on working 4G, nav links were preloading nothing at all and every navigation
+ * started from cold. The desktop rail got the win and the phone did not.
+ *
+ * 'viewport' uses IntersectionObserver, which fires on touch. Both navs are
+ * permanently on screen, so this resolves to "preload the nav's routes once
+ * the shell mounts" - at most ten chunks on the rail, five on the tab bar,
+ * each 1.3-11.5 KB gzipped, against a 76.2 KB entry. The ledger's is the
+ * largest and is also the one most likely to be tapped.
+ *
+ * This preloads the route's CODE. The DATA is separately warm because the
+ * dashboard already fetched nine of the twelve reads and every other resident
+ * screen is a subset of them; main.tsx's staleTime is what keeps those cached
+ * long enough for the navigation to land on them.
+ */
+const NAV_PRELOAD = 'viewport' as const
+
 function RailLink({ item, active, badge }: { item: NavItem; active: boolean; badge?: number | undefined }) {
   return (
-    <Link to={item.to} aria-current={active ? 'page' : undefined}
+    <Link to={item.to} preload={NAV_PRELOAD} aria-current={active ? 'page' : undefined}
       className={cx('flex h-10 items-center gap-3 rounded-xl px-3 text-[14.5px] font-medium transition-colors',
         active ? 'bg-accent-soft text-accent' : 'text-ink-2 hover:bg-sunken hover:text-ink')}>
       <item.icon className="size-[18px]" strokeWidth={1.9} />
@@ -191,7 +217,7 @@ function RailLink({ item, active, badge }: { item: NavItem; active: boolean; bad
 
 function TabLink({ item, active, badge }: { item: NavItem; active: boolean; badge?: number | undefined }) {
   return (
-    <Link to={item.to} aria-current={active ? 'page' : undefined}
+    <Link to={item.to} preload={NAV_PRELOAD} aria-current={active ? 'page' : undefined}
       className={cx('relative flex h-16 flex-col items-center justify-center gap-1 text-[11px] font-medium', active ? 'text-accent' : 'text-ink-2')}>
       <span className="relative">
         <item.icon className="size-[22px]" strokeWidth={active ? 2.2 : 1.8} />
