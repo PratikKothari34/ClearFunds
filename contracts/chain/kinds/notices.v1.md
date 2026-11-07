@@ -46,6 +46,11 @@ Appended in the same transaction as its `notice`.
 | 3 | `flat_token` | bytes? | `anonymous` votes only: see below |
 | 4 | `options` | list\<int\> | Indexes into `options`, ascending and distinct, 1 to `max_picks` of them |
 
+The salt behind `flat_token` is never published or served, so **a client cannot
+check a real token**. It can check only that no token repeats within a vote. The
+derivation below is pinned by vectors, and getting it right on real ballots is
+the server's job.
+
 Exactly one of `flat_id` and `flat_token` is present. **A ballot never names a
 person or a pseudonym**: a pseudonym beside a flat would unmask that
 resident's flags, and in an anonymous vote it would link their ballots across

@@ -2,6 +2,8 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import type { Session } from '@supabase/supabase-js'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase, unwrap } from './supabase'
+import { parse } from './parse'
+import { me as meParser } from './rows'
 import type { Me, Role } from './types'
 
 type Auth = { session: Session | null; ready: boolean }
@@ -29,7 +31,7 @@ export function useMe() {
     queryKey: ['me', session?.user.id],
     enabled: !!session,
     staleTime: 60_000,
-    queryFn: async () => unwrap(await supabase.rpc('api_me', {})) as unknown as Me | null,
+    queryFn: async () => parse(meParser, unwrap(await supabase.rpc('api_me', {})), 'useMe'),
   })
 }
 
@@ -45,7 +47,15 @@ export function hats(me: Me): Set<Hat> {
 }
 
 export const isCommittee = (me: Me) => !!me.seat
-export const isOfficer = (me: Me) => me.seat?.role === 'treasurer' || me.seat?.role === 'secretary'
+
+/*
+ * isOfficer is 0004's `pair` tier and now lives in lib/pending.ts, beside
+ * waitsOn, which spelled the same rule out inline while this copy went
+ * unused. Re-exported so an import from here still resolves, and because a
+ * pure authorisation predicate should not require this module's React,
+ * Supabase and TanStack Query import graph to be testable.
+ */
+export { isOfficer } from './pending'
 
 /** The signed-in person, for screens that render only once it is known. */
 export function useMeStrict(): Me {
