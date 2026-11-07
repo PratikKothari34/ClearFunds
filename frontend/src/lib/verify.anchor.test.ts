@@ -77,8 +77,19 @@ describe('an anchor that can be rendered', () => {
     expect(a!.href.startsWith('https://')).toBe(true)
   })
 
-  it('accepts plain http, because a committee may self-host without TLS', () => {
-    expect(withTemplate('http://anchors.example.org/{society}.json')).not.toBeNull()
+  /*
+   * REFUSES PLAIN HTTP. Settled with the backend 2026-11-07; this suite
+   * asserted the opposite until then, on the reading that a committee might
+   * self-host without TLS.
+   *
+   * The anchor exists to be a head our server could not have minted. Over
+   * plain http anyone carrying the packets can replace it, and the failure
+   * is in the dangerous direction: the check would report "matches" against
+   * a fingerprint the attacker supplied. A refused URL reads as "not
+   * published", which is honest - we have no anchor we can trust.
+   */
+  it('refuses plain http, which an attacker on the path can rewrite', () => {
+    expect(withTemplate('http://anchors.example.org/{society}.json')).toBeNull()
   })
 
   it('reports a host the route can show without parsing anything again', () => {
