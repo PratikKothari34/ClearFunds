@@ -297,9 +297,6 @@ export const report = object<Report>({
 })
 
 export const duesRows = array(duesRow)
-export const ledgerRows = array(ledgerRow)
-export const proposalRows = array(proposalRow)
-export const disputeRows = array(disputeRow)
 export const seats = array(seat)
 export const people = array(person)
 export const years = array(year)

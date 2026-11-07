@@ -65,11 +65,11 @@ bounded to five items, ordered by what needs *this viewer* first.
 The ledger screen is **A's, essentially unchanged**, because A's ledger was the
 best of the three and the ledger is the product.
 
-- Tabular figures, Indian digit grouping. **Source Sans 3 throughout**, for
-  the amount and the narration both. This bullet once said "serif for amounts
-  and narration" and was corrected against the type table in §2g; since
-  2026-10-25 only one family RENDERS: `--cf-serif` resolves to the sans
-  stack, so every surviving `font-serif` already sets the sans.
+- Tabular figures, Indian digit grouping. **Inter throughout**, for the amount
+  and the narration both, with tabular figures set globally rather than per
+  element (`app.css:149`). No serif renders anywhere; see §2g for the two
+  families that actually ship and for the Source Sans / Source Serif pair that
+  `0007` chose and the build never adopted.
 - Credit and debit as the only colour accents on the screen. **The activity
   band's amber does not appear on the ledger**, so the palette rule holds where
   it matters.
@@ -178,7 +178,7 @@ B's pass had to repair.** B originally let an empty section render nothing,
 which moves every tap target below it by ~96px and makes the feature
 undiscoverable. D keeps the repair: **the slot is reserved, the content
 varies.** With nothing pending it reads *"Nothing needs you right now"* in
-`--ink-quiet`, not amber, and the bands below never move.
+`--ink-2`, not amber, and the bands below never move.
 
 **A zero-amber dashboard is the normal case for a resident**, and that is
 correct. Amber means *this viewer must act*. A resident with no flag and no
@@ -252,48 +252,52 @@ debit.
 
 ## 2f. The palette, complete
 
-Nine tokens. **Every ratio below was computed, not estimated**, with the WCAG
+**Every ratio below was computed from `app.css` on 2026-11-07**, with the WCAG
 2.1 formula `(L_hi + 0.05) / (L_lo + 0.05)` against the theme's own
 `--surface`. Body text needs 4.5:1; large text and graphical objects need 3:1.
 
+An earlier version of this table listed nine tokens of a warm-paper palette
+(`--surface #FBFAF7`, `--ink-quiet`, `--rule`) with ratios to match. **None of
+those tokens exists.** The shipped palette is cool-neutral and the names are
+different; the table below is the real one.
+
 | Token | Light | Dark | Role | Light ratio | Dark ratio |
 |---|---|---|---|---|---|
-| `--surface` | `#FBFAF7` | `#16181C` | Page. Warm-neutral paper, not cream. | — | — |
-| `--ink` | `#1A1D21` | `#E8E6E1` | Primary type. | 16.20:1 | 14.25:1 |
-| `--ink-quiet` | `#5C6169` | `#9BA1A9` | Secondary type, labels, meta. | 5.97:1 | 6.83:1 |
-| `--rule` | `#8F8A7E` | `#626569` | Hairlines, table dividers. | 3.30:1 | 3.03:1 |
-| `--credit` | `#1C5B4A` | `#5FBFA2` | Money in. Deep pine, not mint. | 7.61:1 | 8.01:1 |
-| `--debit` | `#8A3324` | `#E0836F` | Money out. Burnt sienna, not red. | 7.80:1 | 6.47:1 |
-| `--attention` | `#A8490A` | `#F0A868` | Needs **this viewer**. Amber, earned. | 5.55:1 | 8.89:1 |
-| `--anchor` | `#2D4A8A` | `#7FA3E0` | Externally published / verified-against. | 8.18:1 | 6.96:1 |
-| `--break` | `#8C2F39` | `#DE8A92` | Mismatch, gap, reversal. | 7.80:1 | 6.90:1 |
+| `--surface` | `#ffffff` | `#121722` | Card and sheet ground. | — | — |
+| `--bg` | `#f4f5f7` | `#0a0d14` | Page behind the cards. | — | — |
+| `--ink` | `#0d1320` | `#e8ebf1` | Primary type. | 18.57:1 | 15.01:1 |
+| `--ink-2` | `#4c5566` | `#a0a9ba` | Secondary type, labels, meta. | 7.50:1 | 7.58:1 |
+| `--accent` | `#2f45c7` | `#93a4ff` | Links, primary action. | 7.51:1 | 7.68:1 |
+| `--credit` | `#0b6b47` | `#55c995` | Money in. | 6.55:1 | 8.69:1 |
+| `--debit` | `#a13a1e` | `#f2937a` | Money out. | 6.69:1 | 7.88:1 |
+| `--attention` | `#9a4a00` | `#f4b75c` | Needs **this viewer**. | 6.26:1 | 10.05:1 |
+| `--anchor` | `#2d4a8a` | `#8fb0ee` | Externally published / verified-against. | 8.54:1 | 8.21:1 |
+| `--break` | `#9b1c3b` | `#f08ca6` | Mismatch, gap, reversal. | 8.01:1 | 7.69:1 |
 
-**Four of these nine were corrected during the audit that produced them.**
-`--rule` in both themes and `--attention` in both themes failed on first
-specification and were recomputed until they passed; the first round of
-replacement values *also* failed, which is the reason this table carries ratios
-rather than assurances. **A palette token without a computed number beside it
-has not been checked.**
+Each colour token also has a `-soft` fill for chips. **Every one clears 4.5:1
+against its own tint** in both themes, the tightest being `--debit` light at
+5.66:1 — so a chip's label is body text, not decoration.
 
-**The ratios above were recomputed at build time and 14 of the 16 in the
-original table were wrong**, drifting by up to 1.36 — dark `--ink-quiet` was
-stated as 5.47:1 and is in fact 6.83:1. **No token failed its threshold, so the
-palette ships unchanged**, but the lesson is the one the paragraph above
-already states and the table had not actually honoured: a number that was not
-produced by running the formula is not a computed number. The check now lives
-in the test suite (`tokens.contrast.test.ts`), so the table cannot drift from
-the stylesheet again.
+**Two rule tokens, and only one of them is a graphical object.** `--line`
+(`#dde1e8` light, 1.31:1) is a hairline *divider* and is deliberately below
+3:1: it separates, it does not carry meaning. `--line-strong` (`#8a93a3`,
+**3.10:1** light / 3.81:1 dark) is the one that must stay visible, and light
+clears 3:1 by 0.10 — it may never be used for text, and never thinned below
+1px.
 
-**Three rules that make the table true at render time:**
+**A palette token without a computed number beside it has not been checked**,
+which is why `tokens.test.ts` recomputes all of this from the stylesheet
+rather than storing expected ratios. It also asserts the
+`prefers-color-scheme: dark` block and the explicit `[data-theme='dark']`
+block are **the same palette** — two ramps that drift apart would give a
+system-dark phone different colours from one that chose dark by hand.
 
-- **`--rule` has the least headroom in both themes** (3.30:1 light, 3.03:1
-  dark). It is a graphical object and clears 3:1 only just; it may never be
-  used for text, and it may never be thinned below 1px.
-- **`--ink-quiet` is never reduced in opacity.** Computed: `opacity: 0.7` takes
-  the light token from 5.97:1 to **3.11:1** and the dark from 6.83:1 to
-  **4.00:1**. Both fail 4.5:1, and the light one fails even the 3:1 graphical
-  floor. This is the single easiest way to undo the whole audit, and it is
-  covered by a test.
+**Two rules that make the table true at render time:**
+
+- **`--ink-2` is never reduced in opacity.** Recomputed 2026-11-07:
+  `opacity: 0.7` over `--surface` takes the light token from 7.50:1 to
+  **3.56:1** and the dark from 7.58:1 to **4.33:1**. Both fail 4.5:1. The
+  numbers moved with the palette; the prohibition did not.
 - **Colour is never the only signal.** `--credit` and `--debit` are
   accompanied by sign and column position, because deuteranopia affects roughly
   1 in 12 men and a green/red amount pair is the worst available encoding for
@@ -306,23 +310,35 @@ need a meaning no existing token carries.
 
 ## 2g. Type
 
-**One family, decided 2026-10-25** (`0007`). It was two.
+**Two families, both self-hosted.** Verified against
+`frontend/src/styles/fonts.css` and `public/fonts/` on 2026-11-07.
 
-| Family | Role | Notes |
-|---|---|---|
-| **Source Sans 3** | Everything: UI, amounts, labels, headings | Tabular figures, which the ledger requires |
-| ~~Source Serif 4~~ | ~~Band headings only~~ | **Dropped.** A high-contrast serif display on a warm near-cream ground is the single most recognisable signature of a generated page, and a band heading does not need a second typeface to read as a heading. A band heading is now a **quiet caption** above its content — meta-sized, medium weight, `--ink-quiet`, no rule. It sat **on a rule** until 2026-10-25; see *Rules earn their place* below for why that went |
-| ~~A mono face, hex-subset~~ | ~~Fingerprints~~ | **Not built, and not needed.** Fingerprints use the PLATFORM monospace stack (`--cf-mono` in `tokens.css`): zero bytes, no route cost, and even character widths are the only thing the mono was for |
-
-**Scale: 12.8 / 16 / 20 / 25 / 31.25 / 39**, a 1.25 ratio off a 16px body.
-
-| Element | Face | Size | Weight |
+| Family | Token | Weights | Role |
 |---|---|---|---|
-| Balance figure | Source Sans 3, tabular | 39px | 500 |
-| Band heading | Source Sans 3 | 14px | 500, `--ink-quiet`, no rule |
-| Ledger amount | Source Sans 3, tabular | 16px | 400, right-aligned |
-| Ledger narration | Source Sans 3 | 16px | 400 |
-| Date, meta, label | Source Sans 3 | 12.8px | 400, `--ink-quiet` |
+| **Inter** | `--font-sans` (`app.css:117`) | 400, 500, 600, 700 | Everything: UI, amounts, labels, headings |
+| **JetBrains Mono** | `--font-mono` (`app.css:118`) | 400, 500 | Fingerprints and hashes — anywhere even character widths let two strings be compared down a column |
+
+Both stacks fall back to the platform face (`ui-sans-serif` / `ui-monospace`),
+so `font-display: swap` never leaves a figure unrendered.
+
+**Tabular figures are set globally**, not per-element: `font-variant-numeric:
+tabular-nums` at `app.css:149`. A figure cannot opt out of it by accident,
+which is the point — digits that shift width between rows make a column of
+amounts unreadable.
+
+Sizes come from **Tailwind's scale**, not a custom ramp: `text-4xl` for the
+balance figure a resident checks first, `text-3xl` for a money input,
+`text-[13px]` and `text-[12.5px]` for meta and fingerprints. Quiet text is
+`--ink-2` (`text-ink-2`), the only de-emphasis token; there is no
+`--ink-quiet`.
+
+**Dropped along the way, and why it is not coming back:** Source Sans 3 and
+Source Serif 4 were the pair in `0007`, and a hex-subset mono was to be built
+for fingerprints. A high-contrast display serif on a warm ground is the most
+recognisable signature of a generated page, so the serif went and a band
+heading became a quiet caption. The subset mono went too, but the need it
+served was real — JetBrains Mono answers it with a shipped face rather than a
+custom subset.
 
 **Five rules:**
 
@@ -336,7 +352,7 @@ need a meaning no existing token carries.
   letter-spacing is less legible, not more authoritative.
 - **68 characters is the line cap** on any prose — a reason, a disclosure, an
   empty state.
-- **`--ink-quiet` is never reduced in opacity**, restated here because it is a
+- **`--ink-2` is never reduced in opacity**, restated here because it is a
   type decision as much as a colour one.
 
 ---
@@ -362,7 +378,7 @@ recessive. The eye has no landing point.
 | Device | Before | After |
 |---|---|---|
 | Section boundary | `border-b` hairline | unchanged — this one is a real boundary |
-| Heading | `text-head`, semibold, **on a rule** | `text-meta`, medium, `--ink-quiet`, **no rule** |
+| Heading | `text-head`, semibold, **on a rule** | `text-meta`, medium, `--ink-2`, **no rule** |
 | Vertical rhythm | `py-(--cf-s3)` on all five | `primary` band `s4`, reference bands `s3` |
 | Hairlines on the dashboard | 10 | 4 section boundaries + 1 inside the balance block |
 
@@ -438,8 +454,8 @@ and no test asserting on substrings catches a stray space.
 (2026-10-25, `0007`). `A · B · C` is template chrome: it appears on
 generated pages whatever the subject, and it reads as one run-on string
 rather than as separate facts. The rule is the register's own device - the
-line between two columns - and it is already in the palette as
-`--cf-rule`.
+line between two columns - and it is already in the palette as `--line`, with
+`--line-strong` for the one that must stay visible.
 
 **The rule is `aria-hidden`, so it carries NO WORD BOUNDARY, and a
 visually-hidden separator must sit beside it.** This is not a detail. The
@@ -556,32 +572,47 @@ Frontend-only project; this is what D needs and does not implement.
 
 ## 3. What this costs, measured
 
-**The resident read path is 50.2 KB of font, downloaded once**, measured off
-`frontend/public/fonts/`, not estimated: Latin subsets only —
-`source-sans-3-latin-400` and `-500` at 15.3 KB each,
-`source-serif-4-latin-400` at 19.6 KB. Opening `Verify` adds nothing, because
-fingerprints use the platform monospace stack and **no mono face exists in the
-tree.** At ~10 Mbps on a working 4G connection that is 0.04 s, so **font
-weight is not a design argument at this throughput** — the serif was dropped
-on the grounds in `0007`, that it looked generated, not on bytes.
+All figures below were measured off the tree on **2026-11-07**, not estimated.
+An earlier version of this section described a Source Sans 3 / Source Serif 4
+payload of 50.2 KB and claimed no mono face existed; none of that matched
+`public/fonts/`, and the numbers here replace it.
 
-**The budget still holds regardless**, because `scripts/budget.mjs` sets its
-ceilings just above the measured baseline rather than against a transfer time:
-a careless import is a regression at 10 Mbps exactly as it was at 1.5.
+**Fonts: 139.9 KB across six woff2 files, Latin subsets, downloaded once.**
+Inter at 400/500/600/700 is 96.7 KB (23.1–23.9 KB each); JetBrains Mono at
+400/500 is 43.0 KB (20.7 and 21.3 KB). Unlike the superseded account, opening
+`Verify` does **not** cost zero — fingerprints are set in a real mono face, so
+the two JetBrains files are part of the payload wherever a hash is shown.
 
-**`src/styles/fonts.test.ts` guards three things**, and each was a live risk:
-no font stylesheet outside the Latin faces; **no woff2 in `public/fonts/` that
-no `@font-face` declares** (deleting a rule but leaving the bytes); and no
-non-Latin family named in `--cf-sans` — a stack position for a face nothing
-loads silently renders the UI in a different font on any device that happens to
-have that face installed.
+**Font bytes are not a live design argument at this throughput.** At ~10 Mbps
+on a working 4G connection the whole set is ~0.11 s, once, then cached. The
+serif was dropped on the grounds in `0007` — that it read as generated — not
+on bytes.
 
-**The brand mark, as submitted, was 347 KB — larger than the entire font
-payload.** Prepared: `mark-240.webp` at **29.3 KB**, `mark-120.webp` at 10.0 KB
-for the smaller `srcset` candidate, a 91% reduction, and `/login` is the only
-route that loads either. **The hero stays wordmark-only** — the mark is not on
-a returning resident's critical path, and the first-paint budget is what keeps
-it off.
+**JavaScript and CSS, gzipped, as `npm run budget` reports them:** the
+framework entry chunk 76.2 KB against a 130 KB ceiling, all CSS 8.4 against
+12, the vendor chunks outside the entry 99.8 against 108, and the largest
+route chunk `ledger` 11.5 against 50. Every route is far inside its ceiling;
+the vendor total is the one line with little headroom left.
+
+**The ceilings sit just above the measured baseline, deliberately**, rather
+than against a transfer time — so a careless import is a regression at 10 Mbps
+exactly as it was at 1.5. Raising the assumed throughput is never a reason to
+raise one.
+
+**Brand assets.** `/login` loads `logo-128.png` at 28.3 KB, via
+`src/components/Logo.tsx`, with no `srcset` — a single raster, not the
+`mark-240.webp`/`mark-120.webp` pair an earlier draft of this section
+described; neither file exists. `icon-512.png` is **302 KB**, the largest
+asset in the tree by a wide margin, but it is referenced only from
+`site.webmanifest` and is fetched at install time, not on any page load. The
+favicons are 48.4 KB and 2.4 KB. **The hero stays wordmark-only** — the mark
+is not on a returning resident's critical path.
+
+**Two of these are worth revisiting:** `icon-512.png` at 302 KB is a PNG doing
+a job WebP would do in a fraction of it, and `favicon-180.png` at 48.4 KB is
+large for an apple-touch icon. Neither is on the read path, so neither is
+urgent, and `check-assets.mjs` guards only that referenced assets *exist*, not
+that they are small.
 
 **The one standing cost is B's backend dependency**, the watermark, filed with
 the other backend needs. A and C needed nothing of the kind.
@@ -746,7 +777,7 @@ Beyond those inherited from A, B and C.
 
 **A resident with no watermark yet, on the dashboard.** The activity band's
 first render for a brand-new account has nothing to compare against. It shows
-*"Nothing needs you right now"* in `--ink-quiet` — **not "0 new entries"**,
+*"Nothing needs you right now"* in `--ink-2` — **not "0 new entries"**,
 which implies a comparison that did not happen. Same discipline as the
 fingerprint band's first-visit copy, and for the same reason.
 

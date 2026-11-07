@@ -334,13 +334,6 @@ export function useAddResident() {
   })
 }
 
-export function useMarkSeen() {
-  const s = useSociety()
-  return useMutation({
-    mutationFn: async (seq: number) => unwrap(await supabase.rpc('api_mark_seen', { p_society: s.id, p_seq: seq })),
-  })
-}
-
 export function useSummary() {
   const s = useSociety()
   return useQuery({
