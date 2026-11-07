@@ -91,6 +91,49 @@ describe('vite.config.ts: the dev server runs the production CSP', () => {
     }
   })
 
+  /*
+   * THE ANCHOR ORIGIN IS FIXED, NOT CONFIGURED - AND NOTHING ASSERTED THAT.
+   *
+   * This file already locks the directives that need no origin. The one
+   * directive that DOES carry origins went unguarded, so the anchor host could
+   * be read from `VITE_ANCHOR_URL`, and was: with the variable empty, the dev
+   * policy omitted the host while the deployed policy allowed it. Dev then
+   * permitted strictly less than production, which is the one direction that
+   * makes a local failure misleading - the first anchor fetch fails here only,
+   * and it reads as a broken fetch rather than a policy mismatch.
+   *
+   * It matters beyond a config slip: the published head is the record the
+   * committee does not control, so an origin that can be changed by editing a
+   * variable lets a deployment point the client at a host it also controls,
+   * and every verification then passes against a rewritable record.
+   *
+   * Asserted as "the host is a literal in this file and env supplies only
+   * Supabase", because that is the property, not the spelling of the policy.
+   */
+  it('fixes the anchor origin in code, never from an environment variable', () => {
+    expect(code, 'the anchor host must be a literal, so it cannot be relaxed by changing env')
+      .toContain("'https://raw.githubusercontent.com'")
+    expect(code, 'reading the anchor origin from env lets a deployment choose a host it controls')
+      .not.toContain('VITE_ANCHOR_URL')
+  })
+
+  it('still takes the Supabase origin from env, which does vary per deployment', () => {
+    // The rule is "fix what must not vary", not "hardcode everything": a
+    // literal Supabase origin would be wrong in the other direction.
+    expect(code).toContain('VITE_SUPABASE_URL')
+  })
+
+  it('puts the anchor origin in connect-src, where a fetch is actually governed', () => {
+    // A literal defined and never reached by the policy is the same silent
+    // failure as reading it from an empty variable.
+    const start = code.indexOf('const DEV_CSP')
+    const end = code.indexOf(".join('; ')", start)
+    const devCsp = code.slice(start, end)
+    expect(devCsp).toMatch(/connect-src[^`]*\$\{origins\(\)/)
+    const fn = code.slice(code.indexOf('function origins'))
+    expect(fn.slice(0, fn.indexOf('}\n'))).toContain('ANCHOR_ORIGIN')
+  })
+
   it('allows a websocket for HMR but keeps it out of production', () => {
     // ws: is legitimate in dev and must never be in the deployed policy. The
     // backend writes that one, so all this file can assert is that the dev

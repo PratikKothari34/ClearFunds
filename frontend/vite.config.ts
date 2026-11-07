@@ -31,11 +31,35 @@ import { loadEnv, type PluginOption } from 'vite'
  */
 const DEV_NONCE = randomBytes(16).toString('base64')
 
+/*
+ * THE ANCHOR HOST IS A LITERAL, AND THAT IS THE POINT.
+ *
+ * The published chain head is the one record the committee does not control,
+ * so the host serving it is FIXED by the anchor contract rather than
+ * configured. A configurable anchor origin lets whoever runs the deployment
+ * point the client at a host they also control, and then every verification
+ * passes against a record they can rewrite - the check still goes green and
+ * stops meaning anything.
+ *
+ * It was read from `VITE_ANCHOR_URL` here, which was wrong twice over: the
+ * origin could be relaxed by editing a variable, and with the variable empty
+ * - which it is - the dev policy omitted the host altogether while the
+ * deployed policy allows it. Dev then permits strictly less than production,
+ * so the first anchor fetch fails on this machine only, and the obvious
+ * reading of that failure is a broken fetch rather than a policy that does
+ * not match.
+ *
+ * Only the Supabase origin comes from env, because that one genuinely varies
+ * per deployment.
+ */
+const ANCHOR_ORIGIN = 'https://raw.githubusercontent.com'
+
 function origins(): string[] {
   const env = loadEnv('development', process.cwd(), 'VITE_')
-  return [env.VITE_SUPABASE_URL, env.VITE_ANCHOR_URL]
+  const supabase = [env.VITE_SUPABASE_URL]
     .filter((u): u is string => !!u)
     .map((u) => new URL(u.replace('{society}', 'x')).origin)
+  return [...supabase, ANCHOR_ORIGIN]
 }
 
 const DEV_CSP = [
