@@ -38,6 +38,16 @@ function Verify() {
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const v = check && !live ? verdict(check) : null
+  /*
+   * Computed once, and already an absolute http(s) URL or null.
+   * This block previously called anchorUrl(s.id) three times, asserted
+   * non-null twice, and built a `new URL()` DURING RENDER to get the host.
+   * new URL() throws TypeError on a relative path, and there is no error
+   * boundary anywhere in the tree, so a misconfigured VITE_ANCHOR_URL
+   * blanked the whole verify screen - the one screen whose job is to say
+   * whether the record can be trusted.
+   */
+  const anchor = anchorUrl(s.id)
 
   return (
     <div>
@@ -101,10 +111,10 @@ function Verify() {
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="text-ink-2">Its fingerprint</span><Fingerprint value={check.head.hash} />
             </div>
-            {anchorUrl(s.id) && (
+            {anchor && (
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-ink-2">Published at</span>
-                <a className="truncate text-accent" href={anchorUrl(s.id)!} target="_blank" rel="noreferrer">{new URL(anchorUrl(s.id)!).host}</a>
+                <a className="truncate text-accent" href={anchor.href} target="_blank" rel="noreferrer">{anchor.host}</a>
               </div>
             )}
           </Card>

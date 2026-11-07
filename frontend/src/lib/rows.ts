@@ -36,11 +36,12 @@
  * discloses one unreadable figure instead of blanking the screen, which is
  * the whole point of countable.ts.
  */
-import { array, bool, int, nullable, object, oneOf, required, ShapeError, str } from './parse'
+import { array, bool, int, nullable, object, oneOf, required, str } from './parse'
 import type { Parser } from './parse'
+import { PROPOSAL_STATES } from './types'
 import type {
-  Approval, ChargePreview, DisputeRow, DuesRow, LedgerRow, Note, Person, ProposalRow, Report,
-  LimitEntry, ResolvedHandle, Seat, SignoffEntry, Structuring, Summary, Year,
+  Approval, ChargePreview, DisputeRow, DuesRow, LedgerRow, Me, Note, Person, ProposalRow, Report,
+  LimitEntry, ResolvedHandle, Seat, SignoffEntry, Society, Structuring, Summary, Year,
 } from './types'
 
 /* Shared vocabularies, kept together so a backend addition is one edit here
@@ -136,7 +137,7 @@ export const proposalRow = object<ProposalRow>({
   /* Computed by the server from the limit in force, not a stored column: a
    * null is a broken proposal, not a cell that could not be read. */
   limit_minor: required(int),
-  state: required(oneOf(['open', 'posted', 'declined', 'withdrawn', 'superseded', 'year_closed'] as const)),
+  state: required(oneOf(PROPOSAL_STATES)),
   posted_seq: nullable(int),
   approvals: required(array(approval)),
   approve_count: required(int),
@@ -296,13 +297,9 @@ export const report = object<Report>({
 })
 
 export const duesRows = array(duesRow)
-export const ledgerRows = array(ledgerRow)
-export const proposalRows = array(proposalRow)
-export const disputeRows = array(disputeRow)
 export const seats = array(seat)
 export const people = array(person)
 export const years = array(year)
-export const structurings = array(structuring)
 
 /*
  * api_summary is a separate source from the dues view - the dashboard's
@@ -321,6 +318,15 @@ export const summary = object<Summary>({
     month: required(str),
     in_minor: required(int),
     out_minor: required(int),
+    /*
+     * Both are `coalesce(..., 0)` server-side, so absent is a broken summary,
+     * not "no reversals" - a month with none reports 0. `required` is what
+     * makes a missing key fail loudly instead of reaching a surface as
+     * undefined, where `undefined > 0` is false and the disclosure would
+     * silently never render.
+     */
+    reversed_in_minor: required(int),
+    reversed_out_minor: required(int),
     charged_minor: required(int),
     entries: required(int),
   }))),
@@ -380,29 +386,135 @@ export const chargePreview = nullable(object<ChargePreview>({
  * then; a missing one cannot be defaulted, because every default is a claim
  * about which tier was required. It fails instead.
  */
-const limitEntry = object<LimitEntry>({
+/*
+ * PARSED PER KIND, because each kind carries ONE of the two fields and not
+ * the other. `society_opened` has `approval_limit_minor` (ledger.v1.md:43,
+ * field 4) and a `limit` posting has `limit_minor` (:106, field 5). Neither
+ * body contains the other key at all.
+ *
+ * One shape declaring both with `nullable` is what broke this: `nullable`
+ * refuses an ABSENT field by design - deliberately, so a dropped column
+ * cannot pass as a reported null - so the first row of the real query threw
+ * and `useLimit` failed for every society and every role. Every chain opens
+ * with `society_opened`, so there was no society where it worked.
+ *
+ * It did not crash. `limit.data` stayed undefined, `countable()` read the
+ * limit as unreadable on `approvals`, `new`, `committee` and `entry.$seq`,
+ * and the committee's limit history rendered empty. The fixture tests passed
+ * throughout, because the fixtures carried both keys - a shape the server
+ * never sends. That is the whole bug: the test built the input, so it could
+ * only prove the parser agreed with the test.
+ *
+ * The limit is `required` within each kind. 0006 puts the limit in force in
+ * the chain precisely so an approval can be checked against the limit that
+ * applied then; a missing one cannot be defaulted, because every default is
+ * a claim about which tier was required. It fails instead.
+ */
+const openedLimit = object<{ sequence: number; kind: 'society_opened'; recorded_at: number; body: { approval_limit_minor: number } }>({
   sequence: required(int),
-  kind: required(oneOf(['society_opened', 'posting'] as const)),
+  kind: required(oneOf(['society_opened'] as const)),
   recorded_at: required(int),
-  body: required(object<LimitEntry['body']>({
-    approval_limit_minor: nullable(int),
-    limit_minor: nullable(int),
+  body: required(object<{ approval_limit_minor: number }>({
+    approval_limit_minor: required(int),
+  })),
+})
+
+const postingLimit = object<{ sequence: number; kind: 'posting'; recorded_at: number; body: { limit_minor: number } }>({
+  sequence: required(int),
+  kind: required(oneOf(['posting'] as const)),
+  recorded_at: required(int),
+  body: required(object<{ limit_minor: number }>({
+    limit_minor: required(int),
   })),
 })
 
 /*
- * Each row must carry the limit its own kind names. A society_opened without
- * approval_limit_minor, or a limit posting without limit_minor, is a chain
- * that cannot answer which tier was in force - so it is rejected here rather
- * than defaulted to zero by the caller.
+ * The reader picks the shape by `kind`, then widens to the common
+ * `LimitEntry` by filling the field this kind does not carry with null.
+ *
+ * The null is produced HERE, by us, from a kind we recognised - it is never
+ * a value the server sent, and never an absent field waved through. `api.ts`
+ * then selects by the same kind, so the null is written and read on the same
+ * branch and no surface ever sees it.
  */
 export const limitEntries: Parser<LimitEntry[]> = (value, path) => {
-  const rows = array(limitEntry)(value, path)
-  for (const [i, r] of rows.entries()) {
-    const field = r.kind === 'society_opened' ? 'approval_limit_minor' : 'limit_minor'
-    if (r.body[field] === null) {
-      throw new ShapeError(`${path}[${i}].body.${field}`, `a ${r.kind} entry must carry ${field}, but it was null`)
+  const rows = array<unknown>((v) => v)(value, path)
+  return rows.map((row, i): LimitEntry => {
+    const at = `${path}[${i}]`
+    /*
+     * Read the discriminant first and fail on an unknown kind, rather than
+     * letting one shape's error stand in for "this was the other kind". The
+     * query asks for exactly these two, so a third is a changed query or a
+     * changed view, and guessing which parser to blame hides that.
+     *
+     * DELIBERATELY REDUNDANT with each shape's own `kind` check, and
+     * verified so: mutating either guard alone leaves the suite green,
+     * mutating BOTH fails it. Each masks the other under a single-mutant
+     * run, which is the shape that reads as dead code. Neither is - drop
+     * this one and an unknown kind is parsed by the posting shape, blaming
+     * a field the entry was never required to carry.
+     */
+    const kind = required(oneOf(['society_opened', 'posting'] as const))(
+      (row as { kind?: unknown } | null)?.kind,
+      `${at}.kind`,
+    )
+    if (kind === 'society_opened') {
+      const r = openedLimit(row, at)
+      return { ...r, body: { approval_limit_minor: r.body.approval_limit_minor, limit_minor: null } }
     }
-  }
-  return rows
+    const r = postingLimit(row, at)
+    return { ...r, body: { approval_limit_minor: null, limit_minor: r.body.limit_minor } }
+  })
 }
+
+/*
+ * Who this person is, and what they may see. `api_me` is the most privileged
+ * payload the app reads: `seat.role` decides which controls render,
+ * `auditor_for` opens the year-close screen, and `tenure` gates every
+ * resident surface. It crossed the wire unparsed until now.
+ *
+ * Every field is `required` except the three the contract genuinely leaves
+ * absent. A null `seat` is someone with no committee post, a null `tenure` is
+ * someone who lives nowhere in this society, and both are ordinary states
+ * that the surfaces already branch on. `last_seen_seq` is null before a first
+ * visit. Nothing else may be missing: a person with no `society` or no
+ * `person` id is not a reduced view of the answer, it is a broken one, and a
+ * surface that renders it would be deciding access from a blank.
+ *
+ * `seat` here is NOT the `Seat` read model above - it is narrower, carrying
+ * only the role and whether it was derived, so it gets its own shape rather
+ * than a reuse that would demand fields `api_me` never sends.
+ *
+ * The whole thing is nullable because `api_me` answers null for a signed-in
+ * person who belongs to no society yet. That is an answer, not a failure, so
+ * it parses; every field inside a present one is checked.
+ */
+const society = object<Society>({
+  id: required(str),
+  name: required(str),
+  city: nullable(str),
+  currency: required(str),
+  fy_start_month: required(int),
+  structuring_window_days: required(int),
+})
+
+export const me = nullable(object<Me>({
+  person: required(str),
+  name: required(str),
+  email: required(str),
+  society: required(society),
+  seat: nullable(object<NonNullable<Me['seat']>>({
+    role: required(role),
+    derived: required(bool),
+  })),
+  auditor_for: required(array(str)),
+  tenure: nullable(object<NonNullable<Me['tenure']>>({
+    id: required(str),
+    kind: required(oneOf(['owner', 'tenant'] as const)),
+    handle: required(str),
+    flat_id: required(str),
+    flat: required(str),
+    owner_can_see: required(bool),
+  })),
+  last_seen_seq: nullable(int),
+}))

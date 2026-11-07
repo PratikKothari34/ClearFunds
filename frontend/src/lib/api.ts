@@ -2,7 +2,7 @@ import { useEffect, useMemo } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase, unwrap, edge, bytea } from './supabase'
 import { useMeStrict } from './session'
-import { array, parse } from './parse'
+import { array, int, object, parse, required, str } from './parse'
 import type { Parser } from './parse'
 /*
  * `people` and `seats` are imported under pf-/sf- names because useCommittee
@@ -11,12 +11,78 @@ import type { Parser } from './parse'
  */
 import {
   chargePreview, disputeRow, duesRows, ledgerRow, limitEntries, people as peopleRows,
-  proposalRow, report, resolvedHandle, seats as seatRows, signoffEntries, structurings,
+  proposalRow, report, resolvedHandle, seats as seatRows, signoffEntries,
   summary, years,
 } from './rows'
 import type { Entry } from './chain'
 
-const PAGE = 1000
+export const PAGE = 1000
+
+/**
+ * The ceiling on the sequential fallback walk, NOT a limit on a society's
+ * history - the planned path has no such bound and never consults this.
+ *
+ * It exists so a loop whose only exit is a short page cannot run forever.
+ * Set far above any real society: 150 flats appending for decades is tens of
+ * thousands of entries, so this is centuries of headroom and a refusal here
+ * means something is broken, never that a committee was too busy.
+ */
+export const MAX_ROWS = 500_000
+
+/**
+ * The sequential walk's stop decision, extracted so it can be tested.
+ *
+ * `all()` itself needs a network, so the loop around this was unreachable by
+ * any test - and an untested bound is the dead-check class: it looks like a
+ * guard and would wave through the thing it was added to stop.
+ *
+ * Three answers, and the middle one is the whole point:
+ *   'done'     - a short page, so that was the end of the view
+ *   'continue' - a full page and room left under the ceiling
+ *   'refuse'   - a full page at the ceiling, which means the exit condition
+ *                is never coming. THROW, never return what we have: a
+ *                truncated history reported as complete is a wrong running
+ *                balance, and that is the failure this product exists to
+ *                prevent.
+ */
+export function walkStep(lastLen: number, nextFrom: number): 'done' | 'continue' | 'refuse' {
+  if (lastLen < PAGE) return 'done'
+  return nextFrom <= MAX_ROWS ? 'continue' : 'refuse'
+}
+
+/**
+ * The `from` offsets still to fetch after the first page has come back.
+ *
+ * Extracted because the decision is the whole risk of paginating in parallel
+ * and it cannot be tested through `all()` without a network: get it wrong by
+ * one page and the ledger silently loses or duplicates a thousand entries,
+ * which a running balance reports as a wrong figure rather than an error.
+ *
+ * `total` is the row count the server reported, or undefined when it did not
+ * report one.
+ *   - a short first page means that was everything -> nothing more to fetch
+ *   - no count means we cannot plan -> undefined, and the caller walks in
+ *     sequence instead of assuming one page was all of it
+ *   - a count BELOW the page just read contradicts it -> undefined too, for
+ *     the same reason: a full page proves those rows exist, so a total of 0
+ *     or -1 is nonsense and must not be planned from
+ *   - otherwise, one offset per remaining page
+ */
+export function restPages(firstLen: number, total: number | null | undefined): number[] | undefined {
+  if (firstLen < PAGE) return []
+  if (typeof total !== 'number' || !Number.isFinite(total)) return undefined
+  /*
+   * A full first page is direct evidence of at least PAGE rows, so a total
+   * BELOW that contradicts what we just read and cannot be planned from.
+   * Without this, a count of 0 or -1 took the `pages - 1 = 0` path and
+   * returned [] - "that was everything" - truncating the ledger to its first
+   * page and reporting no error. Math.max(0, ...) made that look deliberate.
+   * Falling through to the sequential walk is slow and right.
+   */
+  if (total < firstLen) return undefined
+  const pages = Math.ceil(total / PAGE)
+  return Array.from({ length: pages - 1 }, (_, i) => (i + 1) * PAGE)
+}
 
 /**
  * Reads every row of a view in pages, in sequence order.
@@ -26,6 +92,18 @@ const PAGE = 1000
  * shape of the entire ledger with nothing checking a single field at
  * runtime. Each page is parsed as it arrives, so a malformed row fails the
  * query at the page that contained it, naming the field.
+ *
+ * The pages after the first go out TOGETHER. Walking them in sequence meant
+ * each round-trip waited on the one before it, and this is the app's largest
+ * read: a 150-flat society five years in carries roughly 11,000 entries, so
+ * eleven chained requests stood between opening the app and seeing a figure.
+ * `count: 'exact'` on the first page says how many rows exist, and the rest
+ * are fetched in parallel and stitched back in range order.
+ *
+ * Still parsed per page, with the same range in the label, so a malformed row
+ * names the page it came from whether that page was fetched first or last.
+ * Promise.all rejects on the first failure, which is what a ledger wants - a
+ * partial history would compute a running balance from rows it did not have.
  */
 async function all<T>(
   view: 'ledger' | 'proposals' | 'disputes',
@@ -33,16 +111,58 @@ async function all<T>(
   society: string,
   order = 'seq',
 ): Promise<T[]> {
-  const out: T[] = []
   const pageParser = array(rowParser)
-  for (let from = 0; ; from += PAGE) {
-    const raw = unwrap(
-      await supabase.from(view).select('*').eq('society_id', society).order(order).range(from, from + PAGE - 1),
-    )
-    const rows = parse(pageParser, raw, `${view} rows ${from}-${from + PAGE - 1}`)
-    out.push(...rows)
-    if (rows.length < PAGE) return out
+  const page = (from: number, count?: 'exact') =>
+    supabase.from(view).select('*', count ? { count } : undefined)
+      .eq('society_id', society).order(order).range(from, from + PAGE - 1)
+  const take = (raw: unknown, from: number) =>
+    parse(pageParser, raw, `${view} rows ${from}-${from + PAGE - 1}`)
+
+  const head = await page(0, 'exact')
+  const first = take(unwrap(head), 0)
+
+  const offsets = restPages(first.length, head.count)
+
+  /*
+   * undefined means the server reported no count, so there is no way to know
+   * whether more rows exist. Walk in sequence rather than return what might
+   * be a truncated ledger - slow is recoverable, a silently short history is
+   * a wrong running balance.
+   */
+  if (offsets === undefined) {
+    const out = [...first]
+    /*
+     * The `for` header carries no bound: `walkStep` holds it, so the stop
+     * decision is testable without a network. The loop is bounded all the
+     * same - 'refuse' throws out of it.
+     *
+     * It needs one, because the exit condition is a short page and nothing
+     * here enforces what makes that certain. `order` defaults to 'seq', which is
+     * unique and append-only, so `range` walks a stable result set - but a
+     * caller passing a non-unique column, or a server returning a full page
+     * past the end, would spin forever allocating rows in a tab that cannot
+     * be closed by a resident who only wanted to read a balance.
+     *
+     * A throw is the right failure: it reaches the render boundary, names
+     * the view, and loses one screen. The silent alternative is returning
+     * `out` as though it were complete, which is the truncated-ledger bug
+     * this whole path exists to avoid.
+     */
+    for (let from = PAGE; ; from += PAGE) {
+      const rows = take(unwrap(await page(from)), from)
+      out.push(...rows)
+      const step = walkStep(rows.length, from + PAGE)
+      if (step === 'done') return out
+      if (step === 'refuse') {
+        throw new Error(
+          `${view}: more than ${MAX_ROWS} rows without a short page; refusing to return a possibly truncated history`,
+        )
+      }
+    }
   }
+
+  const rest = await Promise.all(offsets.map(async (from) => take(unwrap(await page(from)), from)))
+  return [first, ...rest].flat()
 }
 
 export function useSociety() {
@@ -92,21 +212,27 @@ export function useCommittee() {
   const s = useSociety()
   return useQuery({
     queryKey: ['committee', s.id],
+    /*
+     * The two reads are INDEPENDENT, so they go out together. Awaiting seats
+     * and then people made one round-trip wait on the other for no reason,
+     * and this hook gates /committee and /new.
+     *
+     * Each response is still parsed with its own label, so a malformed row
+     * still names which read it came from. Promise.all rejects on the first
+     * failure, which is what the query wants: a partial committee is not a
+     * committee, and showing seats without the names to resolve them would
+     * render every member as an unknown id.
+     */
     queryFn: async () => {
-      const seats = parse(
-        seatRows,
-        unwrap(
-          await supabase.from('committee_seats').select('person_id,role,derived,seated_seq,unseated_seq')
-            .eq('society_id', s.id).order('seated_seq'),
-        ),
-        'useCommittee seats',
-      )
-      const people = parse(
-        peopleRows,
-        unwrap(await supabase.from('people').select('id,full_name,email,phone').eq('society_id', s.id)),
-        'useCommittee people',
-      )
-      return { seats, people }
+      const [rawSeats, rawPeople] = await Promise.all([
+        supabase.from('committee_seats').select('person_id,role,derived,seated_seq,unseated_seq')
+          .eq('society_id', s.id).order('seated_seq'),
+        supabase.from('people').select('id,full_name,email,phone').eq('society_id', s.id),
+      ])
+      return {
+        seats: parse(seatRows, unwrap(rawSeats), 'useCommittee seats'),
+        people: parse(peopleRows, unwrap(rawPeople), 'useCommittee people'),
+      }
     },
   })
 }
@@ -138,13 +264,17 @@ export function useReport(fy: string | undefined) {
   })
 }
 
-export function useStructuring() {
-  const s = useSociety()
-  return useQuery({
-    queryKey: ['structuring', s.id],
-    queryFn: async () => parse(structurings, unwrap(await supabase.rpc('api_structuring', { p_society: s.id })), 'useStructuring'),
-  })
-}
+/*
+ * There is no useStructuring. `api_report` already returns the structuring
+ * aggregates and the AGM report renders them (routes/reports.tsx), which is
+ * where 0004 says they belong - in the report, marked crossed. A second hook
+ * on api_structuring fetched the same aggregate by a different path for a
+ * standalone screen that was never built, so the two could disagree about
+ * which below-limit payments crossed the limit with nothing to say which was
+ * right. `rows.ts` keeps the `structuring` row parser - the report's own
+ * schema wraps it with array() inline - but not the standalone array export,
+ * which existed only for this hook.
+ */
 
 export function useSignoffs() {
   const s = useSociety()
@@ -217,6 +347,21 @@ export async function fetchChain(society: string, onPage?: (n: number) => void):
 }
 
 /** Keeps open screens current: a new entry anywhere refreshes the read models. */
+/*
+ * Every read this society has cached. A chain entry can change any of them -
+ * the kind is not in the realtime payload, so narrowing by kind would mean
+ * trusting a guess about what an insert touched.
+ *
+ * Two of the names this list used to carry, 'head' and 'structuring', were
+ * never query keys at all: invalidating them did nothing in either
+ * direction. 'tenant-flags' IS a query key and was missing, so a flag raised
+ * on another device left this one's set stale until a reload.
+ */
+const LIVE_KEYS = [
+  'ledger', 'proposals', 'disputes', 'dues', 'committee',
+  'years', 'report', 'signoffs', 'limit', 'tenant-flags',
+] as const
+
 export function useLive(society: string) {
   const qc = useQueryClient()
   useEffect(() => {
@@ -227,8 +372,36 @@ export function useLive(society: string) {
         () => {
           clearTimeout(t)
           t = setTimeout(() => {
-            for (const k of ['ledger', 'proposals', 'disputes', 'dues', 'committee', 'years', 'report', 'structuring', 'signoffs', 'limit', 'head'])
-              qc.invalidateQueries({ queryKey: [k] })
+            /*
+             * Everything the viewer is looking at refetches, because these
+             * are the figures on screen and an append-only ledger that shows
+             * yesterday's total is wrong, not merely slow. The dashboard
+             * mounts nine of these and they are all small reads.
+             *
+             * The LEDGER is the exception, and the reason this is not one
+             * call. `all()` walks the society's entire history in 1000-row
+             * pages, each waiting on the last, so refetching it per insert is
+             * the one genuinely expensive thing here - a committee working
+             * through a backlog paid that repeatedly. It is marked stale
+             * WITHOUT refetching (`refetchType: 'none'`): the rows already on
+             * screen stay, and Query re-reads on the next mount or window
+             * focus.
+             *
+             * Any query NOT mounted is left stale either way - no inactive
+             * read is fetched here just to warm a cache.
+             *
+             * `exact: true` on the ledger matters: Query matches by key
+             * PREFIX, and useSummary's key is ['ledger', 'summary', id]. A
+             * prefix invalidation would sweep the summary in with the full
+             * history and leave the dashboard's headline balance stale with
+             * nothing refetching it - the one figure a resident opens the app
+             * to read.
+             */
+            qc.invalidateQueries({ queryKey: ['ledger', society], exact: true, refetchType: 'none' })
+            qc.invalidateQueries({ queryKey: ['ledger', 'summary', society], exact: true, refetchType: 'active' })
+            for (const k of LIVE_KEYS) {
+              if (k !== 'ledger') qc.invalidateQueries({ queryKey: [k], refetchType: 'active' })
+            }
           }, 400)
         })
       .subscribe()
@@ -249,18 +422,32 @@ function useWrite<A, R>(fn: (a: A) => Promise<R>) {
   })
 }
 
+/*
+ * Every edge function's response is parsed, for the reason in `all` above: a
+ * type argument on `edge<T>` is a cast, so a missing `seq` arrived as
+ * `undefined` and was typed `number`.
+ *
+ * `status` is parsed as a STRING, not against PROPOSAL_STATES. The write
+ * already happened; a value this build does not recognise is not a failed
+ * write, and refusing it here would tell the person their entry was not made.
+ * `writeOutcome` classifies it and the copy hedges on an unknown one.
+ */
+const seqOnly = object<{ seq: number }>({ seq: required(int) })
+const statusOnly = object<{ status: string }>({ status: required(str) })
+const seqAndStatus = object<{ seq: number; status: string }>({ seq: required(int), status: required(str) })
+
 export type ProposalInput = Record<string, string | number | null | undefined>
 
 export function usePropose() {
   const s = useSociety()
   return useWrite((proposal: ProposalInput) =>
-    edge<{ seq: number; status: string }>('/propose', { society: s.id, proposal }))
+    edge('/propose', { society: s.id, proposal }).then((r) => parse(seqAndStatus, r, '/propose')))
 }
 
 export function useCast() {
   const s = useSociety()
   return useWrite((a: { seq: number; decision: 'approve' | 'decline' }) =>
-    edge<{ status: string }>('/cast', { society: s.id, ...a }))
+    edge('/cast', { society: s.id, ...a }).then((r) => parse(statusOnly, r, '/cast')))
 }
 
 export function useWithdraw() {
@@ -270,13 +457,13 @@ export function useWithdraw() {
 
 export function useSignoff() {
   const s = useSociety()
-  return useWrite((a: { month: string; note?: string }) => edge<{ seq: number }>('/signoff', { society: s.id, ...a }))
+  return useWrite((a: { month: string; note?: string }) => edge('/signoff', { society: s.id, ...a }).then((r) => parse(seqOnly, r, '/signoff')))
 }
 
 export function useCloseYear() {
   const s = useSociety()
   return useWrite((a: { fy: string; opinion: string; statement: string }) =>
-    edge<{ seq: number }>('/close-year', { society: s.id, ...a }))
+    edge('/close-year', { society: s.id, ...a }).then((r) => parse(seqOnly, r, '/close-year')))
 }
 
 export function useRaiseFlag() {
@@ -313,13 +500,6 @@ export function useAddResident() {
     const person = unwrap(await supabase.rpc('api_add_person', {
       p_society: s.id, p_name: a.name, p_email: a.email, ...(a.phone ? { p_phone: a.phone } : {}) })) as string
     return unwrap(await supabase.rpc('api_add_tenure', { p_society: s.id, p_person: person, p_flat: a.flat, p_kind: a.kind }))
-  })
-}
-
-export function useMarkSeen() {
-  const s = useSociety()
-  return useMutation({
-    mutationFn: async (seq: number) => unwrap(await supabase.rpc('api_mark_seen', { p_society: s.id, p_seq: seq })),
   })
 }
 
