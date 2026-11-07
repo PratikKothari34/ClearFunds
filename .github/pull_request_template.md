@@ -1,5 +1,5 @@
 <!--
-Target `dev`, not `main` (CONTRIBUTING.md 3.1). At most 400 changed lines and at most 3 days old.
+Target `main` (CONTRIBUTING.md 3.1). At most 400 changed lines and at most 3 days old.
 A contract change is its own PR and is never bundled with implementation (section 6).
 `Closes #N` only when every "Done when" item on the issue is done; otherwise `Part of #N`.
 No Co-authored-by trailer and no agent attribution, here or in commits.

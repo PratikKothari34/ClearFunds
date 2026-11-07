@@ -121,8 +121,8 @@ The ledger's integrity rests on five mechanisms:
 - **A public audit trail** anyone with access can verify
 
 Taken together these make the history **tamper-evident**: a change cannot be
-made quietly. See *Open questions* below for what that word does and does not
-promise.
+made quietly. See *The hard decisions* below for what that word does and does
+not promise.
 
 ---
 
@@ -155,14 +155,13 @@ on phones.
 
 - Simple interface
 - Mobile-first
-- Multiple languages — **future scope. English only ships today**
-  (2026-10-25). The translation library is wired in and loaded lazily, so a
-  second language costs a catalogue rather than a retrofit; the reason for
-  wiring it before it was needed is that a retrofit misses the rare strings
-  — error states, the published-record mismatch warning, reversal copy —
-  and those are the ones a resident most needs in their own language. Until
-  a catalogue lands, no reach or accessibility claim may assume a resident
-  can read the ledger in anything but English
+- **English only.** Multiple languages are future scope, and the translation
+  scaffolding that once existed has been removed (2026-10-25). Re-adding a
+  language is real work rather than one catalogue file, because a retrofit
+  misses the rare strings — error states, the published-record mismatch
+  warning, reversal copy — which are the ones a resident most needs in their
+  own language. Until a language ships, no reach or accessibility claim may
+  assume a resident can read the ledger in anything but English
 - Onboarding and training for committee members — a guided setup for the
   president and a short tour for everyone on first sign-in
 - WhatsApp integration — **future scope, not a current delivery channel.**
@@ -184,11 +183,15 @@ auditor's work. Promising speed invites the one comparison the product loses.
 
 ---
 
-## Open questions
+## The hard decisions, and why they went the way they did
 
-Decisions the research raises but does not settle. Each is load-bearing, and
-each gets more expensive to change once entries are chained and real money is
-recorded.
+Each of these is load-bearing, and each gets more expensive to change once
+entries are chained and real money is recorded. **Nearly all of them are
+settled** — this section is the reasoning, and `AGENTS.md` states the resulting
+rules in the form that binds code.
+
+**One thing is genuinely still open**, called out in place below: **how an
+auditor proves who they are** when they come to sign off.
 
 **Tamper-evident is not tamper-proof.** Hash-chaining makes tampering
 *detectable* by anyone who verifies the chain. It does not make tampering
@@ -203,8 +206,9 @@ optional. The claim the product makes is **the record cannot be changed
 quietly** — never that it cannot be forged by whoever runs the server.
 *Tamper-evident*, consistently; never *tamper-proof*.
 
-**Still open:** the publication mechanism, cadence and recipients — now with
-one requirement attached. **Whatever holds the published head, residents' own
+**Settled 2026-10-27:** the head is published monthly to a repository the
+committee does not control; [`contracts/anchor/v1.md`](../contracts/anchor/v1.md)
+is the mechanism. The requirement behind it stands: **whatever holds the published head, residents' own
 software must be able to fetch it directly.** A recipient that merely receives
 a head and exposes nothing readable does not close the gap it exists to close:
 on a first-ever load, a server can serve a smaller, internally consistent
@@ -328,12 +332,23 @@ complaints.
 auditor records when the records they asked for were never produced, so no
 opinion can honestly be formed. Sealing a year and endorsing it are different
 things. A year shows **the most serious opinion it has ever received**, with the
-full history beneath it, and a later audit can only govern over an earlier one
-if the committee that appointed it had itself changed. Both halves matter: one
-sour auditor should not mark an honest society permanently, and a committee
-should not be able to appoint its way to a clean report. Nothing about
-superseding changes a sealed year's figures. The auditor keeps no private
-notes — what they record, residents read.
+full history beneath it. **A later audit takes the headline only by being more
+serious** — never by being newer, and never because the committee that
+appointed it had changed. An earlier draft allowed that second route, and it was
+removed rather than narrowed: a committee controls who it appoints, so an
+exception keyed on the appointing committee hands the committee the key; and
+because a society's auditor cannot serve more than two consecutive years, a
+differently-appointed auditor arrives by law every two years or so, which would
+have made the exception the normal case rather than the rare one.
+
+The cost is real and worth naming: a society that was marked unfairly leads with
+that verdict until a more serious one displaces it, which is to say it may lead
+with it for good. What answers that is the history, not the headline — **every
+opinion stays listed, each with its date and the auditor's own stated reason**,
+and the number of opinions is not in the headline, so a year that was audited
+four times does not read as worse than one audited once. A later opinion never
+changes a sealed year's figures either; it is recorded beside the others, not
+applied. The auditor keeps no private notes — what they record, residents read.
 
 **Severity runs `clean`, `qualified`, `adverse`, `disclaimer`, in that order.**
 A disclaimer is **more serious** than an adverse opinion: an auditor who was

@@ -12,8 +12,17 @@ then:
 cd frontend
 npm ci
 cp .env.example .env.local   # values for the local stack are below
-npm run dev                  # http://127.0.0.1:5173
+npm run dev                  # http://localhost:5173
 ```
+
+**`localhost` and `127.0.0.1` are different origins, and both appear above on
+purpose.** Vite serves on `localhost`, and the frontend sends
+`emailRedirectTo: location.origin`, so `localhost:5173` is the origin that has
+to be in Supabase's redirect allowlist - an allowlist holding only
+`127.0.0.1:5173` sends the email and bounces the link, which reads as a mail
+problem rather than a configuration one. `VITE_SUPABASE_URL` below is the
+other direction: that is the Supabase CLI's own API address, and it does
+listen on `127.0.0.1`.
 
 ```sh
 VITE_SUPABASE_URL=http://127.0.0.1:54321

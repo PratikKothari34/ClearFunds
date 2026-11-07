@@ -2,6 +2,18 @@
 // Views report every column as nullable; these state what the view
 // actually guarantees.
 
+/*
+ * Every state a proposal can end in. `cf.proposal_status` answers 'posted',
+ * 'open', or the `outcome` of a `proposal_closed` entry, and
+ * `chain/kinds/ledger.v1.md` item 121 lists those four outcomes. One source,
+ * because the list was duplicated in rows.ts and drifted from the API
+ * contract, which still documents only three of the six.
+ */
+export const PROPOSAL_STATES = [
+  'open', 'posted', 'declined', 'withdrawn', 'superseded', 'year_closed',
+] as const
+export type ProposalState = (typeof PROPOSAL_STATES)[number]
+
 export type Role = 'president' | 'treasurer' | 'secretary' | 'member'
 export type Effect = 'expense' | 'receipt' | 'charge' | 'reversal' | 'charge_reversal'
 export type Action =
@@ -98,7 +110,7 @@ export type ProposalRow = {
   required: number
   seated: number
   limit_minor: number
-  state: 'open' | 'posted' | 'declined' | 'withdrawn' | 'superseded' | 'year_closed'
+  state: ProposalState
   posted_seq: number | null
   approvals: Approval[]
   approve_count: number
@@ -203,7 +215,24 @@ export type Summary = {
   head_seq: number
   as_of: number
   fy: string
-  months: { month: string; in_minor: number; out_minor: number; charged_minor: number; entries: number }[]
+  /*
+   * `in_minor` and `out_minor` are POSTED movements, so a reversal sits in
+   * them gross - a reversed expense is money in, though nobody paid the
+   * society anything. That is deliberate and must stay: in less out has to
+   * equal the balance. `reversed_in_minor` and `reversed_out_minor` say how
+   * much of each side is reversals, both reported POSITIVE, so a surface can
+   * disclose the gross figure rather than silently net it. Netting here would
+   * be money arithmetic in the client.
+   */
+  months: {
+    month: string
+    in_minor: number
+    out_minor: number
+    reversed_in_minor: number
+    reversed_out_minor: number
+    charged_minor: number
+    entries: number
+  }[]
   fy_spend: { category: string; amount_minor: number }[]
   fy_spend_total_minor: number
   outstanding_minor: number

@@ -67,3 +67,29 @@ export function partition<T>(
   }
   return out
 }
+
+/*
+ * WHICH WAY THE MONEY WENT, OR THAT IT DID NOT MOVE.
+ *
+ * A signed amount has three answers, not two, and `minor < 0 ? out : in` -
+ * which is what the entry screen did - asserts "Money in" about an entry
+ * that moved nothing. On the same screen, for the same figure, <Amount>'s
+ * own colour line already partitioned three ways (ui.tsx: `minor < 0 ?
+ * debit : minor > 0 ? credit : ink`), so the hero figure refused to signal
+ * a direction while the chip below it claimed one in credit green. The
+ * careful component was contradicted by the ternary beside it.
+ *
+ * Zero should not arrive through an honest path: a proposal amount is
+ * "always positive" (ledger.v1.md:63) and a reversal is its negation. That
+ * is a statement about a correct server, and this lane recomputes rather
+ * than trusts - the ledger's own filters already exclude zero from both
+ * `in` and `out`, so without this the two surfaces disagree about one row
+ * and the detail screen is the one that is wrong.
+ */
+export type Direction = 'in' | 'out' | 'flat' | 'unreadable'
+
+export function direction(minor: unknown): Direction {
+  const c = countable(minor)
+  if (!c.readable) return 'unreadable'
+  return c.minor > 0 ? 'in' : c.minor < 0 ? 'out' : 'flat'
+}

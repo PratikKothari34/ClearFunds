@@ -5,11 +5,19 @@ import { Gavel, Scale, UserMinus, UserPlus, Users } from 'lucide-react'
 import { useAddResident, useCommittee, useLimit, usePropose, useSociety, useYears } from '../lib/api'
 import { supabase, unwrap, Refused } from '../lib/supabase'
 import { useMeStrict, isCommittee } from '../lib/session'
-import { instant, roleLabel, todayIST, fyOf } from '../lib/format'
+import { instant, roleLabel, todayIST, fyOf, opinionChip, opinionTone, writeOutcome } from '../lib/format'
 import { format, parse } from '../lib/money'
 import { countable } from '../lib/countable'
 import { Avatar, Button, Caption, Card, Chip, Field, Input, Loading, MoneyInput, PageTitle, Segmented, Sheet, useToast } from '../components/ui'
 import type { Role } from '../lib/types'
+
+/* Formats from the narrowed amount, never from the raw field: a guard that
+ * checks one expression and formats another stops guarding the moment either
+ * is edited, and format() throws on an unreadable one. */
+const histLimit = (h: { limit_minor: unknown }) => {
+  const c = countable(h.limit_minor)
+  return c.readable ? format(c.minor, 'INR', { compact: true }) : null
+}
 
 export const Route = createFileRoute('/committee')({ component: Committee })
 
@@ -56,10 +64,10 @@ function Committee() {
 
       {mine && (
         <div className="mt-4 flex flex-wrap gap-2">
-          <Button size="sm" icon={<Scale className="size-4" />} onClick={() => setAction('limit')}>Change limit</Button>
-          <Button size="sm" icon={<UserPlus className="size-4" />} onClick={() => setAction('seat')}>Seat a member</Button>
-          <Button size="sm" icon={<Gavel className="size-4" />} onClick={() => setAction('auditor')}>Appoint auditor</Button>
-          <Button size="sm" icon={<UserPlus className="size-4" />} onClick={() => setAction('resident')}>Add resident</Button>
+          <Button icon={<Scale className="size-4" />} onClick={() => setAction('limit')}>Change limit</Button>
+          <Button icon={<UserPlus className="size-4" />} onClick={() => setAction('seat')}>Seat a member</Button>
+          <Button icon={<Gavel className="size-4" />} onClick={() => setAction('auditor')}>Appoint auditor</Button>
+          <Button icon={<UserPlus className="size-4" />} onClick={() => setAction('resident')}>Add resident</Button>
         </div>
       )}
 
@@ -93,7 +101,11 @@ function Committee() {
               <p className="truncate font-medium">{y.auditor!.map((a) => a.name).join(', ')}</p>
               <p className="text-[13px] text-ink-2">FY {y.fy}</p>
             </div>
-            <Chip tone={y.closed ? 'anchor' : 'neutral'}>{y.closed ? 'Year closed' : 'Open'}</Chip>
+            {/* A closed year carries its OPINION, never a bare "Year closed" in
+              * the reassuring tone. An adverse opinion or a disclaimer rendered
+              * as calm green here, with the opinion shown nowhere on the
+              * screen - the data was in hand and the chip ignored it. */}
+            <Chip tone={y.closed ? opinionTone(y.headline) : 'neutral'}>{y.closed ? opinionChip(y.headline) : 'Open'}</Chip>
           </div>
         ))}
         {!(years.data ?? []).some((y) => y.auditor?.length) && <p className="p-4 text-sm text-ink-2">No auditor appointed yet.</p>}
@@ -104,7 +116,7 @@ function Committee() {
         {(limit.data?.history ?? []).toReversed().map((h, i) => (
           <div key={h.seq} className="flex items-center justify-between px-4 py-3 text-sm">
             <span className="text-ink-2">{i === 0 ? 'In force since' : 'From'} {instant(h.recorded_at, { day: 'numeric', month: 'short', year: 'numeric' })} · #{h.seq}</span>
-            <span className="tnum font-medium">{countable(h.limit_minor).readable ? format(h.limit_minor!, 'INR', { compact: true }) : 'Not available'}</span>
+            <span className="tnum font-medium">{histLimit(h) ?? 'Not available'}</span>
           </div>
         ))}
       </Card>
@@ -139,7 +151,13 @@ function Actions({ action, onClose, name, lim }: { action: Action; onClose: () =
     setError(null)
     try {
       const out = await propose.mutateAsync(p)
-      toast(out.status === 'posted' ? 'Done.' : 'Proposed. The committee votes on it in Approvals.')
+      const outcome = writeOutcome(out.status)
+      toast(
+        outcome === 'posted' ? 'Done.'
+        : outcome === 'open' ? 'Proposed. The committee votes on it in Approvals.'
+        : outcome === 'closed' ? 'Proposed, and already closed. Open it in Approvals to see why.'
+        : 'Proposed. Open it in Approvals to see where it stands.',
+      )
       onClose()
     } catch (e) {
       setError(e instanceof Refused ? e.message : 'Could not propose it.')
