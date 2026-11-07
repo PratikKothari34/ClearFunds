@@ -7,6 +7,7 @@ import { useMeStrict, isCommittee } from '../lib/session'
 import { month, monthOf } from '../lib/format'
 import { countable, owing } from '../lib/countable'
 import { match } from '../lib/search'
+import { disputedBy } from '../lib/disputed'
 import { Amount, Button, Empty, Facts, Failed, Input, Loading, PageTitle, Segmented } from '../components/ui'
 import { EntryRow } from '../components/EntryRow'
 import type { LedgerRow } from '../lib/types'
@@ -32,19 +33,15 @@ export const Route = createFileRoute('/ledger')({
   }),
 })
 
-/** Rows flagged by an open dispute, by entry or by payee. */
+/**
+ * Rows flagged by an open dispute, by entry or by payee.
+ *
+ * The rule itself is `disputedBy` in lib/, where it is tested without a
+ * router. This hook is only the subscription and the memo.
+ */
 export function useDisputed() {
   const disputes = useDisputes()
-  return useMemo(() => {
-    const seqs = new Set<number>()
-    const payees = new Set<string>()
-    for (const d of disputes.data ?? []) {
-      if (!d.is_open) continue
-      for (const s of d.target_seqs) seqs.add(s)
-      if (d.counterparty) payees.add(d.counterparty.toLowerCase())
-    }
-    return (r: LedgerRow) => seqs.has(r.seq) || (!!r.counterparty && payees.has(r.counterparty.toLowerCase()))
-  }, [disputes.data])
+  return useMemo(() => disputedBy(disputes.data), [disputes.data])
 }
 
 function Ledger() {
