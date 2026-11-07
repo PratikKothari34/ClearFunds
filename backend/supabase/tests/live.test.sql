@@ -1,7 +1,7 @@
 -- api_summary and api_preview_charge (#103): the figures the dashboard shows.
 -- Asserted as rules, not sample totals.
 begin;
-select plan(20);
+select plan(25);
 
 create temp table u (k text primary key, id uuid);
 insert into u select k, gen_random_uuid() from unnest(array['pres', 'tre', 'sec', 'm1', 'm2', 'out']) k;
@@ -74,6 +74,9 @@ select is(pg_temp.mi('in_minor') - pg_temp.mi('out_minor'), pg_temp.si('balance_
   'in less out is the balance, in a society one month old');
 
 -- ---- zero (issue case 2): unreachable, so > 0 and < 0 do partition the cash rows
+-- These refusals are load-bearing. api_summary splits cash on the sign, so the day a
+-- zero-amount entry becomes reachable it silently drops out of both totals, with
+-- every figure still plausible. Whoever relaxes a refusal below must handle that.
 select throws_like($$select pg_temp.expense(0)$$, '%positive%', 'a zero expense cannot be proposed');
 select throws_like($$select pg_temp.receipt(0)$$, '%positive%', 'nor a zero receipt');
 select throws_like($$select pg_temp.post(jsonb_build_object('action', 'reversal', 'target_seq', (select seq from seqs where k = 'e'),
@@ -88,6 +91,16 @@ select is(pg_temp.si('fy_spend_total_minor'), 0::bigint, 'a reversed expense lea
 select is(pg_temp.sum_()->'fy_spend', '[]'::jsonb, 'and its category, rather than a line of zero');
 select is(pg_temp.mi('in_minor') - pg_temp.mi('out_minor'), pg_temp.si('balance_minor'),
   'in less out still is the balance: the reversal is shown gross on the money-in side');
+
+-- ---- how much of each side is reversals: disclosed, not netted
+select is(pg_temp.mi('reversed_in_minor'), 250000::bigint, 'the reversed expense is named as such within money in');
+select is(pg_temp.mi('reversed_out_minor'), 0::bigint, 'and nothing was reversed out');
+insert into seqs select 'r', pg_temp.receipt(40000);
+select pg_temp.reverse((select seq from seqs where k = 'r'));
+select is(pg_temp.mi('reversed_out_minor'), 40000::bigint, 'a reversed receipt is named within money out');
+select ok(pg_temp.mi('reversed_in_minor') <= pg_temp.mi('in_minor') and pg_temp.mi('reversed_out_minor') <= pg_temp.mi('out_minor'),
+  'each is a part of its side');
+select is(pg_temp.mi('in_minor') - pg_temp.mi('out_minor'), pg_temp.si('balance_minor'), 'and the identity still holds');
 
 -- ---- a credit is not netted against a debt (issue case 4)
 select pg_temp.post(jsonb_build_object('action', 'charge', 'amount_minor', 30000, 'flat_set', 'all', 'narration', 'dues'));
