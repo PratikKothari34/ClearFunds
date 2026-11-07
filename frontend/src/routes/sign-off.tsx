@@ -5,6 +5,7 @@ import { useNames, useSignoff, useSignoffs, useSummary } from '../lib/api'
 import { Refused } from '../lib/supabase'
 import { useMeStrict } from '../lib/session'
 import { instant, month, monthOf, todayIST } from '../lib/format'
+import { isDue, signoffMonths } from '../lib/signoff'
 import { Amount, Button, Card, Chip, Field, Input, Loading, PageTitle, ReversedNote, Sheet, useToast, cx } from '../components/ui'
 import { recentMonths } from '../components/Shell'
 import { monthHasReversal as monthReversal, reversedIn, reversedOut } from '../lib/reversed'
@@ -19,9 +20,15 @@ function SignOff() {
   const names = useNames()
   const [open, setOpen] = useState<string | null>(null)
   const cur = monthOf(todayIST())
-  const months = recentMonths(cur, 12)
   const done = new Map((signoffs.data ?? []).map((s) => [s.body.month, s]))
   const totals = new Map((summary.data?.months ?? []).map((m) => [m.month, m]))
+  /*
+   * The month set is DERIVED FROM DATA, not generated from today. A rolling
+   * window dropped an older unsigned month entirely - see lib/signoff.ts. The
+   * rolling window survives only as a floor, so the screen is never blank
+   * before the summary resolves, and it can only add months, never remove one.
+   */
+  const months = signoffMonths([...totals.keys()], [...done.keys()], recentMonths(cur, 12))
   const president = me.seat?.role === 'president'
 
   return (
@@ -32,7 +39,7 @@ function SignOff() {
           {months.map((m) => {
             const s = done.get(m)
             const t = totals.get(m)
-            const due = president && !s && m < cur
+            const due = president && isDue(m, cur, new Set(done.keys()))
             return (
               <div key={m} className={cx('flex items-center gap-3 px-4 py-3.5', due && 'bg-attention-soft/40')}>
                 <span className={cx('grid size-9 shrink-0 place-items-center rounded-xl', s ? 'bg-anchor-soft text-anchor' : due ? 'bg-attention-soft text-attention' : 'bg-sunken text-ink-2')}>
