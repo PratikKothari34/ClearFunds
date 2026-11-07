@@ -26,20 +26,20 @@ Last updated 2026-11-07.
 
 ## What I am doing now, in order
 
-1. **Getting the open backend PRs merged:** #69, #72, #75, #78 and #80 are on
-   `main`'s base, tested together and waiting for your review.
+1. **Getting the open backend PRs merged:** #69, #72, #75, #78 and #80, tested
+   together and waiting for your review.
 2. **#93, then #95 and #96:** the contract rows for #90 and #92, and the ledger
-   vectors. These clear the items you list as still open on #91.
-3. **#97, #98 and #101:** your findings on #66 and #84, and the CSP for #5.
-4. **Restoring six rules in `AGENTS.md`** once #91 merges, as listed in my
-   approval there, and the stale lines beside them.
+   vectors.
+3. **#97, #98, #101 and #109:** your findings on #66 and #84, the CSP for #5, and
+   the read-path tests for #103.
+4. **#102:** the contract is in its own PR. The backend follows once you agree it.
 5. **Deploying migrations 22-28 and the `api` function** as one verified batch,
    once 1 is merged. That is also what ends the statement-limit mismatch you
    flagged on #79.
 6. **Budget (#76):** once #85 is approved, a backend PR with migration, report
    section and vectors.
-7. **Closing #100:** your root README in #91 replaces it, so I will close it
-   when #91 merges.
+7. **#106:** waiting on a decision. It removes a rule the server still applies,
+   so the server half has to land with it.
 
 ## Needs someone with an account
 
