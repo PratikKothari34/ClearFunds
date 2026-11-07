@@ -6,6 +6,7 @@ import { previewCharge, useCommittee, useLedger, useLimit, usePropose, useSociet
 import { supabase, unwrap, Refused } from '../lib/supabase'
 import { useMeStrict } from '../lib/session'
 import { isOfficer } from '../lib/pending'
+import { hasEarlierToPayee } from '../lib/structuring'
 import { categories, month, monthOf, todayIST } from '../lib/format'
 import { format, parse } from '../lib/money'
 import { countable } from '../lib/countable'
@@ -72,12 +73,17 @@ function NewEntry() {
     for (const r of ledger.data ?? []) if (r.effect === 'expense' && r.counterparty) seen.set(r.counterparty, (seen.get(r.counterparty) ?? 0) + 1)
     return [...seen.entries()].toSorted((a, b) => b[1] - a[1]).map(([n]) => n)
   }, [ledger.data])
-  const recentToPayee = useMemo(() => {
-    if (kind !== 'expense' || !payee || !s.structuring_window_days) return 0
-    const since = new Date(Date.now() - s.structuring_window_days * 86_400_000).toISOString().slice(0, 10)
-    return (ledger.data ?? []).filter((r) => r.effect === 'expense' && r.reversed_by_seq === null && r.tier === 'pair'
-      && r.counterparty?.toLowerCase() === payee.trim().toLowerCase() && r.business_date >= since).length
-  }, [ledger.data, payee, kind, s.structuring_window_days])
+  /*
+   * Deliberately WHETHER, not how many: only the server knows the society's
+   * date, so only the server can bound the window. The rule and the full
+   * reasoning are in `lib/structuring.ts`, where they can be tested; this
+   * used to be an inline count here and was wrong by two calendar days,
+   * untested, because logic in a route needs a router to reach.
+   */
+  const anyRecentToPayee = useMemo(
+    () => kind === 'expense' && hasEarlierToPayee(ledger.data, payee),
+    [ledger.data, payee, kind],
+  )
 
   /*
    * Below the limit only the two named officers sign as they submit, and this
@@ -125,7 +131,7 @@ function NewEntry() {
         </Field>
 
         {kind === 'expense' && (
-          <Field label="Paid to" htmlFor="payee" hint={recentToPayee ? `${recentToPayee} payment${recentToPayee > 1 ? 's' : ''} to this payee in the last ${s.structuring_window_days} days. Below-limit payments that add up past the limit are shown together.` : undefined}>
+          <Field label="Paid to" htmlFor="payee" hint={anyRecentToPayee ? `There are earlier below-limit payments to this payee. Payments to one payee that add up past the limit are shown together in the ledger and the AGM report, which count them over the society's own ${s.structuring_window_days}-day window.` : undefined}>
             <Input id="payee" list="payees" value={payee} onChange={(e) => setPayee(e.target.value)} placeholder="Vendor or person" autoComplete="off" />
             <datalist id="payees">{payees.map((p) => <option key={p} value={p} />)}</datalist>
           </Field>
