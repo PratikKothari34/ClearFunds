@@ -71,9 +71,11 @@ function CloseSheet({ y, open, onClose }: { y: Year; open: boolean; onClose: () 
    */
   const st = checkStatement(statement)
   /*
-   * Measured in bytes, so the threshold is too: a Devanagari statement
-   * reaches it at a third of the characters an English one does, which is
-   * precisely the case a character counter would get wrong.
+   * The threshold is a fraction of whichever rule binds, which `st` has
+   * already resolved: a Devanagari statement reaches the character ceiling
+   * at a third of the bytes an English one does, and an English one reaches
+   * the byte ceiling first. Comparing `used` to `max` is correct for both
+   * because both are reported in the same unit.
    */
   const near = st.used > st.max * 0.9
   const submit = async () => {
@@ -88,7 +90,7 @@ function CloseSheet({ y, open, onClose }: { y: Year; open: boolean; onClose: () 
      * seal to the chain. The server refuses it too; this is so the auditor
      * learns it before signing rather than after.
      */
-    if (st.over) { setError(`Your statement is ${st.used.toLocaleString('en-IN')} bytes. The limit is ${st.max.toLocaleString('en-IN')}. Shorten it before closing the year.`); return }
+    if (st.over) { setError(`Your statement is ${st.used.toLocaleString('en-IN')} ${st.unit === 'chars' ? 'characters' : 'bytes'}. The limit is ${st.max.toLocaleString('en-IN')}. Shorten it before closing the year.`); return }
     try {
       await close.mutateAsync({ fy: y.fy, opinion, statement: st.value })
       toast(`FY ${y.fy} is closed.`)
@@ -126,9 +128,16 @@ function CloseSheet({ y, open, onClose }: { y: Year; open: boolean; onClose: () 
             */}
           {near && (
             <p id="st-left" aria-live="polite" className={cx('mt-1.5 text-right text-xs tnum', st.over ? 'text-debit' : 'text-ink-2')}>
+              {/*
+                * Labelled from `st.unit`, never hardcoded. The server bounds
+                * the statement two ways - bytes of UTF-8 and characters -
+                * and a Devanagari statement hits the character ceiling
+                * first. Calling that figure "bytes" would show the auditor
+                * a wrong number at the one irreversible action here.
+                */}
               {st.over
-                ? `${(st.used - st.max).toLocaleString('en-IN')} bytes over the limit`
-                : `${(st.max - st.used).toLocaleString('en-IN')} bytes left`}
+                ? `${(st.used - st.max).toLocaleString('en-IN')} ${st.unit === 'chars' ? 'characters' : 'bytes'} over the limit`
+                : `${(st.max - st.used).toLocaleString('en-IN')} ${st.unit === 'chars' ? 'characters' : 'bytes'} left`}
             </p>
           )}
         </Field>
