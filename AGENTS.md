@@ -240,12 +240,21 @@ none of it needs re-deriving to follow the rule.
    year**. **Severity is ordered `clean` < `qualified` < `adverse` <
    `disclaimer`**: a disclaimer is *worse* than adverse. The headline is **the
    most serious opinion ever received** (never "most adverse", ambiguous under
-   this ranking), with history beneath it, **except that an opinion from an
-   auditor appointed by a different admin set may govern over an earlier one.**
-   Both halves are required: most-adverse-wins alone lets one vindictive
-   auditor brand an honest society permanently; newest-wins alone lets a
-   committee bury an adverse opinion. Superseding **never changes a closed
-   year's figures**, and there are **no private auditor notes.**
+   this ranking), with history beneath it. **No opinion ever supersedes an
+   earlier one — do not implement a newest-wins or changed-committee
+   exception.** An earlier draft allowed one where the appointing admin set had
+   changed; it was **removed, not narrowed**, for three reasons that each stand
+   alone: any exception keyed on something the committee controls hands the
+   committee the key, and a changed appointing set costs one appointment; it
+   fires with nobody acting in bad faith, because the statutory auditor cannot
+   serve more than two consecutive years, so a differently-appointed auditor
+   arrives by operation of law every two years; and one-directional superseding
+   leaves a wrongly-maligned society no route back, which is the problem the
+   exception existed to solve. The accepted cost is that an honestly maligned
+   society leads with its worst opinion — **the full list, each with its date
+   and the auditor's stated reason, stays one tap away**, and the count is not
+   in the headline. Superseding **never changes a closed year's figures**, and
+   there are **no private auditor notes.**
 20. **The report's body is the balance sheet and the P&L**, generated
    server-side from chained entries, both carrying the **true and fair**
    wording. Not attachments. **An adjusting entry against a closed year is
