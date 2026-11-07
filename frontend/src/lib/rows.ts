@@ -36,7 +36,7 @@
  * discloses one unreadable figure instead of blanking the screen, which is
  * the whole point of countable.ts.
  */
-import { array, bool, int, nullable, object, oneOf, required, ShapeError, str } from './parse'
+import { array, bool, int, nullable, object, oneOf, required, str } from './parse'
 import type { Parser } from './parse'
 import { PROPOSAL_STATES } from './types'
 import type {
@@ -380,31 +380,85 @@ export const chargePreview = nullable(object<ChargePreview>({
  * then; a missing one cannot be defaulted, because every default is a claim
  * about which tier was required. It fails instead.
  */
-const limitEntry = object<LimitEntry>({
+/*
+ * PARSED PER KIND, because each kind carries ONE of the two fields and not
+ * the other. `society_opened` has `approval_limit_minor` (ledger.v1.md:43,
+ * field 4) and a `limit` posting has `limit_minor` (:106, field 5). Neither
+ * body contains the other key at all.
+ *
+ * One shape declaring both with `nullable` is what broke this: `nullable`
+ * refuses an ABSENT field by design - deliberately, so a dropped column
+ * cannot pass as a reported null - so the first row of the real query threw
+ * and `useLimit` failed for every society and every role. Every chain opens
+ * with `society_opened`, so there was no society where it worked.
+ *
+ * It did not crash. `limit.data` stayed undefined, `countable()` read the
+ * limit as unreadable on `approvals`, `new`, `committee` and `entry.$seq`,
+ * and the committee's limit history rendered empty. The fixture tests passed
+ * throughout, because the fixtures carried both keys - a shape the server
+ * never sends. That is the whole bug: the test built the input, so it could
+ * only prove the parser agreed with the test.
+ *
+ * The limit is `required` within each kind. 0006 puts the limit in force in
+ * the chain precisely so an approval can be checked against the limit that
+ * applied then; a missing one cannot be defaulted, because every default is
+ * a claim about which tier was required. It fails instead.
+ */
+const openedLimit = object<{ sequence: number; kind: 'society_opened'; recorded_at: number; body: { approval_limit_minor: number } }>({
   sequence: required(int),
-  kind: required(oneOf(['society_opened', 'posting'] as const)),
+  kind: required(oneOf(['society_opened'] as const)),
   recorded_at: required(int),
-  body: required(object<LimitEntry['body']>({
-    approval_limit_minor: nullable(int),
-    limit_minor: nullable(int),
+  body: required(object<{ approval_limit_minor: number }>({
+    approval_limit_minor: required(int),
+  })),
+})
+
+const postingLimit = object<{ sequence: number; kind: 'posting'; recorded_at: number; body: { limit_minor: number } }>({
+  sequence: required(int),
+  kind: required(oneOf(['posting'] as const)),
+  recorded_at: required(int),
+  body: required(object<{ limit_minor: number }>({
+    limit_minor: required(int),
   })),
 })
 
 /*
- * Each row must carry the limit its own kind names. A society_opened without
- * approval_limit_minor, or a limit posting without limit_minor, is a chain
- * that cannot answer which tier was in force - so it is rejected here rather
- * than defaulted to zero by the caller.
+ * The reader picks the shape by `kind`, then widens to the common
+ * `LimitEntry` by filling the field this kind does not carry with null.
+ *
+ * The null is produced HERE, by us, from a kind we recognised - it is never
+ * a value the server sent, and never an absent field waved through. `api.ts`
+ * then selects by the same kind, so the null is written and read on the same
+ * branch and no surface ever sees it.
  */
 export const limitEntries: Parser<LimitEntry[]> = (value, path) => {
-  const rows = array(limitEntry)(value, path)
-  for (const [i, r] of rows.entries()) {
-    const field = r.kind === 'society_opened' ? 'approval_limit_minor' : 'limit_minor'
-    if (r.body[field] === null) {
-      throw new ShapeError(`${path}[${i}].body.${field}`, `a ${r.kind} entry must carry ${field}, but it was null`)
+  const rows = array<unknown>((v) => v)(value, path)
+  return rows.map((row, i): LimitEntry => {
+    const at = `${path}[${i}]`
+    /*
+     * Read the discriminant first and fail on an unknown kind, rather than
+     * letting one shape's error stand in for "this was the other kind". The
+     * query asks for exactly these two, so a third is a changed query or a
+     * changed view, and guessing which parser to blame hides that.
+     *
+     * DELIBERATELY REDUNDANT with each shape's own `kind` check, and
+     * verified so: mutating either guard alone leaves the suite green,
+     * mutating BOTH fails it. Each masks the other under a single-mutant
+     * run, which is the shape that reads as dead code. Neither is - drop
+     * this one and an unknown kind is parsed by the posting shape, blaming
+     * a field the entry was never required to carry.
+     */
+    const kind = required(oneOf(['society_opened', 'posting'] as const))(
+      (row as { kind?: unknown } | null)?.kind,
+      `${at}.kind`,
+    )
+    if (kind === 'society_opened') {
+      const r = openedLimit(row, at)
+      return { ...r, body: { approval_limit_minor: r.body.approval_limit_minor, limit_minor: null } }
     }
-  }
-  return rows
+    const r = postingLimit(row, at)
+    return { ...r, body: { approval_limit_minor: null, limit_minor: r.body.limit_minor } }
+  })
 }
 
 /*

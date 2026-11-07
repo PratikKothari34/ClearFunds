@@ -157,17 +157,69 @@ describe('ledgerRow', () => {
 })
 
 describe('limitEntries', () => {
+  /*
+   * EACH FIXTURE CARRIES ONLY THE FIELD ITS KIND ACTUALLY HAS, because that
+   * is what the server sends: `society_opened` has `approval_limit_minor`
+   * (ledger.v1.md:43, field 4) and a `limit` posting has `limit_minor`
+   * (:106, field 5). Neither body contains the other key at all.
+   *
+   * These helpers used to carry BOTH keys, each with one of them null. That
+   * is a shape no chain produces, and it is why this suite was fully green
+   * while `useLimit` failed for every society and every role: one parser
+   * declared both fields `nullable`, `nullable` refuses an ABSENT field by
+   * design, and the first row of the real query threw. The test built the
+   * input, so it could only prove the parser agreed with the test.
+   *
+   * Do not add the other key back to make a case convenient. A case that
+   * needs a body with both keys is testing a response the server cannot
+   * send, and it is the exact shape that hid this bug.
+   */
   const opened = (over: Record<string, unknown> = {}) => ({
     sequence: 1, kind: 'society_opened', recorded_at: 1_700_000_000,
-    body: { approval_limit_minor: 2500000, limit_minor: null }, ...over,
+    body: { approval_limit_minor: 2500000 }, ...over,
   })
   const change = (over: Record<string, unknown> = {}) => ({
     sequence: 9, kind: 'posting', recorded_at: 1_700_000_100,
-    body: { approval_limit_minor: null, limit_minor: 5000000 }, ...over,
+    body: { limit_minor: 5000000 }, ...over,
   })
 
   it('accepts a chain where each kind carries its own limit field', () => {
     expect(limitEntries([opened(), change()], 'useLimit')).toHaveLength(2)
+  })
+
+  /*
+   * THE REGRESSION. A real `society_opened` body, exactly as the chain
+   * stores it: `approval_limit_minor` present, `limit_minor` not a key.
+   * Every chain opens with this entry, so when it threw there was no
+   * society anywhere where the limit could be read.
+   *
+   * It did not crash. `limit.data` stayed undefined, `countable()` read the
+   * limit as unreadable on `approvals`, `new`, `committee` and
+   * `entry.$seq`, and the committee's limit history rendered empty - four
+   * screens quietly missing a figure, with nothing thrown and nothing in
+   * the console.
+   *
+   * Asserted on the VALUE, not merely that it did not throw: the field has
+   * to arrive at the consumer, which selects it by the same kind.
+   */
+  it('reads an opening entry that carries no limit_minor key at all', () => {
+    const body = { approval_limit_minor: 2500000 }
+    expect(Object.hasOwn(body, 'limit_minor'), 'the fixture must not carry the other key').toBe(false)
+    const rows = limitEntries([{ sequence: 1, kind: 'society_opened', recorded_at: 1_700_000_000, body }], 'useLimit')
+    expect(rows, 'the row must be returned, not dropped').toHaveLength(1)
+    expect(rows[0]!.body.approval_limit_minor).toBe(2500000)
+    expect(rows[0]!.body.limit_minor).toBeNull()
+  })
+
+  /* The same for the other kind: a limit posting has no approval_limit_minor
+   * key, and reading it must not depend on one being sent as null. */
+  it('reads a limit posting that carries no approval_limit_minor key at all', () => {
+    const body = { limit_minor: 5000000 }
+    expect(Object.hasOwn(body, 'approval_limit_minor'), 'the fixture must not carry the other key').toBe(false)
+    const rows = limitEntries([{ sequence: 9, kind: 'posting', recorded_at: 1_700_000_100, body }], 'useLimit')
+    expect(rows, 'the row must be returned, not dropped').toHaveLength(1)
+    expect(rows[0]!.body.limit_minor).toBe(5000000)
+    expect(rows[0]!.body.approval_limit_minor).toBeNull()
   })
 
   /*
@@ -176,28 +228,43 @@ describe('limitEntries', () => {
    * tier unknowable. There is no safe default: zero would claim the strictest
    * tier was in force, any other number a laxer one. It has to fail.
    */
-  it('rejects a society_opened whose approval limit is missing', () => {
-    expect(() => limitEntries([opened({ body: { approval_limit_minor: null, limit_minor: null } })], 'useLimit'))
+  /*
+   * BOTH WAYS THE LIMIT CAN BE MISSING FAIL, and they are different
+   * responses: an explicit null is a server reporting it has no limit, an
+   * absent key is a server that dropped the column. Accepting either would
+   * leave the tier unknowable, so each is asserted separately rather than
+   * trusting one to cover the other.
+   */
+  it('rejects a society_opened whose approval limit is explicitly null', () => {
+    expect(() => limitEntries([opened({ body: { approval_limit_minor: null } })], 'useLimit'))
       .toThrow(ShapeError)
   })
 
-  it('rejects a limit change whose new limit is missing', () => {
-    expect(() => limitEntries([change({ body: { approval_limit_minor: 1, limit_minor: null } })], 'useLimit'))
+  it('rejects a society_opened whose approval limit key is absent', () => {
+    expect(() => limitEntries([opened({ body: {} })], 'useLimit')).toThrow(ShapeError)
+  })
+
+  it('rejects a limit change whose new limit is explicitly null', () => {
+    expect(() => limitEntries([change({ body: { limit_minor: null } })], 'useLimit'))
       .toThrow(ShapeError)
+  })
+
+  it('rejects a limit change whose new limit key is absent', () => {
+    expect(() => limitEntries([change({ body: {} })], 'useLimit')).toThrow(ShapeError)
   })
 
   /* Each kind is checked for ITS field: a limit posting carrying only the
    * opening field must not be accepted by reading the wrong one. */
   it('does not let one kind satisfy the check with the other kind\'s field', () => {
-    expect(() => limitEntries([change({ body: { approval_limit_minor: 5000000, limit_minor: null } })], 'useLimit'))
+    expect(() => limitEntries([change({ body: { approval_limit_minor: 5000000 } })], 'useLimit'))
       .toThrow(ShapeError)
-    expect(() => limitEntries([opened({ body: { approval_limit_minor: null, limit_minor: 2500000 } })], 'useLimit'))
+    expect(() => limitEntries([opened({ body: { limit_minor: 2500000 } })], 'useLimit'))
       .toThrow(ShapeError)
   })
 
   it('names the entry and the field a committee would have to look up', () => {
     try {
-      limitEntries([opened(), change({ body: { approval_limit_minor: null, limit_minor: null } })], 'useLimit')
+      limitEntries([opened(), change({ body: {} })], 'useLimit')
       expect.unreachable('a limitless limit entry must throw')
     } catch (e) {
       expect((e as ShapeError).path).toContain('[1]')
@@ -205,8 +272,27 @@ describe('limitEntries', () => {
     }
   })
 
-  it('rejects a kind it has no rule for, rather than skipping the check', () => {
-    expect(() => limitEntries([opened({ kind: 'proposal' })], 'useLimit')).toThrow(ShapeError)
+  /*
+   * ASSERTED ON THE PATH, because "it threw" is not the claim. The query
+   * asks for exactly two kinds, so a third means a changed query or a
+   * changed view, and the reader must say so AT THE DISCRIMINANT.
+   *
+   * Without the path assertion this case passes for the wrong reason: a
+   * reader that merely casts the kind instead of validating it routes an
+   * unknown kind to the posting shape, which then throws over a missing
+   * `limit_minor`. The right outcome from the wrong decision - the error
+   * blames a field the entry was never required to have, and it survived
+   * this test until the path was pinned.
+   */
+  it('rejects a kind it has no rule for, naming the kind and not a field', () => {
+    try {
+      limitEntries([opened({ kind: 'proposal' })], 'useLimit')
+      expect.unreachable('an unknown kind must throw')
+    } catch (e) {
+      expect(e).toBeInstanceOf(ShapeError)
+      expect((e as ShapeError).path, 'the error must blame the kind, not a limit field')
+        .toBe('useLimit[0].kind')
+    }
   })
 })
 
