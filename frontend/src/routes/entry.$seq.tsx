@@ -5,9 +5,11 @@ import { ArrowLeft, Check, CircleDashed, Flag, Undo2, X, ChevronDown } from 'luc
 import { useLedger, useNames, useProposals, usePropose, useSociety, useDisputes, useLimit } from '../lib/api'
 import { supabase, unwrap, bytea, Refused } from '../lib/supabase'
 import { useMeStrict, isCommittee } from '../lib/session'
-import { categoryLabel, instant, longDay, plural, roleLabel, rowTitle, tierLabel, actionLabel } from '../lib/format'
+import { categoryLabel, instant, longDay, plural, roleLabel, rowTitle, tierLabel, actionLabel, writeOutcome } from '../lib/format'
 import { format, parse } from '../lib/money'
-import { countable } from '../lib/countable'
+import { countable, direction } from '../lib/countable'
+import { allocationBody, lineFor, split } from '../lib/allocation'
+import { parse as parseShape } from '../lib/parse'
 import {
   Amount, Avatar, Button, Card, Caption, Chip, EntryIcon, Facts, Field, Fingerprint, Loading, MoneyInput, Sheet, Textarea, useToast, cx,
 } from '../components/ui'
@@ -50,7 +52,7 @@ function Detail({ r, p }: { r: LedgerRow; p: ProposalRow }) {
   const reversedBy = r.reversed_by_seq ? byseq.get(r.reversed_by_seq) : undefined
   const reverses = r.reverses_seq ? byseq.get(r.reverses_seq) : undefined
   const nonCash = r.effect === 'charge' || r.effect === 'charge_reversal'
-  const direction = countable(r.amount_minor)
+  const dir = direction(r.amount_minor)
 
   const entry = useQuery({
     queryKey: ['entry', s.id, r.seq],
@@ -74,8 +76,10 @@ function Detail({ r, p }: { r: LedgerRow; p: ProposalRow }) {
             <Amount minor={r.amount_minor} currency={r.currency} signed={!nonCash} size="hero" tone={nonCash ? 'muted' : 'auto'} struck={!!reversedBy} />
           </div>
           <div className="mt-3 flex flex-wrap gap-1.5">
-            {nonCash ? <Chip>Billed to flats, not cash</Chip> : direction.readable
-              ? <Chip tone={direction.minor < 0 ? 'debit' : 'credit'}>{direction.minor < 0 ? 'Money out' : 'Money in'}</Chip>
+            {nonCash ? <Chip>Billed to flats, not cash</Chip>
+              : dir === 'out' ? <Chip tone="debit">Money out</Chip>
+              : dir === 'in' ? <Chip tone="credit">Money in</Chip>
+              : dir === 'flat' ? <Chip>No change to the balance</Chip>
               : <Chip tone="break">Direction could not be read</Chip>}
             {reversedBy && <Chip tone="break">Reversed</Chip>}
             {flagged.some((d) => d.is_open) && <Chip tone="break" icon={<Flag className="size-3" />}>Disputed</Chip>}
@@ -188,27 +192,34 @@ function Allocation({ r }: { r: LedgerRow }) {
     queryFn: async () => {
       const e = unwrap(await supabase.from('chain_entries').select('body').eq('society_id', s.id).eq('sequence', r.proposal_seq).single())
       const flats = unwrap(await supabase.from('flats').select('id,label,ordinal').eq('society_id', s.id))
-      return { body: e.body as unknown as { flat_ids: string[]; line_amounts: number[]; remainder_flats: string[]; flat_set: string }, flats: new Map(flats.map((f) => [f.id, f.label])) }
+      return { alloc: split(parseShape(allocationBody, e.body, 'allocation')), flats: new Map(flats.map((f) => [f.id, f.label])) }
     },
   })
   if (!q.data) return <Loading rows={1} />
-  const { body, flats } = q.data
-  const mine = me.tenure ? body.flat_ids.indexOf(me.tenure.flat_id) : -1
-  const extra = new Set(body.remainder_flats)
-  const splitSign = countable(r.amount_minor)
+  const { alloc, flats } = q.data
+  const mine = lineFor(alloc, me.tenure?.flat_id)
+  const eachReadable = countable(alloc.each)
   return (
     <section>
       <Caption>Split across flats</Caption>
       <Card className="p-5">
         <div className="grid grid-cols-3 gap-3 text-center">
-          <Stat label="Flats" value={body.flat_ids.length.toString()} />
-          <Stat label="Each" value={splitSign.readable ? format(Math.min(...body.line_amounts.map(Math.abs)) * Math.sign(splitSign.minor)) : 'Not available'} />
-          <Stat label="+1 paisa" value={plural(body.remainder_flats.length, 'flat')} />
+          <Stat label="Flats" value={alloc.lines.length.toString()} />
+          <Stat label="Each" value={eachReadable.readable ? format(eachReadable.minor) : 'Not available'} />
+          <Stat label="+1 paisa" value={plural(alloc.remainderCount, 'flat')} />
         </div>
-        {mine >= 0 && (
+        {/* A broken entry is disclosed, not truncated in silence: a flat
+            missing from one of the two lists is a flat whose charge nobody
+            is being shown. */}
+        {alloc.mismatch && (
+          <p className="mt-4 rounded-xl bg-sunken px-4 py-3 text-[13px] text-ink-2">
+            This split is incomplete in the record: the list of flats and the list of amounts do not match. The figures below are the flats that could be paired.
+          </p>
+        )}
+        {mine && (
           <div className="mt-4 flex items-center justify-between rounded-xl bg-accent-soft px-4 py-3 text-sm">
             <span className="font-medium">Your flat, {me.tenure!.flat}</span>
-            <Amount minor={body.line_amounts[mine]!} />
+            <Amount minor={mine.minor} />
           </div>
         )}
         <p className="mt-4 text-[13px] text-ink-2">The paisa that does not divide goes to the flats that have had it least often, so no flat pays more over time.</p>
@@ -217,10 +228,10 @@ function Allocation({ r }: { r: LedgerRow }) {
         </button>
         {all && (
           <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-1 text-sm sm:grid-cols-3">
-            {body.flat_ids.map((id, i) => (
-              <div key={id} className="flex justify-between gap-2 py-0.5">
-                <span className={cx(extra.has(id) && 'font-medium')}>{flats.get(id)}</span>
-                <Amount minor={body.line_amounts[i]!} size="sm" className={cx(!extra.has(id) && 'text-ink-2')} />
+            {alloc.lines.map((l) => (
+              <div key={l.flat_id} className="flex justify-between gap-2 py-0.5">
+                <span className={cx(l.remainder && 'font-medium')}>{flats.get(l.flat_id) ?? l.flat_id}</span>
+                <Amount minor={l.minor} size="sm" className={cx(!l.remainder && 'text-ink-2')} />
               </div>
             ))}
           </div>
@@ -269,7 +280,13 @@ function ReverseSheet({ open, onClose, r, p }: { open: boolean; onClose: () => v
         narration: `${replace ? 'Correct' : 'Reverse'} ${rowTitle(r)}`,
         ...(replace && repl ? { replacement_amount_minor: repl } : {}),
       })
-      toast(out.status === 'posted' ? 'Reversed.' : 'Reversal proposed. It needs approval before it posts.')
+      const outcome = writeOutcome(out.status)
+      toast(
+        outcome === 'posted' ? 'Reversed.'
+        : outcome === 'open' ? 'Reversal proposed. It needs approval before it posts.'
+        : outcome === 'closed' ? 'The reversal was proposed and already closed. Open it in Approvals to see why.'
+        : 'Reversal proposed. Open it in Approvals to see where it stands.',
+      )
       onClose()
     } catch (e) {
       setError(e instanceof Refused ? e.message : 'Could not propose it. Try again.')

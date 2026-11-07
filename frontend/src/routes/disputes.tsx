@@ -4,7 +4,7 @@ import { Eye, Flag, MessageSquare, Plus, UserRound } from 'lucide-react'
 import { resolveHandle, useDisputes, useFlagNote, useNames, useSociety, useTenantFlags } from '../lib/api'
 import { Refused } from '../lib/supabase'
 import { useMeStrict, isCommittee } from '../lib/session'
-import { daysOpen, instant, month, plural } from '../lib/format'
+import { daysOpen, instant, periodLabel, plural } from '../lib/format'
 import { Button, Chip, Empty, Facts, Failed, Loading, PageTitle, Segmented, Sheet, Textarea, useToast, cx } from '../components/ui'
 import { RaiseDispute } from '../components/RaiseDispute'
 import type { DisputeRow, Me } from '../lib/types'
@@ -24,7 +24,10 @@ function who(d: DisputeRow, me: Me, tenantFlags: Set<number> | undefined) {
 function about(d: DisputeRow) {
   if (d.scope === 'entries') return d.target_seqs.length === 1 ? `Entry #${d.target_seqs[0]}` : `${d.target_seqs.length} entries`
   if (d.scope === 'counterparty') return `Payee: ${d.counterparty}`
-  return d.period && d.period.length === 7 && d.period[4] === '-' && Number(d.period.slice(5)) <= 12 ? month(d.period) : `FY ${d.period}`
+  // Month or financial year - both are YYYY-NN, and periodLabel is the only
+  // thing that may decide which. See lib/format.ts: this line read FY 2011-12
+  // as December 2011 and threw a RangeError on a malformed one.
+  return periodLabel(d.period)
 }
 
 function Disputes() {

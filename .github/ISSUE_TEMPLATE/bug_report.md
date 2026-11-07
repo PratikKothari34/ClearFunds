@@ -14,7 +14,7 @@ assignees: ""
 
 ## How to reproduce
 
-<!-- The commit on `dev`, the commands, and the data. Use synthetic data, never a real society's figures or residents. -->
+<!-- The commit on `main`, the commands, and the data. Use synthetic data, never a real society's figures or residents. -->
 
 ## Impact
 

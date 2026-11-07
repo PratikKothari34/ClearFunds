@@ -5,17 +5,29 @@ import { supabase } from '../lib/supabase'
 import { useMeStrict, hats } from '../lib/session'
 import { navFor, splitTabs, type NavId, type NavItem } from '../lib/nav'
 import { useDisputes, useLive, useProposals, useSignoffs, useYears } from '../lib/api'
-import { roleLabel, todayIST } from '../lib/format'
+import { monthOf, roleLabel, todayIST } from '../lib/format'
+import { recentMonths, waitsOn } from '../lib/pending'
+
+/*
+ * Re-exported, and the routes import them from HERE rather than from lib/.
+ *
+ * The rules themselves live in lib/pending.ts, where they are tested without
+ * mounting a router. This is the import edge, and it is load-bearing: three
+ * lazy route chunks sharing this module is why rolldown gives the router its
+ * own `link-*` chunk. Pointing those routes straight at lib/pending.ts
+ * removed the shared edge, the heuristic stopped firing, and the router's
+ * 20 KB folded into the ENTRY chunk - the resident read path, which the
+ * bundle budget keeps lightest. Total bytes were identical, so nothing but
+ * `expect: ['ui', 'link']` in scripts/budget.mjs noticed.
+ *
+ * Declaring the split with advancedChunks instead was tried and is worse:
+ * naming one group replaces rolldown's whole strategy, so the 78.8 KB
+ * Supabase chunk folded into the entry as well.
+ */
+export { recentMonths, waitsOn }
 import { Avatar, IconButton, Sheet, cx } from './ui'
 import { Logo } from './Logo'
-import type { Me, ProposalRow } from '../lib/types'
-
-/** Is this proposal waiting on this person's vote? */
-export function waitsOn(p: ProposalRow, me: Me) {
-  if (p.state !== 'open' || !me.seat) return false
-  if (p.approvals.some((a) => a.person === me.person)) return false
-  return p.tier === 'committee' || me.seat.role === 'treasurer' || me.seat.role === 'secretary'
-}
+import type { Me } from '../lib/types'
 
 export function useBadges(me: Me): Partial<Record<NavId, number>> {
   const committee = !!me.seat
@@ -28,7 +40,7 @@ export function useBadges(me: Me): Partial<Record<NavId, number>> {
     if (committee) b.approvals = (proposals.data ?? []).filter((p) => waitsOn(p, me)).length
     if (me.seat?.role === 'president' && signoffs.data) {
       const done = new Set(signoffs.data.map((s) => s.body.month))
-      const cur = todayIST().slice(0, 7)
+      const cur = monthOf(todayIST())
       b.signoff = recentMonths(cur, 3).filter((m) => m < cur && !done.has(m)).length
     }
     if (me.auditor_for.length && years.data) {
@@ -37,14 +49,6 @@ export function useBadges(me: Me): Partial<Record<NavId, number>> {
     if (committee && disputes.data) b.disputes = disputes.data.filter((d) => d.is_open).length
     return b
   }, [committee, me, proposals.data, signoffs.data, years.data, disputes.data])
-}
-
-export function recentMonths(cur: string, n: number) {
-  const [y, m] = cur.split('-').map(Number)
-  return Array.from({ length: n }, (_, i) => {
-    const d = new Date(Date.UTC(y!, m! - 1 - i, 1))
-    return d.toISOString().slice(0, 7)
-  })
 }
 
 export function ThemeSwitch() {
@@ -155,7 +159,11 @@ export function Shell({ children }: { children: ReactNode }) {
       <Sheet open={moreOpen} onClose={() => setMoreOpen(false)} title="More">
         <div className="grid grid-cols-3 gap-2">
           {more.map((it) => (
-            <Link key={it.id} to={it.to} className="flex flex-col items-center gap-2 rounded-2xl bg-sunken px-2 py-4 text-sm font-medium">
+            // Preloads when the sheet opens, not when the Shell mounts: these
+            // are exactly the routes that did NOT make the five tabs, so they
+            // are the cold ones, and the tap that opens the sheet buys the
+            // chunk time to arrive before the tap that picks a route.
+            <Link key={it.id} to={it.to} preload={NAV_PRELOAD} className="flex flex-col items-center gap-2 rounded-2xl bg-sunken px-2 py-4 text-sm font-medium">
               <it.icon className="size-6 text-ink-2" strokeWidth={1.8} />{it.label}
             </Link>
           ))}
@@ -173,9 +181,31 @@ export function Shell({ children }: { children: ReactNode }) {
   )
 }
 
+/*
+ * preload="viewport" on every nav link, overriding the router's global
+ * 'intent'.
+ *
+ * 'intent' preloads on hover or focus. A PHONE HAS NEITHER - a tap is not a
+ * hover - so on the device the bundle budget is written for, mid-range Android
+ * on working 4G, nav links were preloading nothing at all and every navigation
+ * started from cold. The desktop rail got the win and the phone did not.
+ *
+ * 'viewport' uses IntersectionObserver, which fires on touch. Both navs are
+ * permanently on screen, so this resolves to "preload the nav's routes once
+ * the shell mounts" - at most ten chunks on the rail, five on the tab bar,
+ * each 1.3-11.5 KB gzipped, against a 76.2 KB entry. The ledger's is the
+ * largest and is also the one most likely to be tapped.
+ *
+ * This preloads the route's CODE. The DATA is separately warm because the
+ * dashboard already fetched nine of the twelve reads and every other resident
+ * screen is a subset of them; main.tsx's staleTime is what keeps those cached
+ * long enough for the navigation to land on them.
+ */
+const NAV_PRELOAD = 'viewport' as const
+
 function RailLink({ item, active, badge }: { item: NavItem; active: boolean; badge?: number | undefined }) {
   return (
-    <Link to={item.to} aria-current={active ? 'page' : undefined}
+    <Link to={item.to} preload={NAV_PRELOAD} aria-current={active ? 'page' : undefined}
       className={cx('flex h-10 items-center gap-3 rounded-xl px-3 text-[14.5px] font-medium transition-colors',
         active ? 'bg-accent-soft text-accent' : 'text-ink-2 hover:bg-sunken hover:text-ink')}>
       <item.icon className="size-[18px]" strokeWidth={1.9} />
@@ -187,7 +217,7 @@ function RailLink({ item, active, badge }: { item: NavItem; active: boolean; bad
 
 function TabLink({ item, active, badge }: { item: NavItem; active: boolean; badge?: number | undefined }) {
   return (
-    <Link to={item.to} aria-current={active ? 'page' : undefined}
+    <Link to={item.to} preload={NAV_PRELOAD} aria-current={active ? 'page' : undefined}
       className={cx('relative flex h-16 flex-col items-center justify-center gap-1 text-[11px] font-medium', active ? 'text-accent' : 'text-ink-2')}>
       <span className="relative">
         <item.icon className="size-[22px]" strokeWidth={active ? 2.2 : 1.8} />
