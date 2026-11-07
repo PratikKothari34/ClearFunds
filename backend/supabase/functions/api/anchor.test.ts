@@ -17,7 +17,7 @@ const due = (period: string, seq: number, society = "soc_a"): Due =>
      format_version: 1, as_of: 1000 + seq });
 
 // Files by path, with GitHub's create-only and sha-checked update semantics.
-function github(opts: { failPut?: string; wayback?: number } = {}) {
+function github(opts: { failPut?: string; putStatus?: number; wayback?: number } = {}) {
   const files = new Map<string, { sha: string; text: string }>();
   let n = 0;
   const calls: string[] = [];
@@ -32,7 +32,7 @@ function github(opts: { failPut?: string; wayback?: number } = {}) {
       const bytes = new TextEncoder().encode(file.text);
       return Response.json({ sha: file.sha, content: btoa(String.fromCharCode(...bytes)) });
     }
-    if (opts.failPut && path.endsWith(opts.failPut)) return new Response("", { status: 500 });
+    if (opts.failPut && path.endsWith(opts.failPut)) return new Response("", { status: opts.putStatus ?? 500 });
     const body = JSON.parse(String(init!.body));
     const text = new TextDecoder().decode(Uint8Array.from(atob(body.content), (c) => c.charCodeAt(0)));
     const existing = files.get(path);
@@ -119,4 +119,40 @@ Deno.test("a head whose entry_count differs from head_seq is never published", a
   const { d, recorded } = deps(gh, [{ ...due("2026-09", 300), entry_count: 299 }, due("2026-10", 412)]);
   eq((await publishAnchors(d)).map((o) => o.result), ["failed"], "it fails, and the next month waits");
   eq([gh.files.size, recorded.length], [0, 0], "nothing written or recorded");
+});
+
+Deno.test("a refused PUT over nothing fails and names the token", async () => {
+  for (const status of [401, 403, 404]) {
+    const gh = github({ failPut: "periods/2026-10.json", putStatus: status });
+    const { d, recorded } = deps(gh, [due("2026-10", 412)]);
+    const [o] = await publishAnchors(d);
+    eq(o.result, "failed", `${status} fails`);
+    if (!o.detail?.includes("CLEARFUNDS_ANCHOR_TOKEN")) throw new Error(`${status} should name the token: ${o.detail}`);
+    eq(recorded.length, 0, "and records nothing");
+  }
+});
+
+Deno.test("any failed PUT is settled by what the path holds, whatever the status", async () => {
+  for (const status of [409, 422, 502]) {
+    const gh = github({ failPut: "periods/2026-10.json", putStatus: status });
+    const own = await anchorFile(due("2026-10", 412), "2026-11-01T00:30:00.000Z", sign);
+    gh.files.set("societies/soc_a/periods/2026-10.json", { sha: "x", text: own });
+    const { d, recorded } = deps(gh, [due("2026-10", 412)]);
+    eq((await publishAnchors(d)).map((o) => o.result), ["already"], `${status} over our own file`);
+    eq(recorded.length, 1, "and it is recorded");
+
+    const other = github({ failPut: "periods/2026-10.json", putStatus: status });
+    other.files.set("societies/soc_a/periods/2026-10.json", { sha: "x", text: own.replace('"head_seq": 412', '"head_seq": 411') });
+    const o = deps(other, [due("2026-10", 412)]);
+    eq((await publishAnchors(o.d)).map((x) => x.result), ["conflict"], `${status} over a different head`);
+    eq(o.recorded.length, 0, "and it is left in place, unrecorded");
+  }
+});
+
+Deno.test("a status that says nothing about the token does not blame it", async () => {
+  const gh = github({ failPut: "periods/2026-10.json", putStatus: 502 });
+  const { d } = deps(gh, [due("2026-10", 412)]);
+  const [o] = await publishAnchors(d);
+  eq(o.result, "failed", "fails");
+  if (o.detail?.includes("TOKEN")) throw new Error(`should not mention the token: ${o.detail}`);
 });
