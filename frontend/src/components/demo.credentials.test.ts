@@ -14,12 +14,20 @@
  * source can prove is the structural rule the elimination depends on - every
  * occurrence of the literals sits inside something gated on DEMO_ON, and
  * `demo()` refuses when that gate is off.
+ *
+ * THE RULE HOLDING IS NOT THE OUTCOME, so this is half the protection.
+ * `scripts/check-bundle.mjs` asserts the other half after the build: that the
+ * strings are absent from what actually shipped. The rule can hold while the
+ * bundler stops acting on it - a change to how `import.meta.env.DEV` is
+ * replaced, a `define` override, a mode other than `production` - and this
+ * suite would stay green through all of it. Neither check replaces the other,
+ * and neither should be deleted as redundant with it.
  */
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
-const SRC = resolve(__dirname, '../components/Login.tsx')
+const SRC = resolve(__dirname, 'Login.tsx')
 const src = readFileSync(SRC, 'utf8')
 
 /** Source with comments removed: the prose below names the literals too. */
