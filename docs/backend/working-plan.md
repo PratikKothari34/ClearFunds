@@ -31,7 +31,8 @@ Last updated 2026-11-07.
 2. **#93, then #95 and #96:** the contract rows for #90 and #92, and the ledger
    vectors. These clear the items you list as still open on #91.
 3. **#97, #98 and #101:** your findings on #66 and #84, and the CSP for #5.
-4. **Re-reviewing #91.** Your new commits are the next thing I read.
+4. **Restoring six rules in `AGENTS.md`** once #91 merges, as listed in my
+   approval there, and the stale lines beside them.
 5. **Deploying migrations 22-28 and the `api` function** as one verified batch,
    once 1 is merged. That is also what ends the statement-limit mismatch you
    flagged on #79.
