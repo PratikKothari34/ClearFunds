@@ -5,8 +5,10 @@ import { useNames, useSignoff, useSignoffs, useSummary } from '../lib/api'
 import { Refused } from '../lib/supabase'
 import { useMeStrict } from '../lib/session'
 import { instant, month, monthOf, todayIST } from '../lib/format'
-import { Amount, Button, Card, Chip, Field, Input, Loading, PageTitle, Sheet, useToast, cx } from '../components/ui'
+import { Amount, Button, Card, Chip, Field, Input, Loading, PageTitle, ReversedNote, Sheet, useToast, cx } from '../components/ui'
 import { recentMonths } from '../components/Shell'
+import { monthHasReversal as monthReversal, reversedIn, reversedOut } from '../lib/reversed'
+import type { Summary } from '../lib/types'
 
 export const Route = createFileRoute('/sign-off')({ component: SignOff })
 
@@ -42,7 +44,23 @@ function SignOff() {
                     {s ? `Signed by ${names.get(s.actor) ?? 'the president'}, ${instant(s.recorded_at)}` : m === cur ? 'In progress' : t ? 'Not signed' : 'No entries'}
                   </p>
                 </div>
-                {t && <span className="hidden text-right text-xs sm:block"><Amount minor={t.out_minor} size="sm" className="text-debit" /><span className="block text-ink-2">spent</span></span>}
+                {/*
+                  * Labelled "out", not "spent". `out_minor` carries reversals
+                  * gross, and a reversed RECEIPT is money out that was never
+                  * spending - so "spent" is false for any month holding one,
+                  * on the screen the president reads immediately before an
+                  * irreversible signature. There is no arithmetic fix in this
+                  * lane: the figure is right and the word was wrong, so the
+                  * word changes to the one the figure supports.
+                  */}
+                {t && (
+                  <span className="hidden text-right text-xs sm:block">
+                    <Amount minor={t.out_minor} size="sm" className="text-debit" />
+                    <span className="block text-ink-2">
+                      out{monthReversal(t) === 'none' ? '' : monthReversal(t) === 'unknown' ? ', may include corrections' : ', includes corrections'}
+                    </span>
+                  </span>
+                )}
                 {due ? <Button tone="primary" onClick={() => setOpen(m)}>Sign</Button> : s ? <Chip tone="anchor">Signed</Chip> : null}
               </div>
             )
@@ -54,7 +72,12 @@ function SignOff() {
   )
 }
 
-function SignSheet({ m, onClose, t }: { m: string; onClose: () => void; t: { in_minor: number; out_minor: number; entries: number } | undefined }) {
+/*
+ * `t` is the whole month row, not a three-key narrowing of it. The narrowed
+ * shape could not carry the reversed keys, and this is the surface that most
+ * needs them: the president signs here, and a signature cannot be withdrawn.
+ */
+function SignSheet({ m, onClose, t }: { m: string; onClose: () => void; t: Summary['months'][number] | undefined }) {
   const sign = useSignoff()
   const toast = useToast()
   const [note, setNote] = useState('')
@@ -66,8 +89,16 @@ function SignSheet({ m, onClose, t }: { m: string; onClose: () => void; t: { in_
       }}>Sign in my name</Button>}>
       {t && (
         <div className="grid grid-cols-3 gap-2 text-center">
-          <div className="rounded-xl bg-sunken p-3"><Amount minor={t.in_minor} size="sm" className="font-semibold text-credit" /><p className="text-xs text-ink-2">In</p></div>
-          <div className="rounded-xl bg-sunken p-3"><Amount minor={t.out_minor} size="sm" className="font-semibold text-debit" /><p className="text-xs text-ink-2">Out</p></div>
+          <div className="rounded-xl bg-sunken p-3">
+            <Amount minor={t.in_minor} size="sm" className="font-semibold text-credit" />
+            <p className="text-xs text-ink-2">In</p>
+            <ReversedNote of={reversedIn(t)} className="mt-1" />
+          </div>
+          <div className="rounded-xl bg-sunken p-3">
+            <Amount minor={t.out_minor} size="sm" className="font-semibold text-debit" />
+            <p className="text-xs text-ink-2">Out</p>
+            <ReversedNote of={reversedOut(t)} className="mt-1" />
+          </div>
           <div className="rounded-xl bg-sunken p-3"><p className="tnum text-sm font-semibold">{t.entries}</p><p className="text-xs text-ink-2">Entries</p></div>
         </div>
       )}

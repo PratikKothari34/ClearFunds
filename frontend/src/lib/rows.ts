@@ -318,6 +318,15 @@ export const summary = object<Summary>({
     month: required(str),
     in_minor: required(int),
     out_minor: required(int),
+    /*
+     * Both are `coalesce(..., 0)` server-side, so absent is a broken summary,
+     * not "no reversals" - a month with none reports 0. `required` is what
+     * makes a missing key fail loudly instead of reaching a surface as
+     * undefined, where `undefined > 0` is false and the disclosure would
+     * silently never render.
+     */
+    reversed_in_minor: required(int),
+    reversed_out_minor: required(int),
     charged_minor: required(int),
     entries: required(int),
   }))),

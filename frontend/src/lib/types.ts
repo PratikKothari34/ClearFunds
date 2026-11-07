@@ -215,7 +215,24 @@ export type Summary = {
   head_seq: number
   as_of: number
   fy: string
-  months: { month: string; in_minor: number; out_minor: number; charged_minor: number; entries: number }[]
+  /*
+   * `in_minor` and `out_minor` are POSTED movements, so a reversal sits in
+   * them gross - a reversed expense is money in, though nobody paid the
+   * society anything. That is deliberate and must stay: in less out has to
+   * equal the balance. `reversed_in_minor` and `reversed_out_minor` say how
+   * much of each side is reversals, both reported POSITIVE, so a surface can
+   * disclose the gross figure rather than silently net it. Netting here would
+   * be money arithmetic in the client.
+   */
+  months: {
+    month: string
+    in_minor: number
+    out_minor: number
+    reversed_in_minor: number
+    reversed_out_minor: number
+    charged_minor: number
+    entries: number
+  }[]
   fy_spend: { category: string; amount_minor: number }[]
   fy_spend_total_minor: number
   outstanding_minor: number
