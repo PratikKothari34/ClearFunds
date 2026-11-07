@@ -74,41 +74,68 @@ const directive = (csp: string, name: string): string[] => {
  * suite that would be red for work that is not ours teaches people to ignore
  * it, and one that silently passes guards nothing.
  *
- * The guard against that skip becoming permanent is the first test below. It
- * is NOT skipped: it asserts which of the two states we are in, so the
- * scaffolding cannot quietly outlive the merge.
+ * The first test below is NOT skipped, and nothing in this file has to be
+ * edited by hand when the policy lands. It asserts what holds in both states:
+ * the headers array parses, at most one policy is declared, and any policy
+ * present covers every route rather than one path.
+ *
+ * Its limit is stated at the assertion: with no policy in the file, this suite
+ * cannot tell "not merged yet" from "deleted". Closing that needs a check
+ * against a deployed response, not a committed file.
  */
 const policyDeployed =
   (vercel.headers ?? []).some((h: { headers?: { key: string }[] }) =>
     (h.headers ?? []).some((x) => x.key.toLowerCase() === 'content-security-policy'),
   )
 
-describe('the deployed CSP is either present or known to be absent', () => {
-  it('says which, so the skip below cannot outlive the PR that fills it', () => {
+describe('the deployed policy is declared unambiguously', () => {
+  it('declares at most one CSP, covering every route', () => {
     /*
-     * One of these two is true, and the message names the other. When the CSP
-     * header lands, `policyDeployed` flips and the whole suite below starts
-     * running with no edit here.
+     * NOTHING HERE IS FLIPPED BY HAND. An earlier version of this file pinned
+     * the expectation to a hardcoded `false`, so the merge that adds the
+     * policy had to edit this line or go red: whichever of #101 and this
+     * merged second failed, and the fix sat in a different lane from the
+     * change that caused it. That trap was worse than the one it guarded.
+     *
+     * What this test can prove without knowing which state we are in:
+     *
+     *   - the headers array parses at all, so a malformed file fails loudly
+     *     instead of making every check below vacuously true
+     *   - AT MOST ONE policy, because a browser enforces the intersection of
+     *     all of them, so a second policy silently narrows the first
+     *   - any policy present covers every route, not one path
+     *
+     * The deliberate limit, stated rather than papered over: while no policy
+     * exists this file CANNOT tell "#101 has not merged" from "the policy was
+     * deleted", because `vercel.json` carries no record of having had one. So
+     * a deletion returns the comparison suite to skipped. What closes that is
+     * CI asserting the header on a deployed preview - a live response, which
+     * no test reading a committed file can replace. Named in the PR rather
+     * than left as a silent gap.
      */
-    /*
-     * `EXPECT_POLICY` is the one line to change when the policy lands, and
-     * changing it is the point: while it is false the suite below is skipped,
-     * and once it is true a DELETED header fails here instead of quietly
-     * re-skipping everything. Without this pin, removing the CSP and removing
-     * the PR that adds it look identical to this file.
-     */
-    const EXPECT_POLICY = false
+    expect(Array.isArray(vercel.headers), 'vercel.json has no headers array to read').toBe(true)
+
+    const policies = (vercel.headers ?? []).flatMap(
+      (h: { source?: string; headers?: { key: string; value: string }[] }) =>
+        (h.headers ?? [])
+          .filter((x) => x.key.toLowerCase() === 'content-security-policy')
+          .map((x) => ({ source: h.source, value: x.value })),
+    )
 
     expect(
-      policyDeployed,
-      EXPECT_POLICY
-        ? 'vercel.json has lost its Content-Security-Policy header. The parity ' +
-          'checks below went back to being skipped, which is how a deployed ' +
-          'policy disappears with every suite still green.'
-        : 'vercel.json now carries a Content-Security-Policy header. Flip ' +
-          'EXPECT_POLICY to true in this file so the checks below run and a ' +
-          'later deletion cannot silently skip them again.',
-    ).toBe(EXPECT_POLICY)
+      policies.length,
+      'vercel.json declares more than one Content-Security-Policy. A browser ' +
+        'enforces the intersection of all of them, so a second policy ' +
+        'silently narrows the first and no single header reads as wrong.',
+    ).toBeLessThanOrEqual(1)
+
+    if (policies.length === 1) {
+      expect(
+        policies[0]?.source,
+        'the Content-Security-Policy is scoped to a path instead of /(.*), so ' +
+          'it does not cover every route the SPA serves',
+      ).toBe('/(.*)')
+    }
   })
 })
 
