@@ -6,6 +6,8 @@ import { routeTree } from './routeTree.gen'
 import { AuthProvider } from './lib/session'
 import { ToastProvider } from './components/ui'
 import { Refused } from './lib/supabase'
+import { environmentFault } from './lib/environment'
+import { Misconfigured } from './components/Misconfigured'
 import { Crashed } from './components/Crashed'
 import './styles/app.css'
 
@@ -74,8 +76,30 @@ declare module '@tanstack/react-router' {
   }
 }
 
+/*
+ * Checked BEFORE AuthProvider mounts, because AuthProvider's effect calls
+ * supabase.auth.getSession() - a first property read on the lazy client - and
+ * that throw lands ABOVE both render boundaries. The router's
+ * defaultErrorComponent catches a route's throw, and __root's CatchBoundary is
+ * inside the router; a provider mounted above the router has neither, so React
+ * unmounted the tree and production served a BLANK PAGE with one console line.
+ *
+ * A boundary is not the fix here and could not be: it would have to wrap the
+ * provider that decides whether to show sign-in, leaving no tree to render a
+ * message into. The environment is knowable before anything is attempted - two
+ * strings inlined at build time - so it is asked first.
+ *
+ * It renders INSTEAD of the app, never beside it. Continuing with no session
+ * shows the sign-in screen, and a resident typing a code into a build that can
+ * never deliver one is worse off than one who is told the build is broken.
+ */
+const fault = environmentFault()
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
+    {fault ? (
+      <Misconfigured fault={fault} />
+    ) : (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <ToastProvider>
@@ -83,5 +107,6 @@ createRoot(document.getElementById('root')!).render(
         </ToastProvider>
       </AuthProvider>
     </QueryClientProvider>
+    )}
   </StrictMode>,
 )

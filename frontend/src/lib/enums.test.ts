@@ -3,7 +3,7 @@ import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { ShapeError } from './parse'
 import { disputeRow, ledgerRow, note, proposalRow, seat, year } from './rows'
-import { PROPOSAL_STATES } from './types'
+import { PROPOSAL_STATES, ROLE_ORDER, type Role } from './types'
 
 /*
  * ENUM DRIFT.
@@ -203,5 +203,38 @@ describe('enum drift against the contracts', () => {
 
   it('refuses a proposal state outside the set', () => {
     expect(accepts((x) => proposalRow(proposal({ state: x }), 'r'), 'cf_not_a_state')).toBe(false)
+  })
+
+  it('orders committee roles exactly as the contract states them', () => {
+    /*
+     * The contract's `roles` row says `Same order: president treasurer
+     * secretary member`, and the committee screen sorts by
+     * `ROLE_ORDER.indexOf(seat.role)`.
+     *
+     * `indexOf` returns **-1** for a role not in the list, which sorts that
+     * member ABOVE the president instead of failing. `readonly Role[]` is
+     * satisfied by a list missing an entry, so the compiler cannot catch it;
+     * and asserting the array against a hand-written copy of itself would be
+     * circular, the trap `tier.test.ts` fell into. So it is asserted against
+     * the contract row - the document both sides are meant to follow.
+     *
+     * Order is compared, not membership: a set comparison passes on a
+     * committee listed president-last, which is the whole point of the row.
+     */
+    const stated = contractValues(LEDGER, 'roles')
+    expect(stated.length, 'the contract roles row lists no sequence').toBeGreaterThan(1)
+    expect(
+      [...ROLE_ORDER],
+      'ROLE_ORDER must match the contract roles row, in order - indexOf returns -1 for a missing role and sorts it above the president',
+    ).toEqual(stated)
+  })
+
+  it('gives every contract role a place in the order, so indexOf never returns -1', () => {
+    // The assertion above would also pass if BOTH drifted together in the
+     // same way; this one states the property the sort actually depends on.
+    for (const r of contractValues(LEDGER, 'roles')) {
+      expect(ROLE_ORDER.indexOf(r as Role), `\`${r}\` has no position in ROLE_ORDER`)
+        .toBeGreaterThanOrEqual(0)
+    }
   })
 })

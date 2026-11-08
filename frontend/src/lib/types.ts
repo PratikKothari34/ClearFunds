@@ -15,6 +15,23 @@ export const PROPOSAL_STATES = [
 export type ProposalState = (typeof PROPOSAL_STATES)[number]
 
 export type Role = 'president' | 'treasurer' | 'secretary' | 'member'
+
+/**
+ * Committee roles in the order the contract states them, which is the order
+ * a committee is read out in: `Same order: president treasurer secretary
+ * member`.
+ *
+ * THE ORDER IS CONTRACT, NOT PRESENTATION. It was a bare array in
+ * `routes/committee.tsx`, used as `order.indexOf(a.role)` in a sort
+ * comparator - and `indexOf` returns **-1** for anything absent, which sorts
+ * that member ABOVE the president rather than failing. A fifth role in the
+ * contract would be accepted by the compiler (`Role[]` is satisfied by four
+ * entries) and reordered the committee silently.
+ *
+ * `enums.test.ts` asserts this against the contract row that states it, so
+ * the sequence cannot drift from the document in either direction.
+ */
+export const ROLE_ORDER: readonly Role[] = ['president', 'treasurer', 'secretary', 'member']
 export type Effect = 'expense' | 'receipt' | 'charge' | 'reversal' | 'charge_reversal'
 export type Action =
   | 'expense' | 'receipt' | 'charge' | 'reversal' | 'limit_change'

@@ -8,6 +8,7 @@ import { useMeStrict, isCommittee } from '../lib/session'
 import { categoryLabel, instant, longDay, plural, roleLabel, rowTitle, tierLabel, actionLabel, writeOutcome } from '../lib/format'
 import { format, parse } from '../lib/money'
 import { countable, direction } from '../lib/countable'
+import { needsCommittee } from '../lib/reversaltier'
 import { allocationBody, lineFor, split } from '../lib/allocation'
 import { parse as parseShape } from '../lib/parse'
 import {
@@ -258,19 +259,24 @@ function ReverseSheet({ open, onClose, r, p }: { open: boolean; onClose: () => v
   const [replace, setReplace] = useState(false)
   const [amount, setAmount] = useState('')
   const [error, setError] = useState<string | null>(null)
+  // `null` here means the field would not parse; `reversaltier` needs that
+  // distinct from "no replacement", so it is never coalesced to a number.
   const repl = replace ? parse(amount) : null
   /*
-   * The tier must never be decided from a figure nobody could read. An
-   * unreadable amount, or an unreadable limit, forces the HIGHER tier: a
-   * reversal approved by two people when it needed the committee is the
-   * laundering path 0004 closed, and `Math.abs(null) > lim` is false, which
-   * would have chosen the lower one silently.
+   * The tier is `lib/reversaltier.ts`'s decision, not this sheet's. It used
+   * to be computed here, which meant reaching it required mounting a router
+   * and so it was never tested - and it was wrong in one operand: the old
+   * `(repl ?? 0) > limNow.minor` collapsed "no replacement" and "a
+   * replacement that would not parse" into `0`, and `0 > limit` is false,
+   * so an unparseable or overflowed replacement bought the PAIR tier. One
+   * operand to the right of the comment explaining that exact trap.
    */
-  const limNow = countable(limit.data?.current.limit_minor)
-  const mine = countable(r.amount_minor)
-  const committee =
-    p.tier === 'committee' || !limNow.readable || !mine.readable ||
-    Math.abs(mine.minor) > limNow.minor || (repl ?? 0) > limNow.minor
+  const committee = needsCommittee({
+    originalTier: p.tier,
+    amountMinor: r.amount_minor,
+    limitMinor: limit.data?.current.limit_minor,
+    replacement: replace ? repl : undefined,
+  })
 
   const submit = async () => {
     setError(null)

@@ -85,3 +85,80 @@ describe('the render boundary is wired, not merely written', () => {
     expect(key![1]).toMatch(/session/)
   })
 })
+
+/*
+ * The environment gate, which is the SAME decision class as the boundaries
+ * above and fails the same way: the check can be perfectly correct and
+ * perfectly unwired, and environment.test.ts would stay green either way,
+ * because it tests the function and this tests whether anything calls it.
+ *
+ * It is here rather than in its own file because the failure it guards is the
+ * one the boundaries could not catch. Production served a blank page: the
+ * Supabase pair was unset, AuthProvider's effect made the first property read
+ * on the lazy client, and that throw was above BOTH boundaries, so React
+ * unmounted everything. The fix only works if the gate is evaluated before
+ * AuthProvider mounts - which is an ORDERING property of main.tsx, invisible
+ * to any test that imports the gate directly.
+ */
+describe('the environment gate is wired above the provider that throws', () => {
+  it('main.tsx calls environmentFault and imports it', () => {
+    const main = code('main.tsx')
+    expect(main).toMatch(/\benvironmentFault\s*\(/)
+    expect(main).toMatch(/import\s*\{\s*environmentFault\s*\}\s*from\s*['"]\.\/lib\/environment['"]/)
+  })
+
+  it('main.tsx renders Misconfigured, and imports it', () => {
+    // The gate returning a fault that nothing renders is a blank page with
+    // extra steps.
+    const main = code('main.tsx')
+    expect(main).toMatch(/<Misconfigured\b/)
+    expect(main).toMatch(/import\s*\{\s*Misconfigured\s*\}\s*from\s*['"]\.\/components\/Misconfigured['"]/)
+  })
+
+  it('the gate is evaluated BEFORE AuthProvider is mounted', () => {
+    /*
+     * The ordering IS the fix. AuthProvider's mount effect is what touches the
+     * lazy client, so a gate evaluated after it has already mounted catches
+     * nothing - the throw happens first and takes the tree down exactly as
+     * before, with the gate sitting there looking correct.
+     */
+    const main = code('main.tsx')
+    const gate = main.search(/\bconst\s+fault\s*=\s*environmentFault\s*\(/)
+    const provider = main.indexOf('<AuthProvider>')
+    expect(gate, 'the environmentFault() call was not found').toBeGreaterThan(-1)
+    expect(provider, '<AuthProvider> was not found').toBeGreaterThan(-1)
+    expect(gate, 'environmentFault() must be evaluated before <AuthProvider>').toBeLessThan(provider)
+  })
+
+  it('a fault renders INSTEAD of the app, not beside it', () => {
+    /*
+     * Rendering the message above a live tree would still mount AuthProvider,
+     * which still throws, which still blanks the page - the message would be
+     * drawn and then unmounted with everything else. The provider must be in
+     * the branch NOT taken when there is a fault.
+     *
+     * Asserted structurally: Misconfigured and AuthProvider must sit in
+     * opposite arms of one conditional, so the provider cannot be reached
+     * while a fault exists.
+     */
+    const main = code('main.tsx')
+    const branch = main.match(/\{\s*fault\s*\?[\s\S]*?\)\s*\}/)
+    expect(branch, 'no `fault ? ... : ...` branch found in the render').not.toBeNull()
+    const [consequent, alternative] = branch![0].split(/:\s*\(/)
+    expect(consequent, 'Misconfigured must be the fault arm').toMatch(/<Misconfigured\b/)
+    expect(consequent, 'the app must NOT mount in the fault arm').not.toMatch(/<AuthProvider\b/)
+    expect(alternative, 'the app must mount in the no-fault arm').toMatch(/<AuthProvider\b/)
+  })
+
+  it('the gate reads both variables, so half an environment still faults', () => {
+    /*
+     * A gate that checks only the url passes a build that has the url and no
+     * key - and that build blanks identically. The pair is checked in
+     * environment.ts rather than here, but the module must actually name both,
+     * or the deployment case that bit us is only half covered.
+     */
+    const env = code('lib/environment.ts')
+    expect(env).toContain('VITE_SUPABASE_URL')
+    expect(env).toContain('VITE_SUPABASE_PUBLISHABLE_KEY')
+  })
+})

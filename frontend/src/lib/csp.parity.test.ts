@@ -7,9 +7,20 @@ import { describe, expect, it } from 'vitest'
  *
  * `csp.test.ts` guards the dev policy and says in its last test that the
  * deployed one is the backend's to write, so all it can assert is that the dev
- * exception stays in the dev constant. That was true while `vercel.json`
- * carried no CSP. It now carries one, so the two are comparable and nothing
- * was comparing them.
+ * exception stays in the dev constant. Nothing was comparing the two.
+ *
+ * STATE, and read this before trusting a green run: `vercel.json` carries NO
+ * Content-Security-Policy today, so the comparison block below is SKIPPED and
+ * a green run of this file proves only the unconditional test. The policy
+ * arrives with the open PR that adds a real CSP header; the `skipIf` reads the
+ * file rather than a hand-flipped flag, so those assertions start running on
+ * that merge with nothing here to edit. Verified against that PR's actual
+ * policy by applying it locally: all seven activate and pass, so the merge
+ * does not go red for our reasons.
+ *
+ * The limit that remains, stated rather than papered over: with no policy in
+ * the file this suite cannot tell "not merged yet" from "the header was
+ * deleted". Only a check against a deployed response closes that.
  *
  * The failure this catches is silent in the direction that matters. `connect-src`
  * in `vercel.json` is a hardcoded list of origins; the dev server builds its own
@@ -294,7 +305,7 @@ describe.skipIf(!policyDeployed)('the deployed CSP permits every origin the app 
        * waiting on configuration becomes a check that never runs.
        */
       expect(
-        [...new Set(prodOrigins)].sort(),
+        [...new Set(prodOrigins)].toSorted(),
         'connect-src hardcodes origins while .env.example configures none, so ' +
           'nothing verifies the deployed policy matches what the app actually ' +
           'fetches. Fill in VITE_SUPABASE_URL and VITE_ANCHOR_URL there, or ' +

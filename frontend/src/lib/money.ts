@@ -2,17 +2,116 @@
 // item 4). Nothing here divides: formatting splits the digit string, and
 // parsing builds the integer from digits. No float touches an amount.
 
+/*
+ * Minor-unit digits per currency.
+ *
+ * **`Intl` is NOT ISO 4217 and the two disagree.** Measured on this runtime:
+ * `Intl` reports IQD as 0 digits, while ISO 4217 says 3. An Iraqi dinar
+ * amount of 1500 minor units is 1.500 IQD, and the Intl answer renders it
+ * "1,500" - a thousandfold error, in the direction that looks like a larger
+ * balance, with nothing failing anywhere. It is the missing-x100 bug wearing a
+ * different hat: a plausible figure that is wrong, which is worse than a
+ * crash.
+ *
+ * **`Intl` also never admits it does not know.** Measured: every well-formed
+ * three-letter code resolves to 2 digits - `XXX`, `XTS`, `QQQ`, `ABC` all
+ * report 2, and `maximumFractionDigits` is never `undefined`. Only a
+ * malformed code throws. So an `?? 2` fallback behind it was dead code, and
+ * the real silent default was `Intl` itself: an unknown currency became a
+ * two-decimal currency with full confidence, which for a 0-digit or 3-digit
+ * currency is every figure wrong by 100x or 10x.
+ *
+ * So `Intl` is not a source for this at all. Two sources, in order:
+ *
+ *   1. An exponent the SERVER stated, when one has been supplied. The server
+ *      owns an ISO table and is authoritative - its rule is that an unknown
+ *      currency is refused there, never guessed.
+ *   2. This table, each row checked against ISO 4217.
+ *
+ * Anything else THROWS. There is no fallback, because every available
+ * fallback is a confident wrong answer: the render boundary contains the
+ * throw to one screen and the figure is disclosed as unreadable, which is
+ * what the product owes a reader. A wrong exponent is not a display bug, it
+ * is a wrong amount, and an amount nobody can verify is the one thing this
+ * ledger must never show.
+ *
+ * `Intl` is still used for the SYMBOL, where a wrong answer is cosmetic and a
+ * missing one falls back to the code itself.
+ */
+const ISO_4217: Readonly<Record<string, number>> = {
+  // INR is the only currency ClearFunds ships with. The rest are here so a
+  // society in another currency is formatted correctly rather than refused -
+  // and so the 0-digit and 3-digit cases are covered, since those are the
+  // ones a 2-digit default corrupts.
+  INR: 2,
+  // 3 digits. IQD is the case that proves the rule: Intl reports 0 for it.
+  IQD: 3,
+  BHD: 3,
+  JOD: 3,
+  KWD: 3,
+  LYD: 3,
+  OMR: 3,
+  TND: 3,
+  // 0 digits.
+  JPY: 0,
+  KRW: 0,
+  VND: 0,
+  ISK: 0,
+  UGX: 0,
+  CLP: 0,
+  PYG: 0,
+  RWF: 0,
+  XAF: 0,
+  XOF: 0,
+  // 2 digits, the common case: the major currencies a society might hold.
+  USD: 2,
+  EUR: 2,
+  GBP: 2,
+  AED: 2,
+  SAR: 2,
+  SGD: 2,
+  AUD: 2,
+  CAD: 2,
+  CHF: 2,
+  LKR: 2,
+  NPR: 2,
+  BDT: 2,
+  PKR: 2,
+}
+
 const exponents = new Map<string, number>()
 
-/** Decimal places of a currency, from Intl: INR 2, JPY 0, KWD 3. */
-export function exponent(currency: string): number {
-  let e = exponents.get(currency)
-  if (e === undefined) {
-    e = new Intl.NumberFormat('en', { style: 'currency', currency }).resolvedOptions()
-      .maximumFractionDigits ?? 2
-    exponents.set(currency, e)
+/**
+ * Record an exponent the server stated for a currency.
+ *
+ * Called once with what `api_me` reports, so formatting uses the server's ISO
+ * table rather than a second derivation of the same number. Two derivations of
+ * one exponent agree on the common cases and diverge exactly where nobody is
+ * looking, which is why this exists at all.
+ */
+export function setExponent(currency: string, digits: number): void {
+  if (!Number.isInteger(digits) || digits < 0 || digits > 4) {
+    throw new RangeError(`exponent for ${currency} is not 0-4`)
   }
-  return e
+  exponents.set(currency, digits)
+}
+
+/**
+ * Decimal places of a currency: the server's figure, else this ISO table,
+ * else a throw.
+ *
+ * Never `Intl`, and never a default. See the note above: `Intl` answers 2 for
+ * any well-formed code it has never heard of, so consulting it here would
+ * reintroduce exactly the silent wrong answer this guards against.
+ */
+export function exponent(currency: string): number {
+  const known = exponents.get(currency) ?? ISO_4217[currency]
+  if (known === undefined) {
+    throw new RangeError(
+      `no ISO 4217 minor-unit exponent for ${currency}; the server must state it`,
+    )
+  }
+  return known
 }
 
 const grouping = new Intl.NumberFormat('en-IN', { useGrouping: true })

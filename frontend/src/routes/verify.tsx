@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 import { useSociety } from '../lib/api'
 import { useMeStrict } from '../lib/session'
 import { anchorUrl, lastCheck, runCheck, verdict, type Check as CheckT, type Step } from '../lib/verify'
+import { anchorRow } from '../lib/anchorfact'
 import { instant, plural } from '../lib/format'
 import { Button, Card, Caption, Fingerprint, PageTitle, Textarea, useToast, cx } from '../components/ui'
 
@@ -90,15 +91,7 @@ function Verify() {
               : { ok: false, text: `Entry ${check.device.changed} is different from what this phone saw before.` }) : null} />
         <Row icon={<Globe className="size-4" />} title="Matches the fingerprint published outside the committee"
           running={!!live?.anchor}
-          result={check && !live ? (check.anchor === 'matches'
-            ? { ok: true, text: `Published ${instant(check.anchorHead!.as_of)} at entry ${check.anchorHead!.highest_sequence}.` }
-            : check.anchor === 'unpublished'
-              ? { ok: null, text: 'No fingerprint is published outside the committee yet. Until one is, this check cannot show that nothing was left out.' }
-              : check.anchor === 'unreachable'
-                ? { ok: null, text: 'The published record could not be reached from this phone.' }
-                : check.anchor === 'behind'
-                  ? { ok: false, text: `More entries were published (${check.anchorHead!.highest_sequence}) than the server sent (${check.head.seq}).` }
-                  : { ok: false, text: 'The published fingerprint differs from the record the server sent.' }) : null} />
+          result={check && !live ? anchorRow(check.anchor, check.anchorHead, check.head.seq, instant) : null} />
       </Card>
 
       {check && !live && (
