@@ -16,6 +16,22 @@ export function Provenance({ society, auto = true }: { society: string; auto?: b
   const [check, setCheck] = useState<Check | null>(() => lastCheck(society))
   const [running, setRunning] = useState(false)
 
+  /*
+   * `check` is READ here and deliberately not a dependency, and the direction
+   * of that choice matters.
+   *
+   * Including it would re-run the effect when `setCheck` lands. Normally the
+   * guard below then returns early, because the check it just stored is
+   * minutes old - a wasted pass, no worse. But a check that arrives ALREADY
+   * older than a day (a device clock behind the one that wrote it, a restored
+   * backup, a profile copied between phones) fails that guard forever, and
+   * each failure stores a new check and re-runs the effect: an endless loop
+   * re-walking the whole chain, on the dashboard, on a volunteer's phone.
+   *
+   * Omitting it is the safe direction. The cost is that a check written by
+   * ANOTHER tab is not noticed until this component remounts, which is a
+   * stale timestamp on one line - not a loop.
+   */
   useEffect(() => {
     // A day-old check is re-run quietly in the background.
     if (!auto || (check && Date.now() - check.at < 86_400_000)) return
