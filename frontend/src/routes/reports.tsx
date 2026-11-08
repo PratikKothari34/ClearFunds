@@ -6,6 +6,7 @@ import { auditChip, categoryLabel, day, instant, longDay, month, opinionHint, op
 import { checkHeadline, governingSeq } from '../lib/opinion'
 import { Amount, Button, Caption, Card, Chip, Failed, Fingerprint, Loading, PageTitle, Segmented, cx } from '../components/ui'
 import type { Report } from '../lib/types'
+import { direction } from '../lib/countable'
 
 export const Route = createFileRoute('/reports')({ component: Reports })
 
@@ -33,6 +34,29 @@ function Reports() {
 
 function Body({ r }: { r: Report }) {
   const ie = r.income_expenditure
+  /*
+   * WHETHER THE YEAR READS SURPLUS OR DEFICIT IS A DECISION, NOT A FORMAT.
+   *
+   * This was `ie.surplus_minor >= 0`, a raw comparison on a figure that
+   * arrives from the server. The field is typed `number`, so the compiler
+   * was satisfied - but a type is a declaration ABOUT server data, never a
+   * proof, and `null >= 0` is TRUE. An unreadable surplus therefore
+   * rendered the year as **Surplus**, in the AGM report, beside an amount
+   * that could not be shown. That is worse than the `/dues` case the same
+   * bug caused: there an unreadable row at worst gets chased, here the
+   * document states something about the society's finances that nothing
+   * computed.
+   *
+   * `direction()` compares only AFTER `countable()` has narrowed the value,
+   * and it separates `flat` from `in`, so a surplus of exactly zero is not
+   * announced as a surplus either. `unreadable` discloses - never a figure,
+   * never a cheerful label.
+   */
+  const surplus = direction(ie.surplus_minor)
+  const surplusWord =
+    surplus === 'unreadable' ? 'Surplus or deficit'
+    : surplus === 'out' ? 'Deficit'
+    : surplus === 'flat' ? 'Neither' : 'Surplus'
   const bs = r.balance_sheet
   const op = r.opinions
   /* The headline is the server's claim ABOUT the history rendered below it,
@@ -69,7 +93,7 @@ function Body({ r }: { r: Report }) {
         <div className="mt-4 grid grid-cols-3 gap-2 text-center">
           <Mini label="Income" minor={ie.total_income_minor} className="text-credit" />
           <Mini label="Spent" minor={ie.total_expenditure_minor} className="text-debit" />
-          <Mini label={ie.surplus_minor >= 0 ? 'Surplus' : 'Deficit'} minor={ie.surplus_minor} />
+          <Mini label={surplusWord} minor={ie.surplus_minor} />
         </div>
       </Card>
 
@@ -80,7 +104,15 @@ function Body({ r }: { r: Report }) {
           <div className="my-5 h-px bg-line" />
           <Table title="Expenditure" rows={ie.expenditure} total={ie.total_expenditure_minor} />
           <div className="mt-5 flex items-center justify-between rounded-xl bg-sunken px-4 py-3 font-semibold">
-            <span>{ie.surplus_minor >= 0 ? 'Surplus for the year' : 'Deficit for the year'}</span>
+            <span>
+              {surplus === 'unreadable'
+                ? 'Surplus or deficit for the year'
+                : surplus === 'out'
+                  ? 'Deficit for the year'
+                  : surplus === 'flat'
+                    ? 'Neither surplus nor deficit for the year'
+                    : 'Surplus for the year'}
+            </span>
             <Amount minor={ie.surplus_minor} />
           </div>
         </Card>
@@ -94,7 +126,16 @@ function Body({ r }: { r: Report }) {
             <Line label="Opening fund" minor={bs.opening_fund_minor} />
             <Line label="Add surplus" minor={bs.surplus_minor} />
             <Line label="Closing fund" minor={bs.closing_fund_minor} strong />
-            {bs.advances_from_members_minor > 0 && <Line label="Advances from members" minor={bs.advances_from_members_minor} />}
+            {/*
+              * `> 0` hid this line when the figure could not be read, because
+              * `null > 0` is false - a balance-sheet row vanishing from the
+              * report rather than disclosing. Shown whenever the figure is
+              * anything other than a readable zero, so `Amount` discloses the
+              * unreadable one instead of the row going missing.
+              */}
+            {direction(bs.advances_from_members_minor) !== 'flat' && (
+              <Line label="Advances from members" minor={bs.advances_from_members_minor} />
+            )}
             <Line label="Total" minor={bs.total_funds_and_liabilities_minor} total />
           </div>
           <div>

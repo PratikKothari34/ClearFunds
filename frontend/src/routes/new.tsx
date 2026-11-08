@@ -7,6 +7,7 @@ import { supabase, unwrap, Refused } from '../lib/supabase'
 import { useMeStrict } from '../lib/session'
 import { isOfficer } from '../lib/pending'
 import { hasEarlierToPayee } from '../lib/structuring'
+import { approvalsNeeded, seatedCount } from '../lib/tier'
 import { categories, month, monthOf, todayIST } from '../lib/format'
 import { format, parse } from '../lib/money'
 import { countable } from '../lib/countable'
@@ -55,8 +56,8 @@ function NewEntry() {
    */
   const limRead = countable(limit.data?.current.limit_minor)
   const lim = limRead.readable ? limRead.minor : undefined
-  const seated = (committee.data?.seats ?? []).filter((x) => x.unseated_seq === null).length
-  const needed = Math.max(Math.ceil((2 * seated) / 3), 2)
+  const seated = seatedCount(committee.data?.seats)
+  const needed = approvalsNeeded(seated)
   const pair = minor !== null && lim !== undefined && minor <= lim
 
   const flats = useQuery({

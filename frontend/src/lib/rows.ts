@@ -38,7 +38,7 @@
  */
 import { array, bool, int, nullable, object, oneOf, required, str } from './parse'
 import type { Parser } from './parse'
-import { PROPOSAL_STATES } from './types'
+import { PROPOSAL_STATES, ROLE_ORDER } from './types'
 import type {
   Approval, ChargePreview, DisputeRow, DuesRow, LedgerRow, Me, Note, Person, ProposalRow, Report,
   LimitEntry, ResolvedHandle, Seat, SignoffEntry, Society, Structuring, Summary, Year,
@@ -46,7 +46,10 @@ import type {
 
 /* Shared vocabularies, kept together so a backend addition is one edit here
  * rather than a hunt through the file. */
-const role = oneOf(['president', 'treasurer', 'secretary', 'member'] as const)
+// The set comes from ROLE_ORDER so the parser and the committee ordering
+// cannot disagree about which roles exist. `oneOf` cares about membership
+// only; the sequence matters to the committee screen.
+const role = oneOf(ROLE_ORDER)
 const effect = oneOf(['expense', 'receipt', 'charge', 'reversal', 'charge_reversal'] as const)
 const action = oneOf([
   'expense', 'receipt', 'charge', 'reversal', 'limit_change',

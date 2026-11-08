@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { ChevronRight, Fingerprint as FpIcon } from 'lucide-react'
 import { lastCheck, runCheck, verdict, type Check } from '../lib/verify'
+import { anchorFact } from '../lib/anchorfact'
 import { instant } from '../lib/format'
 import { Facts, cx } from './ui'
 
@@ -41,9 +42,14 @@ export function Provenance({ society, auto = true }: { society: string; auto?: b
         <span className="block text-[13px] text-ink-2">
           <Facts items={[
             check ? `Checked here ${instant(check.at)}` : 'First time on this device',
-            check?.anchor === 'matches' && check.anchorHead ? `Published ${instant(check.anchorHead.as_of)}`
-              : check?.anchor === 'unreachable' ? 'Published record unreachable'
-              : 'Not published outside the committee',
+            /*
+             * anchorFact, never a ternary here: this line had three branches
+             * for five anchor states, so 'behind' and { mismatch } - the two
+             * that mean the published record CONTRADICTS this screen - fell
+             * through to "Not published outside the committee", the line for
+             * a society that has not published anything yet.
+             */
+            check ? anchorFact(check.anchor, check.anchorHead, instant).text : 'Not published outside the committee',
           ]} />
         </span>
       </span>

@@ -9,7 +9,8 @@ import { instant, roleLabel, todayIST, fyOf, opinionChip, opinionTone, writeOutc
 import { format, parse } from '../lib/money'
 import { countable } from '../lib/countable'
 import { Avatar, Button, Caption, Card, Chip, Field, Input, Loading, MoneyInput, PageTitle, Segmented, Sheet, useToast } from '../components/ui'
-import type { Role } from '../lib/types'
+import { ROLE_ORDER, type Role } from '../lib/types'
+import { approvalsNeeded } from '../lib/tier'
 
 /* Formats from the narrowed amount, never from the raw field: a guard that
  * checks one expression and formats another stops guarding the moment either
@@ -21,7 +22,7 @@ const histLimit = (h: { limit_minor: unknown }) => {
 
 export const Route = createFileRoute('/committee')({ component: Committee })
 
-const order: Role[] = ['president', 'treasurer', 'secretary', 'member']
+const order = ROLE_ORDER
 
 type Action = null | 'limit' | 'seat' | 'auditor' | 'resident' | { unseat: string }
 
@@ -35,7 +36,7 @@ function Committee() {
     .sort((a, b) => order.indexOf(a.role) - order.indexOf(b.role)), [c.data])
   const name = (id: string) => c.data?.people.find((p) => p.id === id)?.full_name ?? 'Member'
   const m = active.length
-  const need = Math.max(Math.ceil((2 * m) / 3), 2)
+  const need = approvalsNeeded(m)
   /* An unreadable limit is left undefined so every surface below shows the
    * placeholder rather than a figure, and never implies the lower tier. */
   const limRead = countable(limit.data?.current.limit_minor)
