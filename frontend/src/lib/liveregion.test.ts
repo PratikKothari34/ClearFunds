@@ -28,16 +28,19 @@ import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 const ROUTE = resolve(__dirname, '..', 'routes', 'year-end.tsx')
+const LEDGER = resolve(__dirname, '..', 'routes', 'ledger.tsx')
 
 /*
  * Comments stripped. The prose above the region names `aria-live`, `near` and
  * the whole defect, so a comment-blind scan would find every string it looks
  * for in a file that had been reverted to the broken form.
  */
-const source = () =>
-  readFileSync(ROUTE, 'utf8')
+const strip = (f: string) =>
+  readFileSync(f, 'utf8')
     .replace(/\/\*[\s\S]*?\*\//g, '')
     .replace(/\/\/[^\n]*/g, '')
+
+const source = () => strip(ROUTE)
 
 describe("the auditor's statement counter is announced, not just displayed", () => {
   it('reads the route at all', () => {
@@ -109,5 +112,64 @@ describe("the auditor's statement counter is announced, not just displayed", () 
     const id = idMatch![1]!
     expect(s, `the textarea does not reference the counter region (${id})`)
       .toMatch(new RegExp(`aria-describedby=\\{[^}]*'${id}'`))
+  })
+})
+
+/*
+ * The same rule, the other place it was needed. A resident filtering the
+ * ledger from forty rows to none, or back, had no announcement at all: there
+ * was no `aria-live` anywhere in that route, so a screen-reader user could not
+ * tell "nothing matches" from "still loading" from "the filter did not apply".
+ * The ledger is already the most confusable surface in this product for a
+ * non-technical resident.
+ */
+describe('the ledger announces how many entries the filter left', () => {
+  it('reads the route at all', () => {
+    expect(strip(LEDGER).length, 'ledger.tsx came back empty: the scan is looking in the wrong place')
+      .toBeGreaterThan(1000)
+  })
+
+  it('has a live region for the result count', () => {
+    expect(strip(LEDGER), 'the ledger reports its result count to nobody who cannot see the rows')
+      .toContain('aria-live')
+  })
+
+  it('renders that region unconditionally, with only its text conditional', () => {
+    /*
+     * Finding 12's rule, applied here before it could be broken here. The
+     * FIRST message is the one that matters most - the search that found
+     * nothing - so a region created when it first has something to say is
+     * exactly the wrong shape.
+     */
+    const s = strip(LEDGER)
+    const region = s.indexOf('aria-live')
+    const tag = s.lastIndexOf('<p', region)
+    expect(tag, 'the aria-live attribute is not on a <p>').toBeGreaterThan(-1)
+    const before = s.slice(Math.max(0, tag - 60), tag)
+    expect(before, 'the count region is created conditionally, so its first announcement may be lost')
+      .not.toMatch(/&&\s*\(?\s*$/)
+    expect(before, 'the count region sits in a ternary arm, so it is created conditionally')
+      .not.toMatch(/[?:]\s*$/)
+  })
+
+  it('says nothing while the ledger is still loading', () => {
+    /*
+     * "0 entries" during a load is a WRONG answer, not a slow one - the same
+     * mistake as an unreadable figure rendering as a confident zero. `Loading`
+     * already carries its own role="status".
+     */
+    const s = strip(LEDGER)
+    const region = s.indexOf('aria-live')
+    const body = s.slice(region, s.indexOf('</p>', region))
+    expect(body, 'the count region does not suppress itself while pending: it will announce "0 entries" during a load')
+      .toMatch(/isPending/)
+  })
+
+  it('is for screen readers only, since the rows are the visible answer', () => {
+    const s = strip(LEDGER)
+    const region = s.indexOf('aria-live')
+    const tag = s.lastIndexOf('<p', region)
+    expect(s.slice(tag, region), 'the count region is not sr-only, so it duplicates what the rows already show')
+      .toContain('sr-only')
   })
 })
