@@ -25,4 +25,6 @@ Append-only. One line per contract PR:
 2026-11-07 | api.v1 | ADD reversed_in_minor, reversed_out_minor on api_summary months | #112 | additive
 2026-11-07 | api.v1, anchor.v1, chain-entry.v1 | ADD api_mark_seen, last_seen_seq; CLARIFY six proposal statuses, kept heads against the anchor, https only, sequence 2 category, flat_token is not client-checkable | #90 #92 #51 #1 | not breaking
 2026-11-07 | api.v1 | ADD api_ledger_page, api_flat_statement, api_recent_receipts, api_payees, api_structuring_hint | #102 | additive
+2026-11-07 | chain-entry.v1 | CLARIFY the auditor posting is the society's authorisation to disclose that year's statement to members | #3 | not breaking
+2026-11-08 | api.v1 | ADD previous_exists on api_report_compare, signable on api_signoff_months, society.currency_exponent on api_me | #122 | additive
 2026-11-07 | chain-entry.v1 | ADD budget kinds: proposal action budget, budget_lines, posting effect budget (no amount) | #76 | additive
