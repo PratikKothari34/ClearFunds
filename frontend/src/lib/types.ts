@@ -43,6 +43,14 @@ export type Society = {
   name: string
   city: string | null
   currency: string
+  /*
+   * The currency's minor-unit digits, from the server's ISO 4217 table. Null
+   * only on a deployment older than the migration that added it; `money.ts`
+   * then falls back to its own ISO table, which refuses an unknown currency
+   * rather than guessing. Never derived from `Intl` - it disagrees with ISO
+   * 4217 on real currencies.
+   */
+  currency_exponent: number | null
   fy_start_month: number
   structuring_window_days: number
 }

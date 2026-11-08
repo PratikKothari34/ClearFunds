@@ -97,6 +97,35 @@ export function setExponent(currency: string, digits: number): void {
 }
 
 /**
+ * Adopt the exponent `api_me` stated for this society's currency.
+ *
+ * This is the DECISION, not the reporting of it, so it lives here rather than
+ * inside the query hook: a rule left in a hook cannot be tested without
+ * mounting a router, so it does not get tested.
+ *
+ * Two things it deliberately does NOT do:
+ *
+ *   - It does not fall back when the server sent no exponent. A deployment
+ *     older than the migration that added the field simply leaves the table
+ *     in charge, and the table throws on a currency it does not know. Writing
+ *     a default here would be the one outcome that is never acceptable.
+ *   - It does not reconcile a disagreement, because a disagreement cannot
+ *     happen in a direction we could resolve: the server owns an ISO table
+ *     and refuses an unknown currency, so its figure wins outright. `exponent`
+ *     already encodes that precedence.
+ *
+ * Returns whether an exponent was adopted, so a caller can tell "the server
+ * stated it" from "we are formatting off the local table" without reading the
+ * cache. Nothing branches on it today; it exists so that a surface disclosing
+ * a degraded read has the fact available rather than having to infer it.
+ */
+export function adoptExponent(society: { currency: string; currency_exponent: number | null }): boolean {
+  if (society.currency_exponent === null) return false
+  setExponent(society.currency, society.currency_exponent)
+  return true
+}
+
+/**
  * Decimal places of a currency: the server's figure, else this ISO table,
  * else a throw.
  *

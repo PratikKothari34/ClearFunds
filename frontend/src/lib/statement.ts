@@ -78,10 +78,23 @@ export const STATEMENT_MAX_BYTES = 16_384
  * action in the product.
  *
  * So the rule is: refuse what EITHER limit refuses, which is never wrong in
- * the direction that costs work. When the byte-limit change is deployed, the
- * character ceiling can be raised out of the way or dropped - and the test
- * that reads the migration will fail the moment it stops being 4,000, which
- * is the signal to do it.
+ * the direction that costs work.
+ *
+ * WHEN TO DROP THE CHARACTER RULE: ON DEPLOY, NOT ON MERGE.
+ *
+ * The byte-limit migration is merged (it replaces `cf.text_ok(p_statement,
+ * 4000)` with `octet_length(normalize(btrim(p_statement), nfc)) > 16384`),
+ * so a tree carrying it reads as "bytes are deployed". That is not the same
+ * claim. Production runs an older migration and still enforces 4,000
+ * characters, and dropping the rule against a server that still applies it
+ * sends the auditor a statement the server refuses - losing the text at the
+ * one irreversible action, which is precisely what this module prevents.
+ *
+ * The asymmetry settles it. Refusing early costs a retype; accepting too
+ * much costs the work. So the character ceiling stays until the migration is
+ * DEPLOYED, and the suite that reads the migrations says out loud that a
+ * checkout is not production, because those two assertions cannot tell the
+ * difference on their own.
  */
 export const STATEMENT_MAX_CHARS = 4_000
 
