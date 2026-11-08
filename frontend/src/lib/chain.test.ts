@@ -38,7 +38,68 @@ describe('contracts/chain/vectors/entry-preimage.v1.json', () => {
       .toBeGreaterThan(1)
     expect(vectors.must_reject?.length, 'no must_reject vectors: nothing checks what has to be refused')
       .toBeGreaterThan(4)
+    expect(vectors.chains?.length, 'no chain vectors: nothing checks a head against the contract')
+      .toBeGreaterThan(0)
   })
+
+  /*
+   * THE `chains` SECTION: A VALID CHAIN'S HEAD, WHICH NOTHING ELSE COVERS.
+   *
+   * Every other section checks one entry or one rejection. This one states
+   * what a DEVICE must arrive at after walking a whole chain - the head hash
+   * - and that is a different claim: the per-entry cases can all pass while
+   * the walk links them wrongly, because each one hashes its entry in
+   * isolation and never asserts that entry 2 chains onto entry 1's computed
+   * hash rather than onto the one the file happens to carry.
+   *
+   * The chain-level rows in `must_reject` are the mirror of this and are
+   * asserted separately: they say which chains must be REFUSED. Neither
+   * substitutes for the other, so this is driven from the contract rather
+   * than hand-written, and the head is compared to the contract's figure.
+   *
+   * Why it needs a layout: these entries are `kind: test_vector`, which
+   * `walk` refuses outright - a reserved kind inside a real chain is one of
+   * the rejections above. So the chain is recomputed here with the explicit
+   * TEST_VECTOR layout, the same way the per-entry cases do it, and the link
+   * check is asserted directly. Handing `walk` a layout override purely to
+   * accommodate a test would weaken the reserved-kind rule in production
+   * code, which is the wrong trade.
+   */
+  for (const c of vectors.chains as {
+    name: string; sequences: number[]; head_seq: number; head_hash: string
+  }[]) {
+    it(`arrives at the contract's head for ${c.name}`, async () => {
+      const bySeq = new Map<number, Entry>(
+        (vectors.entries as { entry: Entry }[]).map((v) => [v.entry.sequence, v.entry]),
+      )
+      // A sequence the contract names but the file does not carry would make
+      // every assertion below vacuous, so it fails here instead.
+      const chain = c.sequences.map((n) => {
+        const e = bySeq.get(n)
+        expect(e, `the chain vector names sequence ${n} but no entry vector has it`).toBeDefined()
+        return e!
+      })
+      expect(chain.length, 'a chain vector of one entry proves no linking').toBeGreaterThan(1)
+
+      let prev = '0'.repeat(64)
+      let head = ''
+      for (const e of chain) {
+        /*
+         * The link is asserted on the hash THIS loop computed, never on the
+         * entry_hash in the file. Reading prev_hash against the file's own
+         * recorded hash is the mistake that makes a chain check tautological:
+         * it would pass on a file whose entries do not actually chain.
+         */
+        expect(e.prev_hash, `sequence ${e.sequence} does not link to the hash computed for the entry before it`)
+          .toBe(prev)
+        head = hex(await sha256(preimage(e, TEST_VECTOR)))
+        prev = head
+      }
+      expect(chain.at(-1)!.sequence, 'the walk ended on a different sequence than the contract calls the head')
+        .toBe(c.head_seq)
+      expect(head, "the head this device computed is not the contract's head").toBe(c.head_hash)
+    })
+  }
 
   for (const p of vectors.primitives) {
     it(`encodes ${p.name}`, () => {
