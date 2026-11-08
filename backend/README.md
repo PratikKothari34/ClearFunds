@@ -53,6 +53,7 @@ Mail sent locally (sign-in codes) lands in Mailpit at http://127.0.0.1:54324.
 | `…28_perf.sql` | `auth.uid()` once per query in RLS, an index under every foreign key, a key on `dues_reminders` |
 | `…29_summary_reversals.sql` | `api_summary` says how much of each month's in and out is reversals |
 | `…30_opinion_headline.sql` | A year's headline is the most serious opinion ever received, with no exception |
+| `…31_ledger_reads.sql` | Reading part of the ledger: a page newest first with filters and search, one flat, recent receipts, payees, the structuring hint |
 | `supabase/functions/api/` | The signing boundary: authenticates, derives the admin's Ed25519 key, registers it, signs |
 | `supabase/tests/` | pgTAP. `chain_vectors.test.sql` is generated from the contract vectors |
 | `scripts/seed.ts` | Local demo data, driven through the real rule functions |
