@@ -23,13 +23,24 @@ import './styles/app.css'
  * rows still render first, so nothing flashed, but the screen was behind a
  * request it did not need.
  *
- * Freshness does not depend on this number. Three things invalidate, and
- * between them they cover every way the record changes:
+ * Freshness does not depend on this number. Three things invalidate it:
  *   - our own writes, which blanket-invalidate in useWrite's onSettled;
  *   - anyone else's, over the realtime channel in useLive;
  *   - refetchOnWindowFocus, for a tab left open.
  * An append-only ledger has no silent mutation for a poll to catch. Shortening
  * this back to 30s would not make the app more correct, only busier.
+ *
+ * What this comment used to say, and should not have: that between them those
+ * three "cover every way the record changes". Only the first is blanket. The
+ * second invalidates a HAND-WRITTEN LIST, `LIVE_KEYS` in `api.ts`, which had
+ * silently gone stale three times - and the claim of completeness here is part
+ * of why nobody checked it. 'me' was missing, so the viewer's own seat did not
+ * refresh when the committee changed. `live.test.ts` now derives the key set
+ * from the source and asserts that list against it, which is what makes any
+ * statement about coverage checkable rather than merely written down.
+ *
+ * So the number is still a navigation decision, and freshness still does not
+ * rest on it - but it rests on that list being right, not on this paragraph.
  *
  * gcTime is thirty minutes so a cached read survives a detour through a route
  * that does not use it - the default five would drop the ledger while someone
