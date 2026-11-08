@@ -4,12 +4,13 @@ import { ArrowRight, CheckCheck, Flag, Gavel, PenLine, Plus, Wallet, Sparkles } 
 import { useDisputes, useDues, useLedger, useNames, useProposals, useSignoffs, useSummary, useTenantFlags, useYears } from '../lib/api'
 import { useMeStrict, isCommittee } from '../lib/session'
 import { owing } from '../lib/countable'
-import { categoryLabel, instant, month, plural, proposalTitle, todayIST } from '../lib/format'
-import { Amount, Button, Caption, Card, Facts, Skeleton, cx } from '../components/ui'
+import { reversedIn, reversedOut } from '../lib/reversed'
+import { categoryLabel, instant, month, monthOf, plural, proposalTitle, todayIST } from '../lib/format'
+import { Amount, Button, Caption, Card, Facts, ReversedNote, Skeleton, cx } from '../components/ui'
 import { EntryRow } from '../components/EntryRow'
 import { Provenance } from '../components/Provenance'
 import { recentMonths, waitsOn } from '../components/Shell'
-import type { Me } from '../lib/types'
+import type { Me, Summary } from '../lib/types'
 
 export const Route = createFileRoute('/')({ component: Home })
 
@@ -18,7 +19,7 @@ function Home() {
   const summary = useSummary()
   const ledger = useLedger()
   const s = summary.data
-  const cur = todayIST().slice(0, 7)
+  const cur = monthOf(todayIST())
   const thisMonth = s?.months.find((m) => m.month === cur)
   const recent = useMemo(() => (ledger.data ?? []).slice(-5).toReversed(), [ledger.data])
 
@@ -46,7 +47,7 @@ function Home() {
         <section>
           <Caption>{month(cur, { month: 'long' })} so far</Caption>
           <Card className="p-5">
-            {thisMonth ? <InOut inMinor={thisMonth.in_minor} outMinor={thisMonth.out_minor} /> : s ? <p className="text-sm text-ink-2">No money moved yet this month.</p> : <Skeleton className="h-20" />}
+            {thisMonth ? <InOut month={thisMonth} /> : s ? <p className="text-sm text-ink-2">No money moved yet this month.</p> : <Skeleton className="h-20" />}
           </Card>
         </section>
         <section>
@@ -71,23 +72,40 @@ function Home() {
   )
 }
 
-function InOut({ inMinor, outMinor }: { inMinor: number; outMinor: number }) {
-  const total = inMinor + outMinor || 1
+/*
+ * The resident's first sight of the month, and the figure most open to being
+ * misread: both sides carry reversals GROSS, so a reversed Rs 9,000 expense
+ * reads as Rs 9,000 "In" though nobody paid the society anything.
+ *
+ * The figures are not touched - the server computed them and in less out has
+ * to equal the balance. What is added is the sentence saying how much of each
+ * side is a correction, so the number can be read correctly.
+ *
+ * The proportion bar is left computing on the posted figures on purpose. It
+ * shows the shape of what was POSTED, which is what the two amounts above it
+ * say, and recomputing it on a netted figure would make the bar disagree with
+ * the figures beside it - and would be money arithmetic in the client. It is
+ * `aria-hidden` decoration; the disclosure below carries the meaning.
+ */
+function InOut({ month }: { month: Summary['months'][number] }) {
+  const total = month.in_minor + month.out_minor || 1
   return (
     <div>
       <div className="grid grid-cols-2 gap-4">
         <div>
           <p className="text-[13px] text-ink-2">In</p>
-          <Amount minor={inMinor} size="lg" className="text-credit" />
+          <Amount minor={month.in_minor} size="lg" className="text-credit" />
+          <ReversedNote of={reversedIn(month)} className="mt-1" />
         </div>
         <div>
           <p className="text-[13px] text-ink-2">Out</p>
-          <Amount minor={outMinor} size="lg" className="text-debit" />
+          <Amount minor={month.out_minor} size="lg" className="text-debit" />
+          <ReversedNote of={reversedOut(month)} className="mt-1" />
         </div>
       </div>
       <div className="mt-4 flex h-2 overflow-hidden rounded-full bg-sunken" aria-hidden>
-        <span className="bg-credit" style={{ width: `${(inMinor / total) * 100}%` }} />
-        <span className="ml-0.5 bg-debit" style={{ width: `${(outMinor / total) * 100}%` }} />
+        <span className="bg-credit" style={{ width: `${(month.in_minor / total) * 100}%` }} />
+        <span className="ml-0.5 bg-debit" style={{ width: `${(month.out_minor / total) * 100}%` }} />
       </div>
     </div>
   )
@@ -141,8 +159,8 @@ function NeedsYou({ me }: { me: Me }) {
   }
   if (me.seat?.role === 'president' && signoffs.data) {
     const done = new Set(signoffs.data.map((s) => s.body.month))
-    const cur = todayIST().slice(0, 7)
-    for (const m of recentMonths(cur, 3).filter((m) => m < cur && !done.has(m))) {
+    const cur = monthOf(todayIST())
+    for (const m of recentMonths(cur, 3).filter((r) => r < cur && !done.has(r))) {
       items.push({ key: `s${m}`, icon: PenLine, title: `Sign off ${month(m)}`, sub: 'The month’s expense sheet', to: '/sign-off' })
     }
   }
@@ -175,7 +193,7 @@ function NeedsYou({ me }: { me: Me }) {
   return (
     <section aria-label="What needs you">
       <Caption action={isCommittee(me) && (
-        <Link to="/new"><Button size="sm" tone="quiet" icon={<Plus className="size-4" />}>New entry</Button></Link>
+        <Link to="/new"><Button tone="quiet" icon={<Plus className="size-4" />}>New entry</Button></Link>
       )}>
         Needs you
       </Caption>

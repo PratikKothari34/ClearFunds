@@ -11,7 +11,7 @@
 import { describe, expect, it } from 'vitest'
 import { ShapeError } from './parse'
 import {
-  chargePreview, disputeRow, duesRow, duesRows, ledgerRow, limitEntries, proposalRow,
+  chargePreview, disputeRow, duesRow, duesRows, ledgerRow, limitEntries, me, proposalRow,
   resolvedHandle, seat, structuring, summary,
 } from './rows'
 import { countable } from './countable'
@@ -157,17 +157,69 @@ describe('ledgerRow', () => {
 })
 
 describe('limitEntries', () => {
+  /*
+   * EACH FIXTURE CARRIES ONLY THE FIELD ITS KIND ACTUALLY HAS, because that
+   * is what the server sends: `society_opened` has `approval_limit_minor`
+   * (ledger.v1.md:43, field 4) and a `limit` posting has `limit_minor`
+   * (:106, field 5). Neither body contains the other key at all.
+   *
+   * These helpers used to carry BOTH keys, each with one of them null. That
+   * is a shape no chain produces, and it is why this suite was fully green
+   * while `useLimit` failed for every society and every role: one parser
+   * declared both fields `nullable`, `nullable` refuses an ABSENT field by
+   * design, and the first row of the real query threw. The test built the
+   * input, so it could only prove the parser agreed with the test.
+   *
+   * Do not add the other key back to make a case convenient. A case that
+   * needs a body with both keys is testing a response the server cannot
+   * send, and it is the exact shape that hid this bug.
+   */
   const opened = (over: Record<string, unknown> = {}) => ({
     sequence: 1, kind: 'society_opened', recorded_at: 1_700_000_000,
-    body: { approval_limit_minor: 2500000, limit_minor: null }, ...over,
+    body: { approval_limit_minor: 2500000 }, ...over,
   })
   const change = (over: Record<string, unknown> = {}) => ({
     sequence: 9, kind: 'posting', recorded_at: 1_700_000_100,
-    body: { approval_limit_minor: null, limit_minor: 5000000 }, ...over,
+    body: { limit_minor: 5000000 }, ...over,
   })
 
   it('accepts a chain where each kind carries its own limit field', () => {
     expect(limitEntries([opened(), change()], 'useLimit')).toHaveLength(2)
+  })
+
+  /*
+   * THE REGRESSION. A real `society_opened` body, exactly as the chain
+   * stores it: `approval_limit_minor` present, `limit_minor` not a key.
+   * Every chain opens with this entry, so when it threw there was no
+   * society anywhere where the limit could be read.
+   *
+   * It did not crash. `limit.data` stayed undefined, `countable()` read the
+   * limit as unreadable on `approvals`, `new`, `committee` and
+   * `entry.$seq`, and the committee's limit history rendered empty - four
+   * screens quietly missing a figure, with nothing thrown and nothing in
+   * the console.
+   *
+   * Asserted on the VALUE, not merely that it did not throw: the field has
+   * to arrive at the consumer, which selects it by the same kind.
+   */
+  it('reads an opening entry that carries no limit_minor key at all', () => {
+    const body = { approval_limit_minor: 2500000 }
+    expect(Object.hasOwn(body, 'limit_minor'), 'the fixture must not carry the other key').toBe(false)
+    const rows = limitEntries([{ sequence: 1, kind: 'society_opened', recorded_at: 1_700_000_000, body }], 'useLimit')
+    expect(rows, 'the row must be returned, not dropped').toHaveLength(1)
+    expect(rows[0]!.body.approval_limit_minor).toBe(2500000)
+    expect(rows[0]!.body.limit_minor).toBeNull()
+  })
+
+  /* The same for the other kind: a limit posting has no approval_limit_minor
+   * key, and reading it must not depend on one being sent as null. */
+  it('reads a limit posting that carries no approval_limit_minor key at all', () => {
+    const body = { limit_minor: 5000000 }
+    expect(Object.hasOwn(body, 'approval_limit_minor'), 'the fixture must not carry the other key').toBe(false)
+    const rows = limitEntries([{ sequence: 9, kind: 'posting', recorded_at: 1_700_000_100, body }], 'useLimit')
+    expect(rows, 'the row must be returned, not dropped').toHaveLength(1)
+    expect(rows[0]!.body.limit_minor).toBe(5000000)
+    expect(rows[0]!.body.approval_limit_minor).toBeNull()
   })
 
   /*
@@ -176,28 +228,43 @@ describe('limitEntries', () => {
    * tier unknowable. There is no safe default: zero would claim the strictest
    * tier was in force, any other number a laxer one. It has to fail.
    */
-  it('rejects a society_opened whose approval limit is missing', () => {
-    expect(() => limitEntries([opened({ body: { approval_limit_minor: null, limit_minor: null } })], 'useLimit'))
+  /*
+   * BOTH WAYS THE LIMIT CAN BE MISSING FAIL, and they are different
+   * responses: an explicit null is a server reporting it has no limit, an
+   * absent key is a server that dropped the column. Accepting either would
+   * leave the tier unknowable, so each is asserted separately rather than
+   * trusting one to cover the other.
+   */
+  it('rejects a society_opened whose approval limit is explicitly null', () => {
+    expect(() => limitEntries([opened({ body: { approval_limit_minor: null } })], 'useLimit'))
       .toThrow(ShapeError)
   })
 
-  it('rejects a limit change whose new limit is missing', () => {
-    expect(() => limitEntries([change({ body: { approval_limit_minor: 1, limit_minor: null } })], 'useLimit'))
+  it('rejects a society_opened whose approval limit key is absent', () => {
+    expect(() => limitEntries([opened({ body: {} })], 'useLimit')).toThrow(ShapeError)
+  })
+
+  it('rejects a limit change whose new limit is explicitly null', () => {
+    expect(() => limitEntries([change({ body: { limit_minor: null } })], 'useLimit'))
       .toThrow(ShapeError)
+  })
+
+  it('rejects a limit change whose new limit key is absent', () => {
+    expect(() => limitEntries([change({ body: {} })], 'useLimit')).toThrow(ShapeError)
   })
 
   /* Each kind is checked for ITS field: a limit posting carrying only the
    * opening field must not be accepted by reading the wrong one. */
   it('does not let one kind satisfy the check with the other kind\'s field', () => {
-    expect(() => limitEntries([change({ body: { approval_limit_minor: 5000000, limit_minor: null } })], 'useLimit'))
+    expect(() => limitEntries([change({ body: { approval_limit_minor: 5000000 } })], 'useLimit'))
       .toThrow(ShapeError)
-    expect(() => limitEntries([opened({ body: { approval_limit_minor: null, limit_minor: 2500000 } })], 'useLimit'))
+    expect(() => limitEntries([opened({ body: { limit_minor: 2500000 } })], 'useLimit'))
       .toThrow(ShapeError)
   })
 
   it('names the entry and the field a committee would have to look up', () => {
     try {
-      limitEntries([opened(), change({ body: { approval_limit_minor: null, limit_minor: null } })], 'useLimit')
+      limitEntries([opened(), change({ body: {} })], 'useLimit')
       expect.unreachable('a limitless limit entry must throw')
     } catch (e) {
       expect((e as ShapeError).path).toContain('[1]')
@@ -205,15 +272,34 @@ describe('limitEntries', () => {
     }
   })
 
-  it('rejects a kind it has no rule for, rather than skipping the check', () => {
-    expect(() => limitEntries([opened({ kind: 'proposal' })], 'useLimit')).toThrow(ShapeError)
+  /*
+   * ASSERTED ON THE PATH, because "it threw" is not the claim. The query
+   * asks for exactly two kinds, so a third means a changed query or a
+   * changed view, and the reader must say so AT THE DISCRIMINANT.
+   *
+   * Without the path assertion this case passes for the wrong reason: a
+   * reader that merely casts the kind instead of validating it routes an
+   * unknown kind to the posting shape, which then throws over a missing
+   * `limit_minor`. The right outcome from the wrong decision - the error
+   * blames a field the entry was never required to have, and it survived
+   * this test until the path was pinned.
+   */
+  it('rejects a kind it has no rule for, naming the kind and not a field', () => {
+    try {
+      limitEntries([opened({ kind: 'proposal' })], 'useLimit')
+      expect.unreachable('an unknown kind must throw')
+    } catch (e) {
+      expect(e).toBeInstanceOf(ShapeError)
+      expect((e as ShapeError).path, 'the error must blame the kind, not a limit field')
+        .toBe('useLimit[0].kind')
+    }
   })
 })
 
 describe('summary', () => {
   const base = {
     balance_minor: 400000, entries: 42, head_seq: 42, as_of: 1_700_000_000, fy: '2026-27',
-    months: [{ month: '2026-10', in_minor: 1, out_minor: 2, charged_minor: 3, entries: 4 }],
+    months: [{ month: '2026-10', in_minor: 1, out_minor: 2, reversed_in_minor: 0, reversed_out_minor: 0, charged_minor: 3, entries: 4 }],
     fy_spend: [{ category: 'lift', amount_minor: 5 }],
     fy_spend_total_minor: 5, outstanding_minor: 125000, flats_outstanding: 7, flats: 120,
   }
@@ -237,6 +323,58 @@ describe('summary', () => {
   it('rejects a malformed figure nested in the months array', () => {
     expect(() => summary({ ...base, months: [{ ...base.months[0], in_minor: null }] }, 'useSummary'))
       .toThrow(ShapeError)
+  })
+
+  /*
+   * The reversed keys are `coalesce(..., 0)` server-side, so a month with no
+   * reversals reports 0 and ABSENT means the summary is broken, not clean.
+   * They must fail HERE rather than reach a surface as undefined: `undefined
+   * > 0` is false, so a disclosure keyed off them would silently never
+   * render and the screen would go back to reading a reversed Rs 9,000
+   * expense as Rs 9,000 the society received.
+   *
+   * These assert the REJECTION, not the wrapper. `required(int)` and a bare
+   * `int` return the same verdict on every input, because `int` already
+   * throws on null and undefined - neither is a safe-integer number. Removing
+   * `required` here is an unkillable mutant by construction, and the
+   * assertion below on the message is the only thing that distinguishes the
+   * two, so it is the one that would catch the removal. Stated rather than
+   * papered over, per the redundant-guard rule.
+   *
+   * This is also the first of two guards on this path: reversed.ts refuses
+   * the same values again at the decision, where the surface asks. That
+   * redundancy is mutated both-at-once in reversed.test.ts.
+   */
+  it.each(['reversed_in_minor', 'reversed_out_minor'])(
+    'rejects a month missing %s rather than letting it reach a surface as undefined', (key) => {
+      const { [key]: _dropped, ...without } = base.months[0] as Record<string, unknown>
+      expect(() => summary({ ...base, months: [without] }, 'useSummary')).toThrow(ShapeError)
+    },
+  )
+
+  it.each(['reversed_in_minor', 'reversed_out_minor'])('rejects a null %s', (key) => {
+    expect(() => summary({ ...base, months: [{ ...base.months[0], [key]: null }] }, 'useSummary'))
+      .toThrow(ShapeError)
+  })
+
+  it('says a null reversed figure contradicts the contract, not that it is the wrong type', () => {
+    /*
+     * The one observable difference between `required(int)` and `int` on this
+     * field. A developer handed "expected a safe integer, got null" goes
+     * looking for a type bug; the contract wording says the server broke a
+     * promise, which is the actual fault and points at the right lane.
+     */
+    try {
+      summary({ ...base, months: [{ ...base.months[0], reversed_in_minor: null }] }, 'useSummary')
+      expect.unreachable('a null reversed figure must throw')
+    } catch (e) {
+      expect((e as ShapeError).message).toContain('never null')
+      expect((e as ShapeError).path).toContain('reversed_in_minor')
+    }
+  })
+
+  it('accepts a month that reports zero reversals, which is the common case', () => {
+    expect(() => summary(base, 'useSummary')).not.toThrow()
   })
 
   it('names the nested path, not just the top-level field', () => {
@@ -397,5 +535,118 @@ describe('what the parsers must not do', () => {
     const row = duesRow(dues({ outstanding_minor: null }), 'row')
     expect(row.outstanding_minor).not.toBe(0)
     expect(row.outstanding_minor).toBeNull()
+  })
+})
+
+/*
+ * `api_me` is the most privileged payload the app reads, so these cases ask
+ * the access question rather than a shape question: if the server sends a
+ * role the app has no branch for, or omits the society entirely, does the
+ * surface get to decide from it?
+ *
+ * The two absent-by-contract fields are asserted to SURVIVE, because a null
+ * seat and a null tenure are ordinary people, not faults - failing them would
+ * lock out every resident without a committee post.
+ */
+const whoami = (over: Record<string, unknown> = {}) => ({
+  person: 'p1', name: 'Asha Rao', email: 'asha@example.com',
+  society: {
+    id: 's1', name: 'Sunview CHS', city: 'Pune', currency: 'INR',
+    fy_start_month: 4, structuring_window_days: 30,
+  },
+  seat: { role: 'treasurer', derived: false },
+  auditor_for: ['2025-26'],
+  tenure: {
+    id: 't1', kind: 'owner', handle: 'A-101-owner', flat_id: 'f1',
+    flat: 'A-101', owner_can_see: true,
+  },
+  last_seen_seq: 42,
+  ...over,
+})
+
+describe('me', () => {
+  it('accepts the shape the contract promises', () => {
+    expect(() => me(whoami(), 'useMe')).not.toThrow()
+  })
+
+  /*
+   * A signed-in person who belongs to no society yet. That is an answer, so
+   * the parser must return it rather than fail the query and strand them.
+   */
+  it('accepts null, which is who-are-you answered honestly', () => {
+    expect(me(null, 'useMe')).toBeNull()
+  })
+
+  /*
+   * These two are the reason the parser cannot simply mark everything
+   * required. Someone with no committee post and someone who lives nowhere
+   * in the society are both ordinary, and every surface already branches on
+   * them - rejecting either would lock out real people.
+   */
+  it('keeps a person who holds no committee seat', () => {
+    expect(me(whoami({ seat: null }), 'useMe')?.seat).toBeNull()
+  })
+
+  it('keeps a person with no tenure in this society', () => {
+    expect(me(whoami({ tenure: null }), 'useMe')?.tenure).toBeNull()
+  })
+
+  it('keeps a person who has never visited before', () => {
+    expect(me(whoami({ last_seen_seq: null }), 'useMe')?.last_seen_seq).toBeNull()
+  })
+
+  /*
+   * The access rule. `seat.role` chooses which controls render, so a role
+   * with no branch in the app must fail here and name itself - not arrive at
+   * a switch that renders nothing, or renders another role's copy.
+   */
+  it('rejects a committee role the app has no branch for', () => {
+    expect(() => me(whoami({ seat: { role: 'chairman', derived: false } }), 'useMe')).toThrow(ShapeError)
+  })
+
+  it('rejects a tenure kind outside owner and tenant', () => {
+    expect(() => me(whoami({ tenure: { ...whoami().tenure as object, kind: 'guest' } }), 'useMe')).toThrow(ShapeError)
+  })
+
+  /*
+   * A missing society is not a reduced view of the answer, it is a broken
+   * one: every query downstream keys off `society.id`, and a surface that
+   * rendered without it would be deciding access from a blank.
+   */
+  it('rejects an identity with no society', () => {
+    expect(() => me(whoami({ society: null }), 'useMe')).toThrow(ShapeError)
+  })
+
+  it('rejects a society whose own required field is missing', () => {
+    const s = whoami().society as Record<string, unknown>
+    expect(() => me(whoami({ society: { ...s, currency: null } }), 'useMe')).toThrow(ShapeError)
+  })
+
+  /*
+   * `auditor_for` opens the year-close screen. A scalar where a list belongs
+   * would make `.length` undefined and the screen silently unreachable, so
+   * the shape is checked rather than coerced.
+   */
+  it('rejects auditor_for sent as anything but a list', () => {
+    expect(() => me(whoami({ auditor_for: '2025-26' }), 'useMe')).toThrow(ShapeError)
+  })
+
+  it('accepts an auditor of no years, which is most people', () => {
+    expect(me(whoami({ auditor_for: [] }), 'useMe')?.auditor_for).toEqual([])
+  })
+
+  /* The error has to say which field, or it cannot be acted on. */
+  it('names the nested field that failed, not just the call', () => {
+    expect(() => me(whoami({ seat: { role: 'treasurer', derived: 'yes' } }), 'useMe'))
+      .toThrow(/seat\.derived/)
+  })
+
+  it('rejects a missing required field as firmly as a null one', () => {
+    const { person: _drop, ...rest } = whoami()
+    expect(() => me(rest, 'useMe')).toThrow(ShapeError)
+  })
+
+  it('rejects a response that is not an object at all', () => {
+    expect(() => me('asha', 'useMe')).toThrow(ShapeError)
   })
 })

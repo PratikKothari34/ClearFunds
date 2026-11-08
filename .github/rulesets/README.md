@@ -1,8 +1,9 @@
 # Rulesets of record
 
-The JSON next to this file records the branch protection that is **live on
-GitHub**, so the rules travel with a clone and a change to them is reviewable
-like any other change.
+`main.json` records the branch protection that is **live on GitHub**, so the
+rules travel with a clone and a change to them is reviewable like any other
+change. `dev.json` is a prepared ruleset that has **not** been applied; each
+file says which it is, because the difference is invisible from the JSON.
 
 These files are a record, not the mechanism. Editing one protects nothing:
 GitHub is the authority, and a ruleset changes only when it is applied through
@@ -36,10 +37,21 @@ Three things in it are load-bearing and easy to get wrong:
 
 ## `dev.json` — not applied
 
-There is no `dev` branch on the remote and no ruleset for one. This file is a
-proposal kept for the day that branch is created; it protects nothing today.
-Create the branch and apply the ruleset together, or neither — an unapplied
-file reads exactly like an applied one.
+A prepared ruleset for a `refs/heads/dev` branch. **Neither the branch nor the
+ruleset exists on GitHub** — `gh api .../rulesets` returns `main protection`
+alone — so nothing in this file protects anything today. It is kept because it
+is where the protection for a `dev` branch is decided and reviewed before it is
+applied, and because it carries the `ci-ok` required status check, which has to
+agree with whatever the CI workflow actually names its aggregate job.
+
+Two consequences of it being unapplied, both easy to misread:
+
+- **`enforcement: "active"` in this file is a statement of intent, not a live
+  state.** A ruleset that was never created enforces nothing regardless of what
+  the field says.
+- **It has no `bypass_actors`.** If it is ever applied, the owner gets no
+  bypass on `dev` — deliberate, but it means a direct push to `dev` would be
+  rejected outright rather than printing the bypass warning that `main` does.
 
 ## Verifying the record
 

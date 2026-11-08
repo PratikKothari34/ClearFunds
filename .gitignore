@@ -6,6 +6,7 @@ docs/decisions/*
 !docs/decisions/README.md
 docs/research/
 docs/subagents/
+docs/process/
 action_report.md
 docs/github-contributors-ticket.md
 .claude/settings.local.json
@@ -20,6 +21,12 @@ docs/github-contributors-ticket.md
 *.pfx
 secrets/
 credentials.json
+
+# --- Hosting / deploy state (local link, not product) ---
+# `vercel link` writes .vercel/project.json with the org and project IDs,
+# and this repo is public. Deploy state belongs to whoever deploys, not to
+# the source.
+.vercel/
 
 # --- Dependencies ---
 node_modules/
@@ -75,3 +82,7 @@ $RECYCLE.BIN/
 # of the product and the repo is public.
 *.zip
 Screenshot*.png
+# Review drafts written before they are posted. Local-only: the repo is
+# public, and an unposted review comment is working material, not a
+# published artefact.
+docs/pending-reviews/

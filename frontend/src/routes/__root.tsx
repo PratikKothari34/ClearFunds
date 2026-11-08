@@ -1,15 +1,37 @@
 import { useEffect, useState } from 'react'
-import { createRootRoute, Outlet } from '@tanstack/react-router'
+import { CatchBoundary, createRootRoute, Outlet } from '@tanstack/react-router'
 import { useAuth, useMe } from '../lib/session'
 import { supabase } from '../lib/supabase'
 import { Shell } from '../components/Shell'
 import { Login } from '../components/Login'
 import { Logo } from '../components/Logo'
 import { Button, Failed } from '../components/ui'
+import { Crashed } from '../components/Crashed'
 
 export const Route = createRootRoute({ component: Root, notFoundComponent: NotFound })
 
+/*
+ * The router's defaultErrorComponent catches a ROUTE's throw, inside the
+ * Shell. It cannot catch this function or the Shell itself, because both sit
+ * above every route - so without this boundary a throw in Shell, Login or
+ * Splash still blanked the whole app, which is the state the error component
+ * was added to end.
+ *
+ * The reset key is the session's identity. A throw here is almost always about
+ * who is signed in - an unreadable `me`, a seat the Shell cannot label - so a
+ * sign-in or sign-out should clear it, while re-rendering with the same session
+ * should not pretend it is fixed.
+ */
 function Root() {
+  const { session } = useAuth()
+  return (
+    <CatchBoundary getResetKey={() => session?.user.id ?? 'anon'} errorComponent={Crashed}>
+      <RootContent />
+    </CatchBoundary>
+  )
+}
+
+function RootContent() {
   const { session, ready } = useAuth()
   const me = useMe()
   if (!ready || (session && me.isPending)) return <Splash />
