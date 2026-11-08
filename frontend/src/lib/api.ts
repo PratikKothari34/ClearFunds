@@ -348,19 +348,44 @@ export async function fetchChain(society: string, onPage?: (n: number) => void):
 
 /** Keeps open screens current: a new entry anywhere refreshes the read models. */
 /*
- * Every read this society has cached. A chain entry can change any of them -
- * the kind is not in the realtime payload, so narrowing by kind would mean
- * trusting a guess about what an insert touched.
+ * Every read a chain entry can change. The kind is not in the realtime
+ * payload, so narrowing by kind would mean trusting a guess about what an
+ * insert touched.
  *
- * Two of the names this list used to carry, 'head' and 'structuring', were
- * never query keys at all: invalidating them did nothing in either
- * direction. 'tenant-flags' IS a query key and was missing, so a flag raised
- * on another device left this one's set stale until a reload.
+ * This list has drifted twice, in both directions, which is why
+ * `live.test.ts` now derives the full set of query keys from the source and
+ * asserts this list against it. 'head' and 'structuring' were names that were
+ * never query keys at all, so invalidating them did nothing. 'tenant-flags'
+ * IS a key and was missing, so a flag raised on another device left this
+ * one's set stale until a reload. 'me' was missing for the same reason and is
+ * the worst of the three: it carries the viewer's SEAT, and seating is a
+ * chain entry (`seat_admin`, `unseat_admin`, `appoint_auditor`). A treasurer
+ * seated mid-session saw no approval controls, and an auditor appointed
+ * mid-session got no year-end screen, because `nav.ts`, `pending.ts` and
+ * every `isCommittee` gate read `me.seat` - and `useMe` holds it for
+ * `staleTime: 60_000`, or indefinitely while the tab stays mounted.
+ *
+ * It is a stale-SCREEN defect, not an access one: the server refuses what the
+ * seat does not permit either way. The screen being wrong about who you are
+ * is still the kind of thing a volunteer reports as the app being broken.
+ *
+ * EXCLUDED ON PURPOSE, and `live.test.ts` pins each reason:
+ *   'entry', 'alloc'  - one past entry's hash or body. Append-only, so the
+ *                       row cannot change once written.
+ *   'preview'         - a server computation keyed on the viewer's own form
+ *                       input, not on society state.
+ *   'flats'           - the flat registry, not a chain entry. A new flat
+ *                       arrives out of band and no insert signals it.
  */
 const LIVE_KEYS = [
   'ledger', 'proposals', 'disputes', 'dues', 'committee',
-  'years', 'report', 'signoffs', 'limit', 'tenant-flags',
+  'years', 'report', 'signoffs', 'limit', 'tenant-flags', 'me',
 ] as const
+
+/** Query keys a chain insert deliberately does NOT refresh. See above. */
+export const NOT_LIVE = ['entry', 'alloc', 'preview', 'flats'] as const
+
+export const LIVE_KEYS_FOR_TEST = LIVE_KEYS
 
 export function useLive(society: string) {
   const qc = useQueryClient()
