@@ -39,6 +39,10 @@ begin
              'signed_off_seq', (select min(sequence) from public.chain_entries
                                  where society_id = p_society and kind = 'month_signoff' and body->>'month' = m.month),
              'postings', (select count(*) from posts p where p.month = m.month),
+             -- The same test /signoff applies (cf.check_signoff): started, not signed.
+             'signable', (m.month || '-01')::date <= cf.today() and not exists (
+                            select 1 from public.chain_entries where society_id = p_society
+                               and kind = 'month_signoff' and body->>'month' = m.month),
              'open_flags', (select count(distinct flag_seq) from concerned c where c.month = m.month),
              'open_flag_entries', (select count(distinct seq) from on_posts o where o.month = m.month),
              'open_flag_residents', (select count(distinct actor) from concerned c where c.month = m.month))

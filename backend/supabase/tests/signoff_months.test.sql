@@ -2,7 +2,7 @@
 -- concern and the residents who raised them are three different numbers, and
 -- only the flagging resident closes a flag.
 begin;
-select plan(9);
+select plan(11);
 
 create temp table u (k text primary key, id uuid);
 insert into u values ('pres', gen_random_uuid()), ('tre', gen_random_uuid()), ('sec', gen_random_uuid()),
@@ -86,6 +86,26 @@ select is((select x->>'signed_off_seq' from jsonb_array_elements(api_signoff_mon
 select is((select x->>'month' from jsonb_array_elements(api_signoff_months('soc_s')) x limit 1), (select now_ from m),
   'newest month first');
 reset role;
+
+-- signable says exactly what /signoff would allow (review on #72).
+select pg_temp.as_('pres');
+create function pg_temp.signable_matches_intent() returns boolean language plpgsql as $$
+declare r jsonb; ok boolean; agree boolean := true;
+begin
+  for r in select * from jsonb_array_elements(public.api_signoff_months('soc_s')) loop
+    begin
+      perform api_signoff_intent(pg_temp.uid('pres'), 'soc_s', r->>'month');
+      ok := true;
+    exception when others then ok := false;
+    end;
+    agree := agree and ok = (r->>'signable')::boolean;
+  end loop;
+  return agree;
+end $$;
+select ok(pg_temp.signable_matches_intent(), 'signable is true for exactly the months /signoff accepts');
+select ok(exists (select 1 from jsonb_array_elements(public.api_signoff_months('soc_s')) r
+                   where r->>'signed_off_seq' is not null and not (r->>'signable')::boolean),
+  'a signed month is not signable');
 
 select * from finish();
 rollback;
