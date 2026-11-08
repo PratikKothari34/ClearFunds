@@ -1,5 +1,7 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { exponent, setExponent, format } from './money'
+import { adoptExponent, exponent, setExponent, format } from './money'
 
 /**
  * The exponent is the one number in the money path that is silently wrong
@@ -129,5 +131,80 @@ describe('the minor-unit exponent', () => {
         .resolvedOptions().maximumFractionDigits
       expect(exponent(c), `${c} must match Intl where ISO agrees with it`).toBe(intlSays)
     }
+  })
+})
+
+/*
+ * Adopting what the server stated.
+ *
+ * `adoptExponent` is the deciding function: it answers "do we take the
+ * server's figure, and what happens when it did not send one". The hook that
+ * calls it only reports the decision, so these cases drive this and the
+ * wiring is asserted separately below.
+ */
+describe('adopting the exponent the server stated', () => {
+  it('takes the server figure over the local table', () => {
+    /*
+     * The assertion is a DISAGREEMENT, deliberately. If the server's table and
+     * ours happened to agree on the currency under test, a passing assertion
+     * would prove nothing about which source won - the usual trap where every
+     * wrong answer is also the right one. So this uses a currency our table
+     * knows and states a different exponent for it, which only the server's
+     * figure can produce.
+     */
+    expect(exponent('JPY')).toBe(0)
+    adoptExponent({ currency: 'JPY', currency_exponent: 3 })
+    expect(exponent('JPY'), "the server's figure must win over the local table").toBe(3)
+  })
+
+  it('leaves the table in charge when the server sent no exponent, and never defaults', () => {
+    /*
+     * The case that exists because production runs a deployment older than the
+     * migration that added the field. Two halves, and the second is the one
+     * that matters:
+     *
+     *   - a currency the table knows still formats, so an older deployment is
+     *     not a broken screen;
+     *   - a currency NEITHER source knows still THROWS. A fallback of 2 here
+     *     would be the silent wrong answer this whole module exists to refuse,
+     *     and it is exactly the shape a well-meaning `?? 2` would take.
+     */
+    expect(adoptExponent({ currency: 'INR', currency_exponent: null })).toBe(false)
+    expect(exponent('INR')).toBe(2)
+    expect(
+      () => exponent('ZZN'),
+      'an absent server exponent must not become a default for an unknown currency',
+    ).toThrow(/exponent/i)
+  })
+
+  it('refuses an out-of-range figure rather than formatting with it', () => {
+    // A server that reported a nonsense exponent must not silently move every
+    // decimal point. setExponent already refuses; this pins that adoption does
+    // not route around it.
+    expect(() => adoptExponent({ currency: 'ZZM', currency_exponent: 9 })).toThrow()
+    expect(() => adoptExponent({ currency: 'ZZM', currency_exponent: -1 })).toThrow()
+  })
+
+  it('is actually wired into the read that carries the society', () => {
+    /*
+     * The decision above is worthless unwired: deleting the call from useMe
+     * leaves every case in this describe green, because they call
+     * adoptExponent directly. That is the same trap as a presenter test - it
+     * speaks for the function, never for whether anything invokes it.
+     *
+     * Read from source rather than mounted, because the thing being asserted
+     * is the wiring itself. Comments are stripped first: this file's own prose
+     * names the identifier, and a check that a NAME appears somewhere in a
+     * file is satisfied by a sentence about it.
+     */
+    const src = readFileSync(resolve(__dirname, 'session.tsx'), 'utf8')
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\/\/.*$/gm, '')
+    expect(src, 'session.tsx must import the adoption decision').toMatch(
+      /import\s*\{[^}]*\badoptExponent\b[^}]*\}\s*from\s*'\.\/money'/,
+    )
+    expect(src, 'api_me must adopt the exponent it reports, not just parse it').toMatch(
+      /adoptExponent\s*\(/,
+    )
   })
 })

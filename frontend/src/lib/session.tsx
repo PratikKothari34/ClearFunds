@@ -3,6 +3,7 @@ import type { Session } from '@supabase/supabase-js'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase, unwrap } from './supabase'
 import { parse } from './parse'
+import { adoptExponent } from './money'
 import { me as meParser } from './rows'
 import type { Me, Role } from './types'
 
@@ -31,7 +32,21 @@ export function useMe() {
     queryKey: ['me', session?.user.id],
     enabled: !!session,
     staleTime: 60_000,
-    queryFn: async () => parse(meParser, unwrap(await supabase.rpc('api_me', {})), 'useMe'),
+    queryFn: async () => {
+      const data = parse(meParser, unwrap(await supabase.rpc('api_me', {})), 'useMe')
+      /*
+       * The server states the currency's minor-unit exponent and a client
+       * formats with it rather than deriving its own, because two derivations
+       * of one exponent agree on the common cases and diverge where nobody is
+       * looking. Adopted here, at the only read that carries the society, and
+       * before any amount can be formatted from this payload.
+       *
+       * The decision itself is adoptExponent in lib/money.ts, not inline: a
+       * rule in a hook cannot be tested without a router.
+       */
+      if (data) adoptExponent(data.society)
+      return data
+    },
   })
 }
 

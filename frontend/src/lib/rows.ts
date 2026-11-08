@@ -36,7 +36,7 @@
  * discloses one unreadable figure instead of blanking the screen, which is
  * the whole point of countable.ts.
  */
-import { array, bool, int, nullable, object, oneOf, required, str } from './parse'
+import { array, bool, int, nullable, object, oneOf, optional, required, str } from './parse'
 import type { Parser } from './parse'
 import { PROPOSAL_STATES, ROLE_ORDER } from './types'
 import type {
@@ -497,6 +497,14 @@ const society = object<Society>({
   name: required(str),
   city: nullable(str),
   currency: required(str),
+  /*
+   * `optional`, not `required`, only because production runs a deployment
+   * older than the migration that added it. Absence has a correct answer -
+   * money.ts keeps its own ISO 4217 table and throws on a currency neither
+   * source knows - so this degrades to a checked table, never to a guess.
+   * Make it `required` once the migration is deployed everywhere.
+   */
+  currency_exponent: optional(int),
   fy_start_month: required(int),
   structuring_window_days: required(int),
 })

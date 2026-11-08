@@ -239,6 +239,52 @@ describe('the limit the deployed server actually enforces', () => {
       .toBe(STATEMENT_MAX_CHARS)
   })
 
+  it('reports the migration set it actually read, because a checkout is not production', () => {
+    /*
+     * WHAT THIS SUITE CAN AND CANNOT SEE.
+     *
+     * Everything above reads the migrations in THIS WORKING TREE. That is the
+     * right source for "has the byte limit been written yet", and the wrong
+     * source for "what does the live server enforce right now" - the two are
+     * different questions and the character rule depends on the second.
+     *
+     * The gap is real and it has both signs:
+     *
+     *   - A branch that predates the byte-limit migration reads the character
+     *     check and concludes the character rule is current. On a branch where
+     *     the migration has since merged to main, that conclusion is stale.
+     *   - A tree that HAS the migration concludes the rule must be lifted.
+     *     But a deployment behind that migration still enforces 4,000
+     *     characters, so lifting it there sends the auditor text the live
+     *     server refuses - losing the statement at the irreversible action,
+     *     which is the failure this module exists to prevent.
+     *
+     * So the asymmetry decides it: refusing early costs a retype, accepting
+     * too much costs the work. The character rule is dropped when the byte
+     * migration is DEPLOYED, not when it is merged, and the two assertions
+     * above cannot tell those apart.
+     *
+     * This case therefore does not guess. It pins the number of migrations
+     * read, so a tree that silently lost or gained the relevant files fails
+     * here instead of answering the deployment question from a partial set -
+     * the same rule as a budget pattern that matches nothing.
+     */
+    expect(
+      applied.length,
+      'no migrations were read: every conclusion above is drawn from an empty set',
+    ).toBeGreaterThan(20)
+    /*
+     * And the two units must never both be present in the effective
+     * definition. If one migration ever adds the byte check WITHOUT removing
+     * the character check, both branches of the previous case are satisfiable
+     * and the suite would report whichever it happened to test first.
+     */
+    expect(
+      Boolean(charCheck) && byteCheck,
+      'check_close bounds the statement in BOTH units: the deployed-unit question has no single answer',
+    ).toBe(false)
+  })
+
   it('confirms cf.text_ok measures characters, which is why the unit matters', () => {
     /*
      * `length()` on `text` counts characters in PostgreSQL; `octet_length()`
