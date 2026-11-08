@@ -13,8 +13,9 @@
     "typecheck": "tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.node.json",
     "csp-hash": "node scripts/csp-hash.mjs",
     "budget": "node scripts/budget.mjs",
-    "verify": "npm run typecheck && npm run lint && npm run test && node scripts/csp-hash.mjs --check && npm run assets && npm run build && npm run budget",
-    "assets": "node scripts/check-assets.mjs"
+    "verify": "npm run typecheck && npm run lint && npm run test && node scripts/csp-hash.mjs --check && npm run assets && npm run build && npm run budget && npm run bundle",
+    "assets": "node scripts/check-assets.mjs",
+    "bundle": "node scripts/check-bundle.mjs"
   },
   "dependencies": {
     "@noble/ed25519": "^3.0.0",

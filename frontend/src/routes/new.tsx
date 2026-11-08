@@ -5,7 +5,8 @@ import { ArrowDownLeft, ArrowUpRight, Receipt, Users, Vote } from 'lucide-react'
 import { previewCharge, useCommittee, useLedger, useLimit, usePropose, useSociety } from '../lib/api'
 import { supabase, unwrap, Refused } from '../lib/supabase'
 import { useMeStrict } from '../lib/session'
-import { categories, month, todayIST } from '../lib/format'
+import { isOfficer } from '../lib/pending'
+import { categories, month, monthOf, todayIST } from '../lib/format'
 import { format, parse } from '../lib/money'
 import { countable } from '../lib/countable'
 import { Button, Card, Field, Input, MoneyInput, PageTitle, Segmented, cx, useToast } from '../components/ui'
@@ -78,7 +79,15 @@ function NewEntry() {
       && r.counterparty?.toLowerCase() === payee.trim().toLowerCase() && r.business_date >= since).length
   }, [ledger.data, payee, kind, s.structuring_window_days])
 
-  const selfApproves = pair ? me.seat?.role === 'treasurer' || me.seat?.role === 'secretary' : true
+  /*
+   * Below the limit only the two named officers sign as they submit, and this
+   * is 0004's pair tier - the SAME rule waitsOn applies on the approvals
+   * screen, so it comes from isOfficer rather than being spelled out a third
+   * time. A committee member who is told "your approval is signed as you
+   * submit" when it is not believes the entry needs one more signature than
+   * it does, and stops chasing the one it is actually waiting on.
+   */
+  const selfApproves = pair ? isOfficer(me) : true
   const ready = !!minor && (kind === 'charge' || (kind === 'expense' ? !!payee.trim() : !!(flat || payee.trim()))) && (kind === 'charge' || !!note.trim())
 
   const submit = async () => {
@@ -88,7 +97,7 @@ function NewEntry() {
       const out = await propose.mutateAsync(
         kind === 'charge'
           ? { action: 'charge', amount_minor: minor, flat_set: flatSet, category, business_date: date,
-              narration: note.trim() || `${category === 'parking' ? 'Parking' : 'Maintenance'} ${month(date.slice(0, 7))}` }
+              narration: note.trim() || `${category === 'parking' ? 'Parking' : 'Maintenance'} ${month(monthOf(date))}` }
           : { action: kind, amount_minor: minor, category, business_date: date, narration: note.trim(),
               counterparty: kind === 'receipt' && flat ? `Flat ${flatLabel}` : payee.trim(),
               ...(kind === 'receipt' && flat ? { flat_id: flat } : {}) },
@@ -160,7 +169,7 @@ function NewEntry() {
           <Field label="Date" htmlFor="date"><Input id="date" type="date" max={todayIST()} value={date} onChange={(e) => setDate(e.target.value)} /></Field>
           <Field label={kind === 'receipt' ? 'Reference' : kind === 'charge' ? 'Title' : 'What for'} htmlFor="note">
             <Input id="note" value={note} onChange={(e) => setNote(e.target.value)} maxLength={280}
-              placeholder={kind === 'receipt' ? 'UPI ref 6044…' : kind === 'charge' ? `Maintenance ${month(date.slice(0, 7), { month: 'short', year: 'numeric' })}` : 'Pump repair, A wing'} />
+              placeholder={kind === 'receipt' ? 'UPI ref 6044…' : kind === 'charge' ? `Maintenance ${month(monthOf(date), { month: 'short', year: 'numeric' })}` : 'Pump repair, A wing'} />
           </Field>
         </div>
 
