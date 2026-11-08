@@ -124,6 +124,31 @@ function Ledger() {
         />
       </div>
 
+      {/*
+        * How many entries the filter left, for someone who cannot see the
+        * list change. Filtering from forty rows to none, or back, is silent
+        * otherwise: a screen-reader user cannot tell "nothing matches" from
+        * "still loading" from "the filter did not apply". The visible
+        * answer is the rows themselves, so this is `sr-only`.
+        *
+        * Rendered ALWAYS, with the TEXT conditional - the same rule the
+        * statement counter needed. A region created at the moment it first
+        * has something to say may never announce that first message, and
+        * here the first message is the one that matters most: the search
+        * that found nothing.
+        *
+        * Silent while pending, because "0 entries" during a load is a wrong
+        * answer, not a slow one. `Loading` already carries its own
+        * role="status".
+        */}
+      <p className="sr-only" aria-live="polite">
+        {ledger.isPending || ledger.isError
+          ? ''
+          : rows.length === 1
+            ? '1 entry'
+            : `${rows.length.toLocaleString('en-IN')} entries`}
+      </p>
+
       {ledger.isPending ? <Loading rows={6} />
         : ledger.isError ? <Failed error={ledger.error} retry={() => ledger.refetch()} />
         : !rows.length ? <Empty icon={<SearchX className="size-5" />} title="No entries match">Try another word, or clear the filter.</Empty>
