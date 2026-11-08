@@ -126,20 +126,31 @@ function CloseSheet({ y, open, onClose }: { y: Year; open: boolean; onClose: () 
             * what an adverse opinion needs. It appears in time to matter and
             * is announced politely, so it does not interrupt typing.
             */}
-          {near && (
-            <p id="st-left" aria-live="polite" className={cx('mt-1.5 text-right text-xs tnum', st.over ? 'text-debit' : 'text-ink-2')}>
-              {/*
-                * Labelled from `st.unit`, never hardcoded. The server bounds
-                * the statement two ways - bytes of UTF-8 and characters -
-                * and a Devanagari statement hits the character ceiling
-                * first. Calling that figure "bytes" would show the auditor
-                * a wrong number at the one irreversible action here.
-                */}
-              {st.over
+          {/*
+            * The ELEMENT is always rendered; only its CONTENT is conditional.
+            * A live region has to be in the DOM before its content changes -
+            * inserting a node that already carries `aria-live` is announced
+            * unreliably across assistive tech, and the announcement most
+            * likely to be dropped is the FIRST one: the warning that the
+            * auditor is approaching the limit, at the one irreversible action
+            * in this product. An empty region announces nothing, so the
+            * design intent is unchanged - no counter on a short statement -
+            * and the first warning is now a content change inside a region
+            * that already existed.
+            */}
+          <p id="st-left" aria-live="polite" className={cx('mt-1.5 text-right text-xs tnum', st.over ? 'text-debit' : 'text-ink-2')}>
+            {/*
+              * Labelled from `st.unit`, never hardcoded. The server bounds
+              * the statement two ways - bytes of UTF-8 and characters - and a
+              * Devanagari statement hits the character ceiling first. Calling
+              * that figure "bytes" would show the auditor a wrong number at
+              * the one irreversible action here.
+              */}
+            {near &&
+              (st.over
                 ? `${(st.used - st.max).toLocaleString('en-IN')} ${st.unit === 'chars' ? 'characters' : 'bytes'} over the limit`
-                : `${(st.max - st.used).toLocaleString('en-IN')} ${st.unit === 'chars' ? 'characters' : 'bytes'} left`}
-            </p>
-          )}
+                : `${(st.max - st.used).toLocaleString('en-IN')} ${st.unit === 'chars' ? 'characters' : 'bytes'} left`)}
+          </p>
         </Field>
         <ul className="space-y-1.5 text-[13px] text-ink-2">
           <li>Any opinion closes the year, including adverse and disclaimer. Closing seals it; it does not endorse it.</li>
