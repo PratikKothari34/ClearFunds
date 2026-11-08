@@ -6,7 +6,7 @@ import { Refused } from '../lib/supabase'
 import { useMeStrict } from '../lib/session'
 import { instant, month, monthOf, todayIST } from '../lib/format'
 import { isDue, signoffMonths } from '../lib/signoff'
-import { Amount, Button, Card, Chip, Field, Input, Loading, PageTitle, ReversedNote, Sheet, useToast, cx } from '../components/ui'
+import { Amount, Button, Card, Chip, Failed, Field, Input, Loading, PageTitle, ReversedNote, Sheet, useToast, cx } from '../components/ui'
 import { recentMonths } from '../components/Shell'
 import { monthHasReversal as monthReversal, reversedIn, reversedOut } from '../lib/reversed'
 import type { Summary } from '../lib/types'
@@ -34,7 +34,17 @@ function SignOff() {
   return (
     <div>
       <PageTitle title="Monthly sign-off" sub="The president’s final say on each month’s expense sheet. It does not close the year." />
-      {signoffs.isPending ? <Loading /> : (
+      {/*
+        * A failed read must not render as a list of unsigned months. `done`
+        * is built from `signoffs.data ?? []`, so losing that read empties it
+        * and every month then draws as outstanding - the president is shown
+        * work that may already be done, which is the inverse of the
+        * oldest-month bug this screen has already paid for once. The summary
+        * read is separate and only supplies totals, so this gates on the
+        * sign-off read alone.
+        */}
+      {signoffs.isPending ? <Loading />
+        : signoffs.isError ? <Failed error={signoffs.error} retry={() => signoffs.refetch()} /> : (
         <Card className="divide-y divide-line">
           {months.map((m) => {
             const s = done.get(m)

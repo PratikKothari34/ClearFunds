@@ -12,7 +12,7 @@ import { needsCommittee } from '../lib/reversaltier'
 import { allocationBody, lineFor, split } from '../lib/allocation'
 import { parse as parseShape } from '../lib/parse'
 import {
-  Amount, Avatar, Button, Card, Caption, Chip, EntryIcon, Facts, Field, Fingerprint, Loading, MoneyInput, Sheet, Textarea, useToast, cx,
+  Amount, Avatar, Button, Card, Caption, Chip, EntryIcon, Facts, Failed, Field, Fingerprint, Loading, MoneyInput, Sheet, Textarea, useToast, cx,
 } from '../components/ui'
 import { RaiseDispute } from '../components/RaiseDispute'
 import type { LedgerRow, ProposalRow } from '../lib/types'
@@ -196,6 +196,19 @@ function Allocation({ r }: { r: LedgerRow }) {
       return { alloc: split(parseShape(allocationBody, e.body, 'allocation')), flats: new Map(flats.map((f) => [f.id, f.label])) }
     },
   })
+  /*
+   * `!q.data` is true while this is loading AND after it has FAILED, and a
+   * single skeleton stood for both - so a failed read shimmered forever here,
+   * with no error and no retry. Two reads and a `.single()` go out above, and
+   * `parseShape` can reject the body, so failing is not remote.
+   *
+   * Two states, not the three `/my-flat` needed: a missing allocation row
+   * makes `.single()` an error, so there is no successful-but-absent case to
+   * tell apart. The error is disclosed, because a broken split means a flat's
+   * charge is not being shown to anyone - the same reason the mismatch below
+   * is disclosed rather than quietly truncated.
+   */
+  if (q.isError) return <Failed error={q.error} retry={() => q.refetch()} />
   if (!q.data) return <Loading rows={1} />
   const { alloc, flats } = q.data
   const mine = lineFor(alloc, me.tenure?.flat_id)
