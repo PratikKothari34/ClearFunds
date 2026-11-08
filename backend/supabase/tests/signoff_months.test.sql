@@ -2,7 +2,7 @@
 -- concern and the residents who raised them are three different numbers, and
 -- only the flagging resident closes a flag.
 begin;
-select plan(11);
+select plan(12);
 
 create temp table u (k text primary key, id uuid);
 insert into u values ('pres', gen_random_uuid()), ('tre', gen_random_uuid()), ('sec', gen_random_uuid()),
@@ -103,9 +103,18 @@ begin
   return agree;
 end $$;
 select ok(pg_temp.signable_matches_intent(), 'signable is true for exactly the months /signoff accepts');
-select ok(exists (select 1 from jsonb_array_elements(public.api_signoff_months('soc_s')) r
-                   where r->>'signed_off_seq' is not null and not (r->>'signable')::boolean),
-  'a signed month is not signable');
+-- Sign last month off through the same path the president uses, then ask again.
+select api_register_key(pg_temp.uid('pres'), 'soc_s', md5('pres') || md5('pres'));
+create function pg_temp.sign(month text) returns void language plpgsql as $$
+declare i jsonb := api_signoff_intent(pg_temp.uid('pres'), 'soc_s', month);
+begin
+  perform api_signoff(pg_temp.uid('pres'), 'soc_s', month, (i->>'through_seq')::bigint, null,
+    (i->>'key_seq')::bigint, repeat('ab', 64));
+end $$;
+select pg_temp.sign((select prev from m));
+select is((select (x->>'signable')::boolean from jsonb_array_elements(public.api_signoff_months('soc_s')) x
+            where x->>'month' = (select prev from m)), false, 'a signed month is not signable');
+select ok(pg_temp.signable_matches_intent(), 'and signable still matches /signoff once a month is signed');
 
 select * from finish();
 rollback;
