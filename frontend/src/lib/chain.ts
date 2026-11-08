@@ -40,6 +40,36 @@ export const KINDS: Record<string, [string, FieldType][]> = {
   // pins that difference in must_differ[1].
   tasks_set: [['post_id', 'text'], ['post_title', 'text'], ['seat_role', 'text'],
     ['holder', 'text?'], ['tasks', 'list<text>']],
+
+  // contracts/chain/kinds/claims.v1.md. A resident declaring a payment they
+  // have already made; the actor is absent and no field names the claimant.
+  payment_claim: [['flat_id', 'text'], ['amount_minor', 'int'], ['currency', 'text'],
+    ['paid_on', 'text'], ['method', 'text'], ['reference', 'text']],
+  // 'proposal_seq' is set on a receipted close, 'reason' on a rejected one,
+  // so each is absent on the other outcome. claims-kinds.v1.json pins that in
+  // must_differ[1]: an absent proposal_seq does NOT encode as a zero.
+  claim_closed: [['claim_seq', 'int'], ['outcome', 'text'], ['proposal_seq', 'int?'],
+    ['reason', 'text?']],
+
+  // contracts/chain/kinds/notices.v1.md.
+  notice: [['title', 'text'], ['body', 'text'], ['attachments', 'list<bytes>'],
+    ['revision', 'int'], ['approvers', 'list<text>'], ['corrects_seq', 'int?']],
+  vote_opened: [['notice_seq', 'int'], ['question', 'text'], ['options', 'list<text>'],
+    ['max_picks', 'int'], ['mode', 'text'], ['eligible_flats', 'int'], ['closes_at', 'int']],
+  /*
+   * Exactly one of 'flat_id' and 'flat_token' is present: named votes carry
+   * the flat, anonymous ones a per-vote token. A ballot never names a person
+   * or a pseudonym - in an anonymous vote that would link one resident's
+   * ballots across votes. flatToken() below recomputes the token, and
+   * notices-kinds.v1.json pins that the same flat's token differs per vote.
+   */
+  ballot: [['vote_seq', 'int'], ['flat_id', 'text?'], ['flat_token', 'bytes?'],
+    ['options', 'list<int>']],
+  // 'carried' is int? because a TIE is carried absent, which does not encode
+  // the same as option 0 - the first option winning. must_differ[1] pins it.
+  vote_closed: [['vote_seq', 'int'], ['tallies', 'list<int>'], ['flats_voted', 'int'],
+    ['eligible_flats', 'int'], ['carried', 'int?']],
+  proposal_ref: [['proposal_seq', 'int'], ['vote_seq', 'int'], ['option', 'int']],
 }
 
 /** Exists only for the contract's vectors; a real chain carrying it fails. */
@@ -179,6 +209,32 @@ export function preimage(e: Entry, layout = KINDS[e.kind]): Uint8Array {
 
 export async function sha256(b: Uint8Array): Promise<Uint8Array> {
   return new Uint8Array(await crypto.subtle.digest('SHA-256', b as BufferSource))
+}
+
+/**
+ * The flat token on an anonymous ballot (notices.v1.md ballot, field 3):
+ *
+ *   SHA-256( field(bytes, salt) || field(int, vote_seq) || field(text, flat_id) )
+ *
+ * The salt is per-society and never published or served, so this cannot be
+ * run against a real chain here - it exists because the contract's vectors
+ * pin the derivation, and because `vote_seq` being part of the input is what
+ * stops one flat's ballots being linked across votes. Anyone can check that
+ * no token appears twice within a vote; only the salt holder can say whose
+ * it is.
+ */
+export async function flatToken(saltHex: string, voteSeq: number, flatId: string): Promise<string> {
+  // Built with encode(), not a private helper, so the token is derived by the
+  // same field encoder the preimage uses. A second implementation of the
+  // encoding here could drift from it and still look right.
+  const parts = [encode('bytes', saltHex), encode('int', voteSeq), encode('text', flatId)]
+  const out = new Uint8Array(parts.reduce((n, b) => n + b.length, 0))
+  let o = 0
+  for (const b of parts) {
+    out.set(b, o)
+    o += b.length
+  }
+  return hex(await sha256(out))
 }
 
 export const ZERO = '0'.repeat(64)

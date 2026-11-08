@@ -35,8 +35,15 @@ export const supabase = new Proxy({} as SupabaseClient<Database>, {
 /** A refusal the server wrote for the person reading it. */
 export class Refused extends Error {}
 
-/** Calls the signing edge function as the signed-in admin. */
-export async function edge<T>(path: string, body: unknown): Promise<T> {
+/*
+ * Calls the signing edge function as the signed-in admin.
+ *
+ * Returns `unknown` on purpose, and takes NO type argument. `edge<{ seq:
+ * number }>(...)` was a cast with nothing checking a field, so a response
+ * missing `seq` arrived as `undefined` typed `number` - the same hole `all`
+ * in api.ts closed for views. The caller must run it through a parser.
+ */
+export async function edge(path: string, body: unknown): Promise<unknown> {
   client() // same check before KEY is read below
   const { data } = await supabase.auth.getSession()
   const token = data.session?.access_token
@@ -48,7 +55,7 @@ export async function edge<T>(path: string, body: unknown): Promise<T> {
   })
   const out = await res.json().catch(() => ({}))
   if (!res.ok) throw new Refused(out.error ?? 'The server could not do that.')
-  return out as T
+  return out
 }
 
 /** Postgres refuses a rule with SQLSTATE P0001 and a sentence for the user. */
