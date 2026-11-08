@@ -391,6 +391,16 @@ export function useLive(society: string) {
   const qc = useQueryClient()
   useEffect(() => {
     let t: ReturnType<typeof setTimeout> | undefined
+    /*
+     * `removeChannel()` in the cleanup below makes the library call the
+     * status callback with CLOSED - a deliberate teardown takes the same
+     * branch as a dropped connection. Harmless today, because that branch
+     * only marks stale and the next mount re-reads anyway, but it would make
+     * the branch useless for anything a resident can SEE: every navigation
+     * between societies would report the connection as degraded. So the
+     * teardown says so, and the branch asks.
+     */
+    let closing = false
     const ch = supabase
       .channel(`chain:${society}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chain_entries', filter: `society_id=eq.${society}` },
@@ -455,11 +465,13 @@ export function useLive(society: string) {
        * wants one is not a decision to make inside a cache hook.
        */
       .subscribe((status) => {
+        if (closing) return
         if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
           for (const k of LIVE_KEYS) qc.invalidateQueries({ queryKey: [k], refetchType: 'none' })
         }
       })
     return () => {
+      closing = true
       clearTimeout(t)
       supabase.removeChannel(ch)
     }

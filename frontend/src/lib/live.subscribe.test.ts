@@ -91,4 +91,41 @@ describe('the realtime subscription reports its own failure', () => {
     expect(cb, 'the failure branch should mark stale, not storm the server with refetches')
       .toContain("refetchType: 'none'")
   })
+
+  it('does not treat its own teardown as a channel failure', () => {
+    /*
+     * `removeChannel()` in the cleanup makes the library invoke the status
+     * callback with CLOSED, so a deliberate unmount or a society change takes
+     * the SAME branch as a dropped connection. Today that only marks stale on
+     * a cache the next mount re-reads, so nothing is visibly wrong - which is
+     * why it would survive. It matters because it makes the branch unusable
+     * for anything a resident can see: every navigation would report the
+     * connection as degraded.
+     *
+     * Asserted structurally, because this cannot be checked by rendering: the
+     * flag must be SET in the cleanup and READ before the branch.
+     */
+    const s = source()
+    /*
+     * The DECLARATION, not only the two uses. Deleting `let closing` leaves
+     * both uses in place: that does not compile, but vitest does not
+     * typecheck, so a test asserting only the uses passed on a file whose
+     * flag did not exist. That mutant survived until this line was added.
+     */
+    expect(s, 'the teardown flag is not declared in the effect').toMatch(/let closing = false/)
+    expect(s, 'the cleanup no longer marks the teardown').toMatch(/closing = true/)
+    expect(s, 'the status callback no longer checks whether this is our own teardown')
+      .toMatch(/if \(closing\) return/)
+
+    const guard = s.indexOf('if (closing) return')
+    const branch = s.indexOf("status === 'CHANNEL_ERROR'")
+    expect(guard, 'the teardown guard is missing').toBeGreaterThan(-1)
+    expect(branch, 'the failure branch is missing').toBeGreaterThan(-1)
+    expect(guard, 'the teardown guard must come BEFORE the failure branch, or it guards nothing')
+      .toBeLessThan(branch)
+
+    const teardown = s.indexOf('removeChannel')
+    expect(s.lastIndexOf('closing = true'), 'the flag must be set before removeChannel, not after')
+      .toBeLessThan(teardown)
+  })
 })
