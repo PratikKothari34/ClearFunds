@@ -8,7 +8,7 @@ import { useMeStrict, isCommittee } from '../lib/session'
 import { instant, roleLabel, todayIST, fyOf, opinionChip, opinionTone, writeOutcome } from '../lib/format'
 import { format, parse } from '../lib/money'
 import { countable } from '../lib/countable'
-import { Avatar, Button, Caption, Card, Chip, Field, Input, Loading, MoneyInput, PageTitle, Segmented, Sheet, useToast } from '../components/ui'
+import { Avatar, Button, Caption, Card, Chip, Failed, Field, Input, Loading, MoneyInput, PageTitle, Segmented, Sheet, useToast } from '../components/ui'
 import { ROLE_ORDER, type Role } from '../lib/types'
 import { approvalsNeeded } from '../lib/tier'
 
@@ -73,7 +73,14 @@ function Committee() {
       )}
 
       <Caption className="mt-6">Seated</Caption>
-      {c.isPending ? <Loading /> : (
+      {/*
+        * A failed read must not render as an empty committee. `active` comes
+        * from `c.data?.seats ?? []`, so losing the read draws a society with
+        * nobody seated - on the screen whose entire job is who may approve an
+        * entry. An empty list there is not a blank space, it is a claim.
+        */}
+      {c.isPending ? <Loading />
+        : c.isError ? <Failed error={c.error} retry={() => c.refetch()} /> : (
         <Card className="divide-y divide-line">
           {active.map((s) => (
             <div key={s.person_id} className="flex items-center gap-3 px-4 py-3">

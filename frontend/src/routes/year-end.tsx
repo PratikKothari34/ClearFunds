@@ -6,7 +6,7 @@ import { Refused } from '../lib/supabase'
 import { checkStatement } from '../lib/statement'
 import { useMeStrict } from '../lib/session'
 import { instant, longDay, opinionChip, opinionHint, opinionLabel, opinionTone } from '../lib/format'
-import { Button, Card, Caption, Chip, Empty, Field, Loading, PageTitle, Sheet, Textarea, useToast, cx } from '../components/ui'
+import { Button, Card, Caption, Chip, Empty, Failed, Field, Loading, PageTitle, Sheet, Textarea, useToast, cx } from '../components/ui'
 import type { Opinion, Year } from '../lib/types'
 
 export const Route = createFileRoute('/year-end')({ component: YearEnd })
@@ -20,7 +20,18 @@ function YearEnd() {
   return (
     <div>
       <PageTitle title="Year-end" sub="Only the appointed auditor closes a year. The committee cannot close its own books." />
-      {years.isPending ? <Loading /> : !list.length ? <Empty icon={<Gavel className="size-5" />} title="No financial years yet" /> : (
+      {/*
+        * The error arm comes BEFORE the empty one. `years.data ?? []` makes a
+        * FAILED read indistinguishable from a society with no years, and the
+        * empty state then asserts "No financial years yet" from no data - on
+        * the page that gates the one irreversible action in this product. An
+        * auditor who cannot see the year they were appointed to close has to
+        * be told the read failed, and offered a retry, not told there is
+        * nothing to close.
+        */}
+      {years.isPending ? <Loading />
+        : years.isError ? <Failed error={years.error} retry={() => years.refetch()} />
+        : !list.length ? <Empty icon={<Gavel className="size-5" />} title="No financial years yet" /> : (
         <div className="space-y-3">
           {list.map((y) => <YearCard key={y.fy} y={y} mine={me.auditor_for.includes(y.fy)} />)}
         </div>
