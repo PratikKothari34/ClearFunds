@@ -342,7 +342,30 @@ export async function fetchChain(society: string, onPage?: (n: number) => void):
      */
     for (const r of rows) out.push({ ...r, prev_hash: bytea(r.prev_hash) } as unknown as Entry)
     onPage?.(out.length)
-    if (rows.length < PAGE) return out
+    /*
+     * The SAME stop decision `all()` uses, including its refusal - this loop
+     * had only the short-page exit, so it was the one walk in the file with
+     * no ceiling at all.
+     *
+     * Why it matters more here than on a read model: this is the verification
+     * path. A short download returns a PREFIX of the chain, and a prefix of a
+     * hash chain verifies perfectly - every link resolves, because the
+     * entries that would break it are the ones after where the walk stopped.
+     * A reachable anchor catches that (`highest_sequence > headSeq` reports
+     * 'behind'), but the anchor is 'unpublished' or 'unreachable' today, and
+     * in that state nothing else bounds the walk: the check reports a clean
+     * chain having seen a fraction of it, and writes a `checkedThrough` that
+     * only ever RISES, so a later complete download treats the entries above
+     * the short head as already covered.
+     *
+     * Throw rather than return what we have. `runCheck` surfaces a failure;
+     * it cannot surface a silence.
+     */
+    const step = walkStep(rows.length, from + PAGE)
+    if (step === 'done') return out
+    if (step === 'refuse') {
+      throw new Error(`the record could not be read in full: more than ${MAX_ROWS} entries`)
+    }
   }
 }
 
