@@ -429,7 +429,36 @@ export function useLive(society: string) {
             }
           }, 400)
         })
-      .subscribe()
+      /*
+       * The status callback is not optional decoration. `.subscribe()` with no
+       * callback discards `CHANNEL_ERROR` and `TIMED_OUT`, so a channel that
+       * never connects - blocked websocket, dropped network, expired token -
+       * is INDISTINGUISHABLE from a society where nobody has posted anything.
+       * Every screen then quietly serves `staleTime: 5 * 60_000` with nothing
+       * reporting that the live path is gone.
+       *
+       * The degradation is mild, which is exactly why it needs saying: the
+       * viewer's own writes still blanket-invalidate, `refetchOnWindowFocus`
+       * still fires, so the failure is "up to five minutes behind until you
+       * switch tabs", not a wrong figure. Mild and invisible is the
+       * combination that survives for months.
+       *
+       * On a failed or closed channel the fallback is made explicit rather
+       * than left implicit: mark every live read stale, so the next mount or
+       * focus re-reads instead of serving a five-minute-old cache from a
+       * session that has no live path at all. It cannot repair the channel -
+       * Supabase retries on its own - but it stops a dead channel from also
+       * meaning a stale cache.
+       *
+       * It deliberately does NOT render anything. Telling a resident their
+       * connection is degraded is a product surface, and whether this app
+       * wants one is not a decision to make inside a cache hook.
+       */
+      .subscribe((status) => {
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          for (const k of LIVE_KEYS) qc.invalidateQueries({ queryKey: [k], refetchType: 'none' })
+        }
+      })
     return () => {
       clearTimeout(t)
       supabase.removeChannel(ch)
