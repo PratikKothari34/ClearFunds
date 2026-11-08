@@ -2,7 +2,7 @@
 -- api_report for both years, every category from either year, and a reversal
 -- counted in the year it was posted (AGENTS.md item 7).
 begin;
-select plan(9);
+select plan(12);
 
 create temp table u (k text primary key, id uuid);
 insert into u values ('pres', gen_random_uuid()), ('tre', gen_random_uuid()), ('sec', gen_random_uuid()),
@@ -71,6 +71,14 @@ select throws_like($$select api_report_compare('soc_y', '2025-26')$$, '%not a me
 reset role;
 select set_config('request.jwt.claims', '{"role":"service_role"}', true);
 select throws_like($$select api_report_compare('soc_y', '2025')$$, '%must look like 2025-26%', 'a malformed year is refused');
+
+-- A society's first year has nothing to compare with (review on #69).
+select is((public.api_report_compare('soc_y', cf.fy_of('soc_y', cf.today()))->>'previous_exists')::boolean, true,
+  'a year with entries before it has a previous year');
+select is((public.api_report_compare('soc_y', '2001-02')->>'previous_exists')::boolean, false,
+  'a year before the society existed does not: its previous figures are zeros, not a year');
+select is(public.api_report_compare('soc_y', '2001-02')->'totals'->'expenditure'->>'previous_minor', '0',
+  'and they are still zeros, so the shape never changes');
 
 select * from finish();
 rollback;

@@ -33,6 +33,13 @@ begin
   p := prev->'income_expenditure';
   return jsonb_build_object(
     'fy', p_fy, 'previous_fy', prev_fy, 'currency', this->'currency',
+    -- False in a society's first year: the previous figures are zeros, not a
+    -- year that happened, and a screen must not present them as a change.
+    'previous_exists', exists (select 1 from public.chain_entries c where c.society_id = p_society
+                               and c.recorded_at < extract(epoch from (this->>'starts')::date::timestamp
+                                                     at time zone 'Asia/Kolkata') * 1000)
+                    or exists (select 1 from public.ledger l where l.society_id = p_society
+                               and l.business_date < (this->>'starts')::date),
     'income', cf.compare_rows(t->'income', p->'income'),
     'expenditure', cf.compare_rows(t->'expenditure', p->'expenditure'),
     'totals', (select jsonb_object_agg(k, jsonb_build_object('this_minor', a, 'previous_minor', b, 'change_minor', a - b))
