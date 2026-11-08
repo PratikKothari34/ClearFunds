@@ -27,7 +27,7 @@ create index statement_lines_society on private.statement_lines (society_id);
 create index statements_society on private.statements (society_id);
 create index statements_uploaded_by on private.statements (uploaded_by);
 
--- The currency's minor-unit exponent (AGENTS.md item 4: never a fixed /100).
+-- The currency's minor-unit exponent, from ISO 4217 (AGENTS.md item 4: never a fixed /100).
 create function cf.currency_exponent(p_currency text) returns int
 language plpgsql immutable set search_path = '' as $$
 declare
@@ -148,3 +148,45 @@ revoke all on public.statement_lines from anon;
 revoke all on function cf.currency_exponent(text) from public, anon, authenticated, service_role;
 revoke all on function public.api_statement_store(uuid, text, jsonb) from public, anon, authenticated;
 grant execute on function public.api_statement_store(uuid, text, jsonb) to service_role;
+
+-- The exponent goes out with the society (review on #75), so a client formats
+-- amounts with the server's ISO 4217 figure instead of deriving its own: Intl
+-- reports IQD with 0 digits where ISO 4217 says 3, a factor of 1000 on the same
+-- integer. An unknown currency is refused here, never guessed.
+create or replace function public.api_me(p_society text default null) returns jsonb
+language plpgsql stable security definer set search_path = '' as $$
+declare
+  p public.people;
+  t public.tenures;
+  s public.committee_seats;
+begin
+  select * into p from public.people
+   where auth_user_id = auth.uid() and (p_society is null or society_id = p_society)
+   order by created_at limit 1;
+  if p.id is null then
+    return null;
+  end if;
+  t := cf.open_tenure(p.society_id, p.id);
+  s := cf.active_seat(p.society_id, p.id);
+  return jsonb_build_object(
+    'person', p.id, 'name', p.full_name, 'email', p.email,
+    'society', (select to_jsonb(x) || jsonb_build_object('currency_exponent', cf.currency_exponent(x.currency))
+                  from public.societies x where x.id = p.society_id),
+    'seat', case when s.person_id is null then null
+                 else jsonb_build_object('role', s.role, 'derived', s.derived) end,
+    'posts', (select coalesce(jsonb_agg(jsonb_build_object('post_id', po.post_id, 'post_title', po.post_title,
+                'seat_role', po.seat_role, 'tasks', to_jsonb(po.tasks)) order by po.ordinal), '[]')
+                from public.posts po
+               where po.society_id = p.society_id and po.holder = p.id and s.person_id is not null),
+    -- Every year this person was appointed to audit, closed or not: an
+    -- auditor who has signed off is still the auditor of that year.
+    'auditor_for', (select coalesce(jsonb_agg(a.fy order by a.fy), '[]') from public.auditor_appointments a
+                     where a.society_id = p.society_id and a.person_id = p.id),
+    'tenure', case when t.id is null then null else jsonb_build_object(
+      'id', t.id, 'kind', t.kind, 'handle', t.handle, 'flat_id', t.flat_id,
+      'flat', (select label from public.flats where id = t.flat_id),
+      'owner_can_see', t.kind = 'tenant') end,
+    'tour_done_at', (extract(epoch from p.tour_done_at) * 1000)::bigint,
+    'last_seen_seq', (select last_seen_seq from public.seen where person_id = p.id));
+end
+$$;

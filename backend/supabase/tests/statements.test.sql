@@ -1,7 +1,7 @@
 -- Bank statements (#73): credits stored in exact minor units, matched to
 -- claims by UTR when read, visible to the committee only, and nothing chained.
 begin;
-select plan(17);
+select plan(19);
 
 create temp table u (k text primary key, id uuid);
 insert into u values ('pres', gen_random_uuid()), ('tre', gen_random_uuid()), ('sec', gen_random_uuid()),
@@ -89,6 +89,12 @@ select is(cf.money_text(1250075, 'INR') || ' ' || cf.money_text(5000, 'JPY') || 
   'money_text reads the same after moving to exact numeric');
 select ok(pg_get_functiondef('cf.money_text(bigint, text)'::regprocedure) !~ '10 \^',
   'and no longer raises 10 to a power in double precision');
+
+-- The exponent travels with the society, from the server's ISO 4217 table.
+select pg_temp.as_('tre');
+select is((public.api_me('soc_b')->'society'->>'currency_exponent')::int,
+  2, 'api_me sends the society''s currency exponent: INR is 2');
+select is(array[cf.currency_exponent('JPY'), cf.currency_exponent('KWD')], array[0, 3], 'and the table is ISO 4217''s, not a fixed 2');
 
 select * from finish();
 rollback;
