@@ -71,10 +71,15 @@ export function Login() {
     setBusy(true)
     setError(null)
     /*
-     * NO emailRedirectTo, deliberately. Passing it is what asks Supabase for
-     * the LINK template; the screen that follows asks for a six-digit code,
-     * so the email arrived carrying a link and no code and the code field
-     * could never be filled. Omitting it selects the token template.
+     * NO emailRedirectTo, deliberately: the option aims a link at the project's
+     * Site URL, and this screen asks for a six-digit code instead.
+     *
+     * It does NOT select the template, though an earlier version of this
+     * comment said so. Supabase picks that by whether the ADDRESS is
+     * confirmed - an unconfirmed one gets *Confirm signup* while *Confirm
+     * email* is on - so the link-and-no-code mail is fixed by the templates
+     * and the hosted Auth settings, not from here. Omitting this is still
+     * right; it is just not the fix.
      *
      * The failure is invisible from here: the send SUCCEEDS, this screen
      * advances to "Check your email", and only the mail itself is wrong -

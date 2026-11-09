@@ -4,10 +4,21 @@
  * person could not finish signing in: there was no number anywhere in the mail
  * to type, and the link landed on a localhost page.
  *
- * The cause was one option. `signInWithOtp` sends the TOKEN template when it is
- * called without `emailRedirectTo`, and the LINK template when it is called
- * with one. We passed `emailRedirectTo: location.origin`, so we asked for the
- * link and then rendered a code field.
+ * We passed `emailRedirectTo: location.origin` and then rendered a code field.
+ *
+ * WHAT ACTUALLY SELECTS THE TEMPLATE - corrected, and not what this file
+ * first claimed. Supabase chooses by the ADDRESS, not by this option: an
+ * address it has never confirmed gets the *Confirm signup* template whenever
+ * *Confirm email* is on, which is the hosted default. The local stack sets
+ * `enable_confirmations = false`, which is why no amount of local testing
+ * could reproduce it. Every real first sign-in is from an unconfirmed
+ * address, so production sent the stock confirmation mail.
+ *
+ * So omitting `emailRedirectTo` does NOT by itself change which template is
+ * sent, and the assertion below must not be read as proof that the mail is
+ * fixed. It is still correct to omit it - we have no use for a redirect and
+ * passing one aims a link at the Site URL - but the mail was fixed by the
+ * templates and the hosted Auth settings, not from this file.
  *
  * WHY THIS NEEDS A TEST AND NOT ONLY A COMMENT.
  *
@@ -92,7 +103,7 @@ describe('the sign-in email must carry a code, not a link', () => {
 
     expect(
       'emailRedirectTo' in options,
-      'emailRedirectTo asks Supabase for the confirmation-LINK email; this screen asks for a 6-digit code, so the mail arrives with nothing the person can type',
+      'this screen asks for a 6-digit code, so it must not pass a redirect: the option aims a link at the Site URL and we have no use for one. It does NOT select the template - Supabase picks that by whether the address is confirmed - so this passing is not evidence the mail is right',
     ).toBe(false)
   })
 
