@@ -9,18 +9,22 @@ import { describe, expect, it } from 'vitest'
  * deployed one is the backend's to write, so all it can assert is that the dev
  * exception stays in the dev constant. Nothing was comparing the two.
  *
- * STATE, and read this before trusting a green run: `vercel.json` carries NO
- * Content-Security-Policy today, so the comparison block below is SKIPPED and
- * a green run of this file proves only the unconditional test. The policy
- * arrives with the open PR that adds a real CSP header; the `skipIf` reads the
- * file rather than a hand-flipped flag, so those assertions start running on
- * that merge with nothing here to edit. Verified against that PR's actual
- * policy by applying it locally: all seven activate and pass, so the merge
- * does not go red for our reasons.
+ * STATE: `vercel.json` now carries a real Content-Security-Policy, so every
+ * assertion below RUNS. The `skipIf` reads the file rather than a hand-flipped
+ * flag, which is why the merge that added the policy needed no edit here. Do
+ * not re-describe this suite as skipped without re-reading `vercel.json`.
  *
- * The limit that remains, stated rather than papered over: with no policy in
- * the file this suite cannot tell "not merged yet" from "the header was
- * deleted". Only a check against a deployed response closes that.
+ * The limit that remains, stated rather than papered over: this suite reads
+ * the repository, not a response. It would now fail loudly on a diff that
+ * deleted the header, but it cannot tell a policy that is merged from one that
+ * is actually DEPLOYED. Only a check against a deployed response closes that.
+ *
+ * The second limit is this file's own inputs. Both directions of the origin
+ * comparison are driven by `.env.example`, so a value emptied there empties
+ * the comparison: every assertion passes while nothing is compared. That is
+ * the "a check whose pattern matches nothing reports success forever" failure,
+ * so the invariant is asserted directly in `configuredOrigins` below rather
+ * than left to the warning in that file's header.
  *
  * The failure this catches is silent in the direction that matters. `connect-src`
  * in `vercel.json` is a hardcoded list of origins; the dev server builds its own
@@ -99,6 +103,57 @@ const policyDeployed =
     (h.headers ?? []).some((x) => x.key.toLowerCase() === 'content-security-policy'),
   )
 
+/*
+ * Every origin `.env.example` configures, with the variable that set it, and
+ * THE ASSERTION THAT THERE IS AT LEAST ONE.
+ *
+ * That assertion is the point of the helper. Both directions of the origin
+ * comparison iterate this list, so an empty list makes both loops bodies that
+ * never run - eight green tests over a policy permitting anything at all.
+ * Emptying `VITE_SUPABASE_URL` in `.env.example` is a one-character edit that
+ * does exactly that, and the file's header warns a reader but enforces
+ * nothing. A check that silently measures nothing reports success forever, so
+ * the floor is asserted here, once, where both callers get it.
+ *
+ * The NAME is carried because the two directions need different sets and only
+ * the name distinguishes them: Supabase is reached over https and wss (the
+ * realtime channel), while the anchor is a plain fetch of a static file.
+ */
+function configuredOrigins(example: string): { name: string; origin: string }[] {
+  const entries = [...example.matchAll(/^(VITE_[A-Z_]*URL)=(.+)$/gm)]
+    .map((m) => ({ name: m[1] ?? '', raw: (m[2] ?? '').trim().replace(/^["']|["']$/g, '') }))
+    .filter((e) => e.raw !== '')
+    .flatMap((e) => {
+      try {
+        return [{ name: e.name, origin: new URL(e.raw.replace('{society}', 'x')).origin }]
+      } catch {
+        return []
+      }
+    })
+
+  expect(
+    entries.length,
+    'No VITE_*URL in .env.example resolves to an origin, so both directions of ' +
+      'this comparison iterate an empty list and every assertion below passes ' +
+      'without comparing anything. Restore the deployment origin there - every ' +
+      'value in that file is public by construction, so there is nothing to ' +
+      'protect by leaving it blank.',
+  ).toBeGreaterThan(0)
+
+  /* VITE_SUPABASE_URL specifically, because it is the one the app cannot run
+   * without and the only one requiring a wss origin. Named rather than counted:
+   * a different URL arriving later would satisfy the count above while leaving
+   * the Supabase comparison empty. */
+  expect(
+    entries.map((e) => e.name),
+    'VITE_SUPABASE_URL must resolve to an origin in .env.example; it is the ' +
+      'origin every data read goes to, so without it the policy is unchecked ' +
+      'against the one host that matters most.',
+  ).toContain('VITE_SUPABASE_URL')
+
+  return entries
+}
+
 describe('the deployed policy is declared unambiguously', () => {
   it('declares at most one CSP, covering every route', () => {
     /*
@@ -165,17 +220,7 @@ describe.skipIf(!policyDeployed)('the deployed CSP permits every origin the app 
      * deployment is configured from.
      */
     const example = readFileSync(resolve(root, '.env.example'), 'utf8')
-    const configured = [...example.matchAll(/^VITE_(?:SUPABASE_URL|ANCHOR_URL)=(.+)$/gm)]
-      .map((m) => (m[1] ?? '').trim().replace(/^["']|["']$/g, ''))
-      .filter((v) => v !== '')
-      .map((v) => {
-        try {
-          return new URL(v.replace('{society}', 'x')).origin
-        } catch {
-          return ''
-        }
-      })
-      .filter((o) => o !== '')
+    const configured = configuredOrigins(example).map((e) => e.origin)
 
     /*
      * DELIBERATELY THE LOOSE CHECK, and the strict one lives in "permits in
@@ -296,23 +341,7 @@ describe.skipIf(!policyDeployed)('the deployed CSP permits every origin the app 
 
     const example = readFileSync(resolve(root, '.env.example'), 'utf8')
 
-    /*
-     * Each configured URL, as the origin it resolves to, paired with the
-     * variable that set it. The NAME is kept because the two directions of
-     * this comparison need different sets and only the name distinguishes
-     * them: Supabase is reached over both https and wss (api.ts opens a
-     * realtime channel), while the anchor is a plain fetch of a static file.
-     */
-    const configuredEntries = [...example.matchAll(/^(VITE_[A-Z_]*URL)=(.+)$/gm)]
-      .map((m) => ({ name: m[1] ?? '', raw: (m[2] ?? '').trim().replace(/^["']|["']$/g, '') }))
-      .filter((e) => e.raw !== '')
-      .flatMap((e) => {
-        try {
-          return [{ name: e.name, origin: new URL(e.raw.replace('{society}', 'x')).origin }]
-        } catch {
-          return []
-        }
-      })
+    const configuredEntries = configuredOrigins(example)
 
     /*
      * The PERMISSIVE set, for checking the policy does not permit an origin
