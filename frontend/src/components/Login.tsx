@@ -52,9 +52,20 @@ export function Login() {
     e.preventDefault()
     setBusy(true)
     setError(null)
-    // shouldCreateUser stays true so a resident the committee added can sign
-    // in the first time; an email with no account here sees nothing.
-    const { error: sendError } = await supabase.auth.signInWithOtp({ email: email.trim().toLowerCase(), options: { emailRedirectTo: location.origin } })
+    /*
+     * NO emailRedirectTo, deliberately. Passing it is what asks Supabase for
+     * the LINK template; the screen that follows asks for a six-digit code,
+     * so the email arrived carrying a link and no code and the code field
+     * could never be filled. Omitting it selects the token template.
+     *
+     * The failure is invisible from here: the send SUCCEEDS, this screen
+     * advances to "Check your email", and only the mail itself is wrong -
+     * which is why a test that stops at `sent === true` would stay green.
+     *
+     * shouldCreateUser stays true so a resident the committee added can sign
+     * in the first time; an email with no account here sees nothing.
+     */
+    const { error: sendError } = await supabase.auth.signInWithOtp({ email: email.trim().toLowerCase() })
     setBusy(false)
     if (sendError) setError(sendError.message)
     else setSent(true)
