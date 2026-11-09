@@ -76,7 +76,22 @@ election minutes at `PUT /api/setup/minutes`, and opens it at
 ## Sign-in and mail
 
 Everyone signs in with a ClearFunds ID and a code emailed by Supabase Auth
-(`templates/magic_link.html`). Enrolment mail is queued in
+(`templates/magic_link.html`, and `templates/confirmation.html` for an address
+signing in for the first time). Neither mail carries a link.
+
+`config.toml` only configures the local stack. A hosted project needs the same
+settings made in the dashboard, and sign-in is broken until they are (#129):
+
+| Dashboard | Setting |
+|---|---|
+| Auth → URL Configuration → Site URL | the deployed origin, e.g. `https://clear-funds-frontend.vercel.app` |
+| Auth → URL Configuration → Redirect URLs | the deployed origin; add `http://localhost:5173` only if local dev uses this project |
+| Auth → Emails → Confirm signup | subject and body from `templates/confirmation.html` |
+| Auth → Emails → Magic link | subject and body from `templates/magic_link.html` |
+| Auth → Providers → Email → Email OTP length / expiry | 6 digits, 600 seconds |
+
+Leave the stock templates in place and a first sign-in mails "Confirm your
+email address … finish signing up" with a link to the Site URL and no code. Enrolment mail is queued in
 `private.mail_outbox` and sent by the edge function: straight after
 `/open-society`, and every minute by a `pg_cron` job once the project's Vault
 holds where to call and the shared secret:
