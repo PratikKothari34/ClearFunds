@@ -220,19 +220,39 @@ describe('the limit the deployed server actually enforces', () => {
     ).toBe(true)
   })
 
-  it('agrees with whichever unit is deployed', () => {
+  it('agrees with whichever unit the migrations in this tree bound', () => {
     if (byteCheck) {
       /*
-       * The byte check has landed. The character ceiling is now obsolete:
-       * the server accepts 16,384 bytes whatever the character count, so
-       * our 4,000-character rule would refuse valid work. Raise
-       * STATEMENT_MAX_CHARS out of the way (or delete the rule and this
-       * block) in the same change that notices this.
+       * THE BYTE MIGRATION IS IN THIS TREE. That is NOT the same as the
+       * server enforcing bytes, and this case used to conflate the two: it
+       * demanded STATEMENT_MAX_CHARS be raised above the byte ceiling the
+       * moment the migration appeared in the working tree. That demand is
+       * the dangerous direction.
+       *
+       * Production is behind this migration. A deployment still running the
+       * character check refuses text our raised rule would accept, so
+       * lifting the rule here sends the auditor text the live server
+       * rejects - losing the statement at the one irreversible action,
+       * which is the failure this whole module exists to prevent. The note
+       * in the case below already states this asymmetry: refusing early
+       * costs a retype, accepting too much costs the work.
+       *
+       * So the only thing this case may assert while both units exist in
+       * history is that our character rule is still STRICTER than the byte
+       * ceiling, i.e. it cannot accept more than the most permissive server
+       * would. A character count never exceeds the byte count of the same
+       * text (UTF-8 is >= 1 byte per character), so a 4,000-character rule
+       * can never admit more than 16,384 bytes. That is the safe invariant,
+       * and it holds whichever unit is actually deployed.
+       *
+       * The rule is dropped when the byte migration is DEPLOYED. That is a
+       * deliberate human decision made against the live server, not a
+       * conclusion this suite is allowed to draw from a file listing.
        */
       expect(
         STATEMENT_MAX_CHARS,
-        'the server now bounds bytes, not characters: the 4,000-character rule is a false denial and must be lifted',
-      ).toBeGreaterThan(STATEMENT_MAX_BYTES)
+        'the character rule must stay no looser than the byte ceiling while production may still enforce characters',
+      ).toBeLessThanOrEqual(STATEMENT_MAX_BYTES)
       return
     }
     expect(Number(charCheck![1]), 'the deployed character ceiling moved and statement.ts was not updated')
