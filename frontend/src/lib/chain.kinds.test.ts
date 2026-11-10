@@ -40,10 +40,13 @@ import { KINDS, encode, flatToken, hex, preimage, sha256, walk, type Entry } fro
  * own reported hash. Adding `ledger-kinds` to a literal fixes today and
  * leaves the next file in exactly the same position.
  *
- * `ledger-kinds.v1.json` is the live case: it is in the contracts PR and not
- * yet merged. Discovery means this suite picks it up the moment it lands,
- * with no edit here, and does not fail in the meantime for a file that does
- * not exist yet.
+ * `ledger-kinds.v1.json` is the live case: it merged to main in #95, and
+ * discovery means any tree holding it checks it with no edit here, while a
+ * tree without it does not fail for a file it never had.
+ *
+ * Discovery and REQUIRED are the two halves of one rule - discovery makes a
+ * NEW file arrive, REQUIRED makes a DELETED one fail - and they key off
+ * different events. See REQUIRED below for which.
  *
  * The guard against discovery turning into a silent skip is below: the set
  * found on disk is asserted to contain every file we know about, so a
@@ -61,10 +64,18 @@ const FILES = readdirSync(VECTORS)
   .sort()
 
 /*
- * The files that must be there. `ledger-kinds` is deliberately NOT here
- * while the contracts PR is open - it would fail the suite for work that is
- * not ours - but it is named in the comment above and discovery picks it up
- * on merge. Everything already merged is required.
+ * The files that must be there: the ones present in THIS tree. A file is
+ * added here once it is on this branch, never merely once it is on main -
+ * naming a file this branch has not got fails the suite for work that is
+ * not ours, and leaving a present one out means a rename or deletion
+ * shrinks the run instead of failing it.
+ *
+ * `ledger-kinds` is the live case, and the two halves are not the same
+ * event: it merged to main in #95, so DISCOVERY already consumes it on any
+ * tree that has it, with no edit here. It joins REQUIRED when it reaches
+ * this branch, which needs a rebase this branch has not had. Adding it
+ * before then turns a green suite red over a file that is not missing -
+ * it was never here.
  */
 const REQUIRED = ['claims-kinds', 'notices-kinds', 'society-kinds'] as const
 
@@ -92,6 +103,20 @@ describe('the vector files this suite found', () => {
     expect(FILES.length, `no *-kinds.v1.json in ${VECTORS}`).toBeGreaterThan(0)
   })
 
+  /*
+   * Mutation-proven by hiding and by renaming a vector file. Both kill it -
+   * but NOT through this assertion: all three REQUIRED files are also
+   * load()ed by name at module scope below (society/claims/notices), so a
+   * missing one throws ENOENT at import and the run reports "no tests".
+   * The failure is loud and names the path, which is what the guard is for.
+   *
+   * This assertion is therefore unkillable on its own today, and that is
+   * not a reason to delete it: it is what catches a file that discovery
+   * stops reading while something else still loads it - a change to the
+   * `-kinds.v1.json` filter, or a REQUIRED file that no describe block
+   * happens to name. It is the one that reports WHICH file by name instead
+   * of a stack trace.
+   */
   it('consumes every kind vector file the contracts publish', () => {
     for (const r of REQUIRED) {
       expect(FILES, `${r}.v1.json is no longer being read`).toContain(r)
