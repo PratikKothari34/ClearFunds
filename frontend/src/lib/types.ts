@@ -186,7 +186,13 @@ export type Year = {
   closed: boolean
   headline: Opinion | null
   headline_seq: number | null
-  history: { seq: number; opinion: Opinion; statement: string; auditor: string; recorded_at: number }[]
+  /*
+   * `appointment_seq` is the `posting` of the `appoint_auditor` proposal that
+   * appointed this auditor: the society's authorisation to publish THIS
+   * statement. Never null. It is read from the `year_close` itself and never
+   * matched by name, so two appointments of the same person stay distinct.
+   */
+  history: { seq: number; opinion: Opinion; statement: string; auditor: string; appointment_seq: number; recorded_at: number }[]
   auditor: { name: string; appointment_seq: number }[] | null
 }
 

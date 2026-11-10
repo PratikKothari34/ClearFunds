@@ -189,6 +189,15 @@ const opinionEntry = object<Year['history'][number]>({
   opinion: required(opinion),
   statement: required(str),
   auditor: required(str),
+  /*
+   * REQUIRED, not optional. The contract says never null, and this is the
+   * society's authorisation to publish the statement beside it. `object()`
+   * keeps unknown fields rather than stripping them, so leaving this
+   * undeclared did not drop the value at runtime - it left it untyped and
+   * unchecked, which is worse: no surface could read it without a cast, and
+   * an absent or null one would have parsed clean.
+   */
+  appointment_seq: required(int),
   recorded_at: required(int),
 })
 

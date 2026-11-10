@@ -4,6 +4,7 @@ import { AlertTriangle, Printer } from 'lucide-react'
 import { useReport, useYears } from '../lib/api'
 import { auditChip, categoryLabel, day, instant, longDay, month, opinionHint, opinionLabel, opinionTone } from '../lib/format'
 import { checkHeadline, governingSeq } from '../lib/opinion'
+import { authorisation, nameIsAmbiguous } from '../lib/appointment'
 import { Amount, Button, Caption, Card, Chip, Failed, Fingerprint, Loading, PageTitle, Segmented, cx } from '../components/ui'
 import type { Report } from '../lib/types'
 import { direction } from '../lib/countable'
@@ -64,6 +65,19 @@ function Body({ r }: { r: Report }) {
    * serious than the headline cannot be right whatever the server knows. */
   const headline = checkHeadline(op.headline, op.history)
   const governs = governingSeq(op.headline, op.headline_seq, op.history)
+  /*
+   * The appointments are a SEPARATE read from the report, so this screen can
+   * hold a statement whose authorisation it has not got yet.
+   *
+   * `null` is passed deliberately whenever that read has not succeeded for
+   * this year - in flight, failed, or the year absent from the list - because
+   * `authorisation()` reads null as "not reported" and says so. Passing `[]`
+   * instead would turn every statement on a slow or failed read into one the
+   * society cannot authorise, which is an accusation made from no data.
+   */
+  const years = useYears()
+  const appointments = years.data?.find((y) => y.fy === op.fy)?.auditor ?? null
+  const ambiguous = nameIsAmbiguous(op.history)
   const audit = headline.state === 'understated'
     ? auditChip(op.closed, headline.worst)
     : auditChip(op.closed, op.headline)
@@ -212,16 +226,41 @@ function Body({ r }: { r: Report }) {
       <section>
         <Caption>Auditor’s opinion</Caption>
         <Card className="p-5">
-          {op.history.length ? op.history.map((h) => (
-            <div key={h.seq} className="py-2">
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-sm font-medium">{h.auditor}</span>
-                <Chip tone={opinionTone(h.opinion)}>{opinionLabel[h.opinion]}{h.seq === governs && op.history.length > 1 ? ', governs' : ''}</Chip>
+          {op.history.length ? op.history.map((h) => {
+            /*
+             * Which appointment authorised THIS statement, by seq. Decided in
+             * lib/appointment.ts: a name match proves nothing, because a
+             * society can appoint the same person twice for one year and a
+             * statement published under a revoked appointment must not read
+             * like one published under a live appointment.
+             */
+            const auth = authorisation(h, appointments)
+            return (
+              <div key={h.seq} className="py-2">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm font-medium">{auth.state === 'authorised' ? auth.name : h.auditor}</span>
+                  <Chip tone={opinionTone(h.opinion)}>{opinionLabel[h.opinion]}{h.seq === governs && op.history.length > 1 ? ', governs' : ''}</Chip>
+                </div>
+                <p className="mt-2 text-sm leading-relaxed text-ink-2">{h.statement}</p>
+                <p className="mt-1 text-xs text-ink-2">
+                  Signed {instant(h.recorded_at)} · #{h.seq}
+                  {/* The appointment is shown whenever the name alone cannot
+                      identify it, and always when it is not confirmed. */}
+                  {auth.state === 'authorised' && ambiguous && <> · appointed by #{auth.seq}</>}
+                </p>
+                {auth.state === 'unauthorised' && (
+                  <p className="mt-1 text-xs text-attention">
+                    The appointment this statement cites (#{auth.seq}) is not among this year’s appointments.
+                  </p>
+                )}
+                {auth.state === 'unconfirmable' && (
+                  <p className="mt-1 text-xs text-ink-2">
+                    This year’s appointments were not reported, so the authorisation for this statement (#{auth.seq}) could not be checked.
+                  </p>
+                )}
               </div>
-              <p className="mt-2 text-sm leading-relaxed text-ink-2">{h.statement}</p>
-              <p className="mt-1 text-xs text-ink-2">Signed {instant(h.recorded_at)} · #{h.seq}</p>
-            </div>
-          )) : <p className="text-sm text-ink-2">No opinion yet. Only the appointed auditor closes the year.</p>}
+            )
+          }) : <p className="text-sm text-ink-2">No opinion yet. Only the appointed auditor closes the year.</p>}
           <p className="mt-3 text-[13px] text-ink-2">An audit gives reasonable assurance, not a guarantee.</p>
         </Card>
       </section>

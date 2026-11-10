@@ -86,3 +86,8 @@ Screenshot*.png
 # public, and an unposted review comment is working material, not a
 # published artefact.
 docs/pending-reviews/
+
+# The MASEL project report is a coursework deliverable, not product
+# documentation. Local-only.
+docs/*.docx
+docs/*.docx.bak
