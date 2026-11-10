@@ -83,6 +83,18 @@ describe('authorisation', () => {
     expect(result).toEqual({ state: 'unauthorised', seq: 12345 })
   })
 
+  it('treats an EMPTY reported list as unauthorised, not unconfirmable', () => {
+    /*
+     * `[]` is the society answering "nobody is appointed for this year", and
+     * a statement published anyway is exactly what must be disclosed. It
+     * reaches this function as `[]` and not as null - `?.auditor ?? null` on
+     * a year whose list is empty yields `[]`, which is the behaviour the two
+     * screens depend on. A refactor to `|| null` would break it silently,
+     * because an empty array is truthy and an empty one is not falsy.
+     */
+    expect(authorisation(entry({ appointment_seq: 9 }), []).state).toBe('unauthorised')
+  })
+
   it('carries the seq in every outcome, so a surface can always cite it', () => {
     const e = entry({ appointment_seq: 42 })
     for (const appts of [null, [], [{ name: SAME_NAME, appointment_seq: 42 }]]) {
@@ -170,5 +182,20 @@ describe('nameIsAmbiguous', () => {
 
   it('is false for an empty history', () => {
     expect(nameIsAmbiguous([])).toBe(false)
+  })
+
+  it('finds a shared name across NON-ADJACENT entries', () => {
+    // A pairwise or neighbour-only comparison passes the two-entry cases and
+    // misses this one, which is the shape a real multi-year history has.
+    expect(nameIsAmbiguous([
+      entry({ seq: 400, auditor: SAME_NAME, appointment_seq: 9 }),
+      entry({ seq: 500, auditor: 'CA Other', appointment_seq: 20 }),
+      entry({ seq: 600, auditor: SAME_NAME, appointment_seq: 31 }),
+    ])).toBe(true)
+  })
+
+  it('is false for a single entry, whatever it carries', () => {
+    // One opinion cannot be ambiguous with anything.
+    expect(nameIsAmbiguous([entry({})])).toBe(false)
   })
 })
