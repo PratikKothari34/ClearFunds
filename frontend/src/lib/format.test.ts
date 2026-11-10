@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { auditChip, categoryLabel, flatSetLabel, headlineOpinion, opinionChip, opinionTone, worseOpinion, writeOutcome } from './format'
+import { approvalDiscloses, auditChip, categoryLabel, flatSetLabel, headlineOpinion, opinionChip, opinionTone, worseOpinion, writeOutcome } from './format'
 import { PROPOSAL_STATES } from './types'
 import type { Opinion } from './types'
 
@@ -409,5 +409,102 @@ describe('the tone names lib/ may ask for match the ones ui.tsx can render', () 
     for (const t of readUnion('../components/ui.tsx', 'type Tone =')) {
       expect(ui, `${t} has no class`).toMatch(new RegExp(`\\n\\s*${t}:\\s*'`))
     }
+  })
+})
+
+/*
+ * Approving `appoint_auditor` is the society's recorded authorisation to
+ * publish that auditor's statement for the year - there is no separate
+ * consent entry - so the approver has to be told before deciding. That makes
+ * the question "which actions carry a consequence" a decision, which is why
+ * it is a `Record` here and not a `switch` in the route.
+ *
+ * The union is read from types.ts rather than listed again. An action added
+ * there fails this suite instead of silently getting no entry: the typecheck
+ * catches a missing key, but `vitest` does not typecheck, so a suite that
+ * only read the Record would pass on code that cannot compile.
+ */
+const ACTIONS = (() => {
+  const src = readFileSync(resolve(__dirname, './types.ts'), 'utf8')
+  const m = src.match(/export type Action =([\s\S]*?)\nexport /)
+  if (!m) throw new Error('no `export type Action =` block in types.ts')
+  const vs = [...m[1]!.matchAll(/'([a-z_]+)'/g)].map((x) => x[1]!)
+  if (vs.length < 2) throw new Error(`Action is not a union: ${m[1]}`)
+  return vs.toSorted()
+})()
+
+describe('what approving a proposal discloses', () => {
+  it('reads the real Action union, not a stale copy', () => {
+    // The guard above is only as good as this list. If the regex stops
+    // matching, every loop below iterates nothing and passes.
+    expect(ACTIONS.length).toBeGreaterThanOrEqual(8)
+    expect(ACTIONS).toContain('appoint_auditor')
+  })
+
+  it('covers every action, so a new one cannot ship without a decision', () => {
+    expect(Object.keys(approvalDiscloses).toSorted()).toEqual(ACTIONS)
+  })
+
+  it('appointing an auditor discloses; the entry is a function', () => {
+    expect(typeof approvalDiscloses.appoint_auditor).toBe('function')
+  })
+
+  it('says who, says the year, and says it is published to every member', () => {
+    // The rule, not the sentence: an assertion on the exact copy gets
+    // "fixed" by pasting the new wording in, which deletes the test's
+    // meaning. What must survive a rewrite is that the approver is told
+    // whose statement, for which year, and how widely it goes.
+    const said = approvalDiscloses.appoint_auditor!('Asha Rao', '2025-26')
+    expect(said).toContain('Asha Rao')
+    expect(said).toContain('2025-26')
+    expect(said).toMatch(/every member/i)
+    expect(said).toMatch(/authoris|authoriz/i)
+  })
+
+  it('carries the subject through rather than hardcoding one', () => {
+    // A template that ignored its arguments would pass every assertion
+    // above if the sample happened to be in the literal.
+    const a = approvalDiscloses.appoint_auditor!('Asha Rao', '2025-26')
+    const b = approvalDiscloses.appoint_auditor!('B. Mehta', '2026-27')
+    expect(b).not.toEqual(a)
+    expect(b).toContain('B. Mehta')
+    expect(b).toContain('2026-27')
+    expect(b).not.toContain('Asha Rao')
+    expect(b).not.toContain('2025-26')
+  })
+
+  it('discloses nothing for the actions that authorise nothing further', () => {
+    // Approving an expense consents to the expense. If one of these ever
+    // grows a consequence, it gets an entry and a line here - the point is
+    // that the decision is explicit either way, never absent.
+    for (const a of ACTIONS.filter((x) => x !== 'appoint_auditor')) {
+      expect(approvalDiscloses[a as keyof typeof approvalDiscloses],
+        `${a} grew a disclosure with no test`).toBeNull()
+    }
+  })
+
+  it('the route renders the decision rather than making its own', () => {
+    // The copy used to live in a switch in approvals.tsx, where no test
+    // reaches it without mounting a router - which is why it was never
+    // written. This asserts the route asks lib/ for the answer.
+    const route = readFileSync(resolve(__dirname, '../routes/approvals.tsx'), 'utf8')
+      .replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
+    expect(route).toMatch(/approvalDiscloses\[/)
+
+    /*
+     * And that it is rendered unconditionally, not behind `confirm`.
+     *
+     * The first version of this assertion searched for `confirm &&` near the
+     * word "authoris" - which never appears in the route, because the copy
+     * lives in format.ts. So it matched nothing and passed, and wrapping the
+     * element in `{confirm && ...}` survived as a mutant. The needle has to
+     * be the thing the route actually contains: the element itself.
+     */
+    const rendered = route.match(/<Disclosure\b[^/]*\/>/g) ?? []
+    expect(rendered, 'approvals.tsx no longer renders <Disclosure />').toHaveLength(1)
+    const at = route.indexOf(rendered[0]!)
+    const before = route.slice(Math.max(0, at - 60), at)
+    expect(before, 'the disclosure must not be gated behind the confirm step')
+      .not.toMatch(/(confirm|open|expanded|show\w*)\s*(&&|\?)\s*$/)
   })
 })
