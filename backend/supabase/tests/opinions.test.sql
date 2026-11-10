@@ -1,7 +1,7 @@
 -- The year's headline (AGENTS.md rule 19): the most serious opinion ever received.
 -- No later opinion supersedes an earlier one, whoever appointed its auditor.
 begin;
-select plan(9);
+select plan(11);
 
 create temp table u (k text primary key, id uuid);
 insert into u select k, gen_random_uuid()
@@ -62,6 +62,12 @@ select is(pg_temp.head(), 'disclaimer', 'a disclaimer is more serious than adver
 
 select pg_temp.close('a5', 105, array[gen_random_uuid()], 'disclaimer');
 select is(pg_temp.head_seq(), (select seq from s where k = 'disclaimer'), 'of two equally serious, the earlier governs');
+
+select is((select string_agg(h->>'appointment_seq', ',' order by (h->>'seq')::bigint)
+             from jsonb_array_elements(cf.year_opinions('soc_h', pg_temp.fy())->'history') h),
+  '101,102,103,104,105', 'each opinion names the appointment that authorised it');
+select is((select count(*) from jsonb_array_elements(cf.year_opinions('soc_h', pg_temp.fy())->'history') h
+            where h->>'appointment_seq' is null), 0::bigint, 'and none is without one');
 
 select * from finish();
 rollback;
