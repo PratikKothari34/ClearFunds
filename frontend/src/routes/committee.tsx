@@ -8,6 +8,8 @@ import { useMeStrict, isCommittee } from '../lib/session'
 import { instant, roleLabel, todayIST, fyOf, opinionChip, opinionTone, writeOutcome } from '../lib/format'
 import { format, parse } from '../lib/money'
 import { countable } from '../lib/countable'
+import { auditorPresence } from '../lib/auditors'
+import { derivedRead } from '../lib/listread'
 import { Avatar, Button, Caption, Card, Chip, Failed, Field, Input, Loading, MoneyInput, PageTitle, Segmented, Sheet, useToast } from '../components/ui'
 import { ROLE_ORDER, type Role } from '../lib/types'
 import { approvalsNeeded } from '../lib/tier'
@@ -39,6 +41,18 @@ function Committee() {
   const need = approvalsNeeded(m)
   /* An unreadable limit is left undefined so every surface below shows the
    * placeholder rather than a figure, and never implies the lower tier. */
+  const auditors = useMemo(
+    () => auditorPresence({ data: years.data, isPending: years.isPending, isError: years.isError }),
+    [years.data, years.isPending, years.isError],
+  )
+  /*
+   * `limit.data` is an object, not a list, so the rows are derived and the
+   * read's own flags are what decide - `derivedRead` over the one query.
+   */
+  const histRead = useMemo(
+    () => derivedRead((limit.data?.history ?? []).toReversed(), [limit]),
+    [limit.data, limit.isPending, limit.isError],
+  )
   const limRead = countable(limit.data?.current.limit_minor)
   const lim = limRead.readable ? limRead.minor : undefined
   const mine = isCommittee(me)
@@ -101,32 +115,52 @@ function Committee() {
       {active.some((s) => s.derived) && <p className="mt-2 px-1 text-xs text-ink-2">An emergency seat cannot vote to seat further members. It counts for everything else.</p>}
 
       <Caption className="mt-6">Auditors</Caption>
+      {/* Four outcomes, decided in lib/auditors.ts. "No auditor appointed yet"
+        * is a statement about this society's statutory position, so it may
+        * only be reached once the read has actually succeeded: it used to be
+        * rendered from `(years.data ?? [])`, which is empty while the read is
+        * pending AND when it has failed. The route's error arm covers `c`
+        * alone and this card sits outside it. */}
       <Card className="divide-y divide-line">
-        {(years.data ?? []).filter((y) => y.auditor?.length).map((y) => (
-          <div key={y.fy} className="flex items-center gap-3 px-4 py-3">
-            <Avatar name={y.auditor![0]!.name} />
-            <div className="min-w-0 flex-1">
-              <p className="truncate font-medium">{y.auditor!.map((a) => a.name).join(', ')}</p>
-              <p className="text-[13px] text-ink-2">FY {y.fy}</p>
+        {auditors.kind === 'pending' ? <Loading rows={1} />
+          : auditors.kind === 'unknown' ? (
+            <p className="p-4 text-sm text-ink-2">
+              The auditor appointments could not be loaded, so this is not saying there are none.
+            </p>
+          )
+          : auditors.kind === 'none' ? <p className="p-4 text-sm text-ink-2">No auditor appointed yet.</p>
+          : auditors.years.map((y) => (
+            <div key={y.fy} className="flex items-center gap-3 px-4 py-3">
+              <Avatar name={y.auditor![0]!.name} />
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-medium">{y.auditor!.map((a) => a.name).join(', ')}</p>
+                <p className="text-[13px] text-ink-2">FY {y.fy}</p>
+              </div>
+              {/* A closed year carries its OPINION, never a bare "Year closed" in
+                * the reassuring tone. An adverse opinion or a disclaimer rendered
+                * as calm green here, with the opinion shown nowhere on the
+                * screen - the data was in hand and the chip ignored it. */}
+              <Chip tone={y.closed ? opinionTone(y.headline) : 'neutral'}>{y.closed ? opinionChip(y.headline) : 'Open'}</Chip>
             </div>
-            {/* A closed year carries its OPINION, never a bare "Year closed" in
-              * the reassuring tone. An adverse opinion or a disclaimer rendered
-              * as calm green here, with the opinion shown nowhere on the
-              * screen - the data was in hand and the chip ignored it. */}
-            <Chip tone={y.closed ? opinionTone(y.headline) : 'neutral'}>{y.closed ? opinionChip(y.headline) : 'Open'}</Chip>
-          </div>
-        ))}
-        {!(years.data ?? []).some((y) => y.auditor?.length) && <p className="p-4 text-sm text-ink-2">No auditor appointed yet.</p>}
+          ))}
       </Card>
 
       <Caption className="mt-6">Limit history</Caption>
+      {/* An EMPTY card under this heading is the claim "the limit has never
+        * changed", made without words - the shape needs no sentence to lie.
+        * It was rendered from `(limit.data?.history ?? [])`, so a failed read
+        * showed a society whose approval threshold had always been what it is
+        * now, on the screen that exists to show when it moved. */}
       <Card className="divide-y divide-line">
-        {(limit.data?.history ?? []).toReversed().map((h, i) => (
-          <div key={h.seq} className="flex items-center justify-between px-4 py-3 text-sm">
-            <span className="text-ink-2">{i === 0 ? 'In force since' : 'From'} {instant(h.recorded_at, { day: 'numeric', month: 'short', year: 'numeric' })} · #{h.seq}</span>
-            <span className="tnum font-medium">{histLimit(h) ?? 'Not available'}</span>
-          </div>
-        ))}
+        {histRead.kind === 'pending' ? <Loading rows={2} />
+          : histRead.kind === 'unknown' ? <p className="px-4 py-3 text-sm text-ink-2">The limit history could not be loaded, so this is not saying it has never changed.</p>
+          : histRead.rows.length === 0 ? <p className="px-4 py-3 text-sm text-ink-2">The limit has not changed since it was first set.</p>
+          : histRead.rows.map((h, i) => (
+            <div key={h.seq} className="flex items-center justify-between px-4 py-3 text-sm">
+              <span className="text-ink-2">{i === 0 ? 'In force since' : 'From'} {instant(h.recorded_at, { day: 'numeric', month: 'short', year: 'numeric' })} · #{h.seq}</span>
+              <span className="tnum font-medium">{histLimit(h) ?? 'Not available'}</span>
+            </div>
+          ))}
       </Card>
 
       {mine && <Actions action={action} onClose={() => setAction(null)} name={name} lim={lim} />}
