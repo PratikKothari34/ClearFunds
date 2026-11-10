@@ -28,4 +28,5 @@ Append-only. One line per contract PR:
 2026-11-07 | chain-entry.v1 | CLARIFY the auditor posting is the society's authorisation to disclose that year's statement to members | #3 | not breaking
 2026-11-08 | api.v1 | ADD previous_exists on api_report_compare, signable on api_signoff_months, society.currency_exponent on api_me | #122 | additive
 2026-11-07 | chain-entry.v1 | ADD vectors ledger-kinds.v1.json for the ten ledger kinds; no layout change | #94 | additive
+2026-11-10 | api.v1 | ADD appointment_seq on each opinion in history; specify the opinions object | #131 | additive
 2026-11-08 | chain-entry.v1 | FIX the lone-surrogate must_reject vector: one backslash, so it parses to U+D800 | #124 | not breaking
