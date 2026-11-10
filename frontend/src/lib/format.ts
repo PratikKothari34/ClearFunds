@@ -146,6 +146,24 @@ export const tierLabel = (p: Pick<ProposalRow, 'tier' | 'required' | 'seated'>) 
 export const plural = (n: number, one: string, many = `${one}s`) => `${n.toLocaleString('en-IN')} ${n === 1 ? one : many}`
 
 /**
+ * What a bill-flats charge records when the treasurer leaves the Title blank.
+ *
+ * `/new` requires a note for every kind except `charge`, because submit
+ * generates one here. The screen also has to SAY so next to the field - a
+ * placeholder disappears on focus and reads as a suggestion of what to type,
+ * so the optional field looked identical to the two that block the button.
+ *
+ * One function rather than two spellings: the hint beside the field and the
+ * value actually submitted must agree, and a second copy of
+ * `category === 'parking' ? ... : ...` is a promise the submit path can stop
+ * keeping without anything failing. Telling a treasurer the entry will read
+ * one thing and recording another is the kind of small lie this ledger exists
+ * to make impossible.
+ */
+export const defaultChargeNarration = (category: string, monthKey: string) =>
+  `${category === 'parking' ? 'Parking' : 'Maintenance'} ${month(monthKey)}`
+
+/**
  * '2026-10' for a date.
  *
  * Eight surfaces wrote `.slice(0, 7)` inline while this named helper went
