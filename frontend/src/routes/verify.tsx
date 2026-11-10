@@ -4,7 +4,7 @@ import { AlertTriangle, Check, CircleDashed, Globe, Link2, Loader2, PenLine, Sma
 import { supabase } from '../lib/supabase'
 import { useSociety } from '../lib/api'
 import { useMeStrict } from '../lib/session'
-import { anchorUrl, lastCheck, runCheck, verdict, type Check as CheckT, type Step } from '../lib/verify'
+import { anchorUrl, lastCheck, runCheck, stepsView, verdict, type Check as CheckT, type Step } from '../lib/verify'
 import { anchorRow } from '../lib/anchorfact'
 import { instant, plural } from '../lib/format'
 import { Button, Card, Caption, Fingerprint, PageTitle, Textarea, useToast, cx } from '../components/ui'
@@ -40,6 +40,14 @@ function Verify() {
 
   const v = check && !live ? verdict(check) : null
   /*
+   * A failed run still holds the cached check, so the Steps must not redraw
+   * its findings as the result of the run that just failed. `stale` keeps
+   * them - they are true of their own date - and dates them.
+   */
+  const view = stepsView(check, { running: !!live, failed: !!error })
+  const steps = view.show === 'current' || view.show === 'stale' ? check : null
+  const staleAt = view.show === 'stale' ? view.at : null
+  /*
    * Computed once, and already an absolute http(s) URL or null.
    * This block previously called anchorUrl(s.id) three times, asserted
    * non-null twice, and built a `new URL()` DURING RENDER to get the host.
@@ -70,28 +78,28 @@ function Verify() {
       )}
       {error && <Card className="mb-6 p-5 text-sm text-break">{error}</Card>}
 
-      <Caption>Steps</Caption>
+      <Caption>{staleAt === null ? 'Steps' : `Steps — from the last completed check, ${instant(staleAt)}`}</Caption>
       <Card className="divide-y divide-line">
-        <Row icon={<Link2 className="size-4" />} title="Every entry links to the one before"
+        <Row stale={staleAt !== null} icon={<Link2 className="size-4" />} title="Every entry links to the one before"
           live={live?.fingerprints ?? live?.download} running={!!live && !live.signatures}
-          result={check && !live ? (check.chain === 'ok'
-            ? { ok: true, text: `${plural(check.entries, 'fingerprint')} recomputed. No gaps, no broken links.` }
-            : { ok: false, text: check.chain.failed }) : null} />
-        <Row icon={<PenLine className="size-4" />} title="Every approval is signed by its approver"
+          result={steps ? (steps.chain === 'ok'
+            ? { ok: true, text: `${plural(steps.entries, 'fingerprint')} recomputed. No gaps, no broken links.` }
+            : { ok: false, text: steps.chain.failed }) : null} />
+        <Row stale={staleAt !== null} icon={<PenLine className="size-4" />} title="Every approval is signed by its approver"
           live={live?.signatures} running={!!live?.signatures && !live.device}
-          result={check && !live ? (check.signatures.failed.length === 0
-            ? { ok: true, text: `${plural(check.signatures.checked, 'signature')} match the keys registered in the record.` }
-            : { ok: false, text: `Entries ${check.signatures.failed.slice(0, 5).join(', ')}${check.signatures.failed.length > 5 ? '…' : ''} do not match.` }) : null} />
-        <Row icon={<Smartphone className="size-4" />} title="Nothing this phone saw has changed"
+          result={steps ? (steps.signatures.failed.length === 0
+            ? { ok: true, text: `${plural(steps.signatures.checked, 'signature')} match the keys registered in the record.` }
+            : { ok: false, text: `Entries ${steps.signatures.failed.slice(0, 5).join(', ')}${steps.signatures.failed.length > 5 ? '…' : ''} do not match.` }) : null} />
+        <Row stale={staleAt !== null} icon={<Smartphone className="size-4" />} title="Nothing this phone saw has changed"
           running={!!live?.device && !live.anchor}
-          result={check && !live ? (check.device === 'first'
+          result={steps ? (steps.device === 'first'
             ? { ok: null, text: 'First check on this phone. Nothing earlier to compare against yet.' }
-            : check.device === 'consistent'
+            : steps.device === 'consistent'
               ? { ok: true, text: 'Everything seen on earlier checks is unchanged.' }
-              : { ok: false, text: `Entry ${check.device.changed} is different from what this phone saw before.` }) : null} />
-        <Row icon={<Globe className="size-4" />} title="Matches the fingerprint published outside the committee"
+              : { ok: false, text: `Entry ${steps.device.changed} is different from what this phone saw before.` }) : null} />
+        <Row stale={staleAt !== null} icon={<Globe className="size-4" />} title="Matches the fingerprint published outside the committee"
           running={!!live?.anchor}
-          result={check && !live ? anchorRow(check.anchor, check.anchorHead, check.head.seq, instant) : null} />
+          result={steps ? anchorRow(steps.anchor, steps.anchorHead, steps.head.seq, instant) : null} />
       </Card>
 
       {check && !live && (
@@ -121,23 +129,32 @@ function Verify() {
   )
 }
 
-function Row({ icon, title, live, running, result }: {
+function Row({ icon, title, live, running, result, stale }: {
   icon: React.ReactNode
   title: string
   live?: [number, number] | undefined
   running?: boolean
   result: { ok: boolean | null; text: string } | null
+  /*
+   * The result is from an earlier check, not the run that just failed. A
+   * finding stays visible - it was true when it was made - but a PASS must
+   * stop reading as current, so the tick drops to the neutral mark. A red
+   * X is left alone: a failure found earlier is not made less true by a
+   * later run failing to repeat it.
+   */
+  stale?: boolean
 }) {
+  const ok = stale && result?.ok === true ? null : (result?.ok ?? null)
   return (
     <div className="flex items-start gap-3 p-4">
       <span className={cx('grid size-8 shrink-0 place-items-center rounded-full',
-        result?.ok === true ? 'bg-anchor-soft text-anchor' : result?.ok === false ? 'bg-break-soft text-break' : 'bg-sunken text-ink-2')}>
-        {running ? <Loader2 className="size-4 animate-spin" /> : result?.ok === true ? <Check className="size-4" strokeWidth={2.5} /> : result?.ok === false ? <X className="size-4" strokeWidth={2.5} /> : result ? <CircleDashed className="size-4" /> : icon}
+        ok === true ? 'bg-anchor-soft text-anchor' : ok === false ? 'bg-break-soft text-break' : 'bg-sunken text-ink-2')}>
+        {running ? <Loader2 className="size-4 animate-spin" /> : ok === true ? <Check className="size-4" strokeWidth={2.5} /> : ok === false ? <X className="size-4" strokeWidth={2.5} /> : result ? <CircleDashed className="size-4" /> : icon}
       </span>
       <div className="min-w-0 flex-1">
         <p className="text-[15px] font-medium">{title}</p>
         {running && live && <p className="tnum mt-0.5 text-[13px] text-ink-2">{live[0].toLocaleString('en-IN')}{live[1] > live[0] ? ` of ${live[1].toLocaleString('en-IN')}` : ''}</p>}
-        {result && <p className={cx('mt-0.5 text-[13px]', result.ok === false ? 'text-break' : 'text-ink-2')}>{result.text}</p>}
+        {result && <p className={cx('mt-0.5 text-[13px]', ok === false ? 'text-break' : 'text-ink-2')}>{result.text}</p>}
       </div>
     </div>
   )
