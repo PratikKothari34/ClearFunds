@@ -552,6 +552,18 @@ const whoami = (over: Record<string, unknown> = {}) => ({
   person: 'p1', name: 'Asha Rao', email: 'asha@example.com',
   society: {
     id: 's1', name: 'Sunview CHS', city: 'Pune', currency: 'INR',
+    /*
+     * Both of these are what `api_me` actually sends, checked against the
+     * live response rather than written from the type: `society` is
+     * `to_jsonb()` of the whole societies row, so `committee_threshold` is
+     * present and `null` on a society that never raised it - the ordinary
+     * case - while `currency_exponent` is appended and always a number.
+     *
+     * The fixture carried neither, which is how `currency_exponent` stayed
+     * `optional` long enough to be noticed in review: a fixture that omits a
+     * field cannot tell a tolerant parser from a correct one.
+     */
+    currency_exponent: 2, committee_threshold: null,
     fy_start_month: 4, structuring_window_days: 30,
   },
   seat: { role: 'treasurer', derived: false },
@@ -620,6 +632,52 @@ describe('me', () => {
   it('rejects a society whose own required field is missing', () => {
     const s = whoami().society as Record<string, unknown>
     expect(() => me(whoami({ society: { ...s, currency: null } }), 'useMe')).toThrow(ShapeError)
+  })
+
+  /*
+   * `currency_exponent` was `optional` while production ran a deployment
+   * older than the migration that added it. It is deployed now - verified
+   * against the live schema, not against the merge - so a response without
+   * the field is a broken server rather than an old one, and saying so is
+   * better than falling back silently.
+   *
+   * `money.ts` keeps its own ISO 4217 table regardless. That fallback is the
+   * defence against the two sources DISAGREEING, which the field becoming
+   * required does not retire.
+   */
+  it('rejects a society that omits currency_exponent, now the migration is live', () => {
+    const s = whoami().society as Record<string, unknown>
+    const { currency_exponent: _dropped, ...without } = s
+    expect(() => me(whoami({ society: without }), 'useMe')).toThrow(ShapeError)
+  })
+
+  it('rejects a null currency_exponent, which no correct server sends', () => {
+    const s = whoami().society as Record<string, unknown>
+    expect(() => me(whoami({ society: { ...s, currency_exponent: null } }), 'useMe')).toThrow(ShapeError)
+  })
+
+  /*
+   * `committee_threshold` is the opposite case: nullable on purpose, because
+   * NULL is the ordinary state and means "this committee never raised its
+   * threshold". Null parses; a MISSING field does not, because absence would
+   * be the server failing to say - and reading absence as "not raised" is
+   * exactly how the term went missing from `tier.ts` in the first place.
+   */
+  it('accepts a null committee_threshold, the state of most societies', () => {
+    const s = whoami().society as Record<string, unknown>
+    expect(() => me(whoami({ society: { ...s, committee_threshold: null } }), 'useMe')).not.toThrow()
+  })
+
+  it('carries a raised committee_threshold through instead of dropping it', () => {
+    const s = whoami().society as Record<string, unknown>
+    const parsed = me(whoami({ society: { ...s, committee_threshold: 9 } }), 'useMe')
+    expect(parsed?.society.committee_threshold).toBe(9)
+  })
+
+  it('rejects a society that omits committee_threshold entirely', () => {
+    const s = whoami().society as Record<string, unknown>
+    const { committee_threshold: _dropped, ...without } = s
+    expect(() => me(whoami({ society: without }), 'useMe')).toThrow(ShapeError)
   })
 
   /*

@@ -58,7 +58,7 @@ function NewEntry() {
   const limRead = countable(limit.data?.current.limit_minor)
   const lim = limRead.readable ? limRead.minor : undefined
   const seated = seatedCount(committee.data?.seats)
-  const needed = approvalsNeeded(seated)
+  const needed = approvalsNeeded(seated, me.society.committee_threshold)
   const pair = minor !== null && lim !== undefined && minor <= lim
 
   const flats = useQuery({
