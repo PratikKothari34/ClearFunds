@@ -8,7 +8,7 @@ import { useMeStrict } from '../lib/session'
 import { isOfficer } from '../lib/pending'
 import { hasEarlierToPayee } from '../lib/structuring'
 import { approvalsNeeded, seatedCount } from '../lib/tier'
-import { categories, month, monthOf, todayIST } from '../lib/format'
+import { categories, defaultChargeNarration, month, monthOf, todayIST } from '../lib/format'
 import { checkBusinessDate } from '../lib/businessdate'
 import { format, parse } from '../lib/money'
 import { countable } from '../lib/countable'
@@ -114,7 +114,8 @@ function NewEntry() {
       const out = await propose.mutateAsync(
         kind === 'charge'
           ? { action: 'charge', amount_minor: minor, flat_set: flatSet, category, business_date: date,
-              narration: note.trim() || `${category === 'parking' ? 'Parking' : 'Maintenance'} ${month(monthOf(date))}` }
+              // Same function the hint beside the field reads, so the two cannot drift.
+              narration: note.trim() || defaultChargeNarration(category, monthOf(date)) }
           : { action: kind, amount_minor: minor, category, business_date: date, narration: note.trim(),
               counterparty: kind === 'receipt' && flat ? `Flat ${flatLabel}` : payee.trim(),
               ...(kind === 'receipt' && flat ? { flat_id: flat } : {}) },
@@ -194,7 +195,19 @@ function NewEntry() {
               */}
             {!dateCheck.ok && <p id="date-error" className="mt-1.5 text-sm text-break">{dateCheck.message}</p>}
           </Field>
-          <Field label={kind === 'receipt' ? 'Reference' : kind === 'charge' ? 'Title' : 'What for'} htmlFor="note">
+          {/*
+            * The charge Title is the one note field `ready` does not require,
+            * because `submit` generates a narration for a charge when it is
+            * blank. That was visible only as a placeholder, which disappears
+            * on focus and reads as a suggestion of what to type rather than a
+            * statement that something will be written for you - so the field
+            * looked the same as the two that block the button, and a treasurer
+            * could not tell which.
+            */}
+          <Field label={kind === 'receipt' ? 'Reference' : kind === 'charge' ? 'Title' : 'What for'} htmlFor="note"
+            hint={kind === 'charge'
+              ? `Optional. Left blank, it records as "${defaultChargeNarration(category, monthOf(date))}".`
+              : undefined}>
             <Input id="note" value={note} onChange={(e) => setNote(e.target.value)} maxLength={280}
               placeholder={kind === 'receipt' ? 'UPI ref 6044…' : kind === 'charge' ? `Maintenance ${month(monthOf(date), { month: 'short', year: 'numeric' })}` : 'Pump repair, A wing'} />
           </Field>
