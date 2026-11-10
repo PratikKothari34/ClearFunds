@@ -6,6 +6,7 @@ import { useMeStrict, isCommittee } from '../lib/session'
 import { owing } from '../lib/countable'
 import { reversedIn, reversedOut } from '../lib/reversed'
 import { derivedRead, listReadMap } from '../lib/listread'
+import { barPercent, spendView } from '../lib/spend'
 import { categoryLabel, instant, month, monthOf, plural, proposalTitle, todayIST } from '../lib/format'
 import { Amount, Button, Caption, Card, Facts, ReversedNote, Skeleton, cx } from '../components/ui'
 import { EntryRow } from '../components/EntryRow'
@@ -128,24 +129,48 @@ function InOut({ month }: { month: Summary['months'][number] }) {
   )
 }
 
+/*
+ * The rows and the figure under them have to agree, and `spendView` decides
+ * whether they do - see `lib/spend.ts`. The card has room for four categories,
+ * so on a society with more it prints a figure covering rows it is not
+ * showing; it says so instead of calling that figure a plain "Total".
+ */
+const SPEND_ROWS = 4
+
 function Spend({ items, total }: { items: { category: string; amount_minor: number }[]; total: number }) {
   if (!items.length) return <p className="text-sm text-ink-2">Nothing spent yet this year.</p>
-  const top = items.slice(0, 4)
-  const max = top[0]!.amount_minor || 1
+  const v = spendView(items, total, SPEND_ROWS)
   return (
     <div className="space-y-2.5">
-      {top.map((c) => (
-        <div key={c.category}>
-          <div className="flex items-baseline justify-between gap-3 text-sm">
-            <span>{categoryLabel(c.category)}</span>
-            <Amount minor={c.amount_minor} size="sm" className="text-ink-2" />
+      {v.shown.map((c) => {
+        const width = barPercent(c.amount_minor, v.scale)
+        return (
+          <div key={c.category}>
+            <div className="flex items-baseline justify-between gap-3 text-sm">
+              <span>{categoryLabel(c.category)}</span>
+              <Amount minor={c.amount_minor} size="sm" className="text-ink-2" />
+            </div>
+            <div className="mt-1 h-1.5 rounded-full bg-sunken" aria-hidden>
+              {width === null ? null : <div className="h-full rounded-full bg-ink/70" style={{ width: `${width}%` }} />}
+            </div>
           </div>
-          <div className="mt-1 h-1.5 rounded-full bg-sunken" aria-hidden>
-            <div className="h-full rounded-full bg-ink/70" style={{ width: `${(c.amount_minor / max) * 100}%` }} />
-          </div>
+        )
+      })}
+      {v.covers === 'all' ? (
+        <p className="pt-1 text-right text-[13px] text-ink-2">Total <Amount minor={v.allTotal} size="sm" /></p>
+      ) : (
+        <div className="pt-1 text-right text-[13px] text-ink-2">
+          <p>
+            {v.hidden > 0 ? `Total, all ${v.shown.length + v.hidden} categories ` : 'Total, whole year '}
+            <Amount minor={v.allTotal} size="sm" />
+          </p>
+          {v.hidden > 0 ? (
+            <p className="text-ink-2">
+              {v.hidden === 1 ? '1 smaller category is' : `${v.hidden} smaller categories are`} not shown above.
+            </p>
+          ) : null}
         </div>
-      ))}
-      <p className="pt-1 text-right text-[13px] text-ink-2">Total <Amount minor={total} size="sm" /></p>
+      )}
     </div>
   )
 }
