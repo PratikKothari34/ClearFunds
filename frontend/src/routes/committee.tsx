@@ -246,7 +246,9 @@ function Actions({ action, onClose, name, lim }: { action: Action; onClose: () =
           : go({ action: 'unseat_admin', person: action.unseat, narration: why })}>Propose</Button>}>
       <div className="space-y-4">
         {action === 'limit' && (
-          <Field label="New limit" htmlFor="lim" hint={`Now ${lim !== undefined ? format(lim, 'INR', { compact: true }) : '…'}. Zero sends every entry to the committee.`}>
+          <Field label="New limit" htmlFor="lim"
+            error={amount.trim() && minor === null ? 'Enter an amount like 25,000. A limit cannot be negative.' : null}
+            hint={`Now ${lim !== undefined ? format(lim, 'INR', { compact: true }) : '…'}. Zero sends every entry to the committee.`}>
             <MoneyInput id="lim" value={amount} onChange={setAmount} autoFocus />
           </Field>
         )}

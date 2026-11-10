@@ -7,7 +7,7 @@ import {
   ArrowDownLeft, ArrowUpRight, Briefcase, Car, Check, Copy, Droplets, FileSearch, Home, Loader2,
   MoveVertical, PartyPopper, Sprout, SprayCan, UserCheck, Wrench, X, Zap, Circle, Undo2, Receipt,
 } from 'lucide-react'
-import { parts } from '../lib/money'
+import { parts, typedAmount } from '../lib/money'
 import { countable } from '../lib/countable'
 import { initials } from '../lib/format'
 import type { Reversed } from '../lib/reversed'
@@ -427,7 +427,15 @@ export function Textarea({ className, ...rest }: TextareaHTMLAttributes<HTMLText
   return <textarea {...rest} className={cx(inputBase, 'min-h-24 py-3 text-base leading-relaxed', className)} />
 }
 
-/** An amount field that only ever yields integer minor units. */
+/**
+ * An amount field that only ever yields integer minor units.
+ *
+ * The keystroke filter is `typedAmount` in `lib/money.ts`, NOT a regex here:
+ * this field used to strip a minus sign, which turned `-5` into `5` and
+ * proposed a real five-rupee amount a person never typed. `parse` is what
+ * decides whether an amount is acceptable, so the filter must not delete the
+ * characters it decides on.
+ */
 export function MoneyInput({ id, value, onChange, autoFocus }: { id?: string; value: string; onChange: (v: string) => void; autoFocus?: boolean }) {
   return (
     <div className="relative">
@@ -438,7 +446,7 @@ export function MoneyInput({ id, value, onChange, autoFocus }: { id?: string; va
         autoComplete="off"
         autoFocus={autoFocus}
         value={value}
-        onChange={(e) => onChange(e.target.value.replace(/[^\d.,]/g, ''))}
+        onChange={(e) => onChange(typedAmount(e.target.value))}
         placeholder="0"
         className={cx(inputBase, 'tnum h-16 pl-10 text-3xl font-semibold tracking-tight')}
       />
