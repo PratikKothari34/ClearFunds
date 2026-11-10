@@ -7,6 +7,7 @@ import { useMeStrict } from '../lib/session'
 import { actionLabel, ago, approvalDiscloses, categoryLabel, day, flatSetLabel, plural, proposalTitle, roleLabel, tierLabel, writeOutcome } from '../lib/format'
 import { format } from '../lib/money'
 import { countable } from '../lib/countable'
+import { withdrawStake } from '../lib/withdraw'
 import { Amount, Avatar, Button, Card, Chip, Empty, Facts, Failed, Loading, Meter, PageTitle, Segmented, Sheet, useToast, cx } from '../components/ui'
 import { waitsOn } from '../components/Shell'
 import type { ProposalRow } from '../lib/types'
@@ -64,6 +65,11 @@ function ProposalCard({ p, canAct }: { p: ProposalRow; canAct: boolean }) {
   const limit = useLimit()
   const [confirm, setConfirm] = useState(false)
   const [declineOpen, setDeclineOpen] = useState(false)
+  const [withdrawOpen, setWithdrawOpen] = useState(false)
+  // The stake is read from the server's count, which may be missing or
+  // unreadable - in which case it says so rather than claiming nothing is
+  // at risk. See lib/withdraw.ts.
+  const stake = withdrawStake(p.approve_count)
   const mineToWithdraw = p.state === 'open' && p.proposed_by === me.person
   /* The narrowed amount, not the raw field re-asserted: a guard that
    * checks one expression and passes another stops guarding the moment
@@ -143,8 +149,14 @@ function ProposalCard({ p, canAct }: { p: ProposalRow; canAct: boolean }) {
             </>
           ))}
           {!canAct && mineToWithdraw && (
-            <Button tone="ghost" busy={withdraw.isPending} icon={<Undo2 className="size-4" />}
-              onClick={async () => { try { await withdraw.mutateAsync(p.seq); toast('Withdrawn. It stays on the record as withdrawn.') } catch (e) { toast(e instanceof Refused ? e.message : 'Could not withdraw.', 'error') } }}>
+            /*
+             * Opens a confirmation rather than withdrawing on the click.
+             * Approve has a two-step confirm and Decline has a sheet, and
+             * withdrawing is the only one of the three that cannot be undone:
+             * it closes the proposal for good and every approval already cast
+             * has to be collected again on a new entry.
+             */
+            <Button tone="ghost" icon={<Undo2 className="size-4" />} onClick={() => setWithdrawOpen(true)}>
               Withdraw my proposal
             </Button>
           )}
@@ -159,6 +171,18 @@ function ProposalCard({ p, canAct }: { p: ProposalRow; canAct: boolean }) {
           {p.tier === 'pair' ? 'Below the limit, one decline from the treasurer or the secretary closes it.'
             : `It closes once too few members remain to reach ${p.required}.`} Your decline is signed and stays on the record.
         </p>
+      </Sheet>
+
+      <Sheet open={withdrawOpen} onClose={() => setWithdrawOpen(false)} title="Withdraw this proposal?"
+        footer={<Button tone="danger" className="w-full" busy={withdraw.isPending}
+          onClick={async () => {
+            try { await withdraw.mutateAsync(p.seq); toast('Withdrawn. It stays on the record as withdrawn.') }
+            catch (e) { toast(e instanceof Refused ? e.message : 'Could not withdraw.', 'error') }
+            finally { setWithdrawOpen(false) }
+          }}>Withdraw it</Button>}>
+        <p className="text-[15px]">{proposalTitle(p, names)}</p>
+        <p className="mt-2 text-sm text-ink-2">{stake.message}</p>
+        <p className="mt-2 text-sm text-ink-2">The withdrawal is itself recorded: the proposal stays visible, marked withdrawn.</p>
       </Sheet>
     </Card>
   )
