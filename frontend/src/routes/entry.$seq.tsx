@@ -3,6 +3,7 @@ import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft, Check, CircleDashed, Flag, Undo2, X, ChevronDown } from 'lucide-react'
 import { useLedger, useNames, useProposals, usePropose, useSociety, useDisputes, useLimit } from '../lib/api'
+import { entryDisputes } from '../lib/disputed'
 import { supabase, unwrap, bytea, Refused } from '../lib/supabase'
 import { useMeStrict, isCommittee } from '../lib/session'
 import { categoryLabel, instant, longDay, plural, roleLabel, rowTitle, tierLabel, actionLabel, writeOutcome } from '../lib/format'
@@ -59,7 +60,19 @@ function Detail({ r, p }: { r: LedgerRow; p: ProposalRow }) {
     queryKey: ['entry', s.id, r.seq],
     queryFn: async () => unwrap(await supabase.from('chain_entries').select('entry_hash,prev_hash').eq('society_id', s.id).eq('sequence', r.seq).single()),
   })
-  const flagged = (disputes.data ?? []).filter((d) => d.target_seqs.includes(r.seq) || (d.counterparty && d.counterparty.toLowerCase() === r.counterparty?.toLowerCase()))
+  /*
+   * Decided in lib/, three ways, because `(disputes.data ?? [])` filtered to
+   * nothing on a FAILED read and `{flagged.length > 0 && ...}` then removed
+   * the Disputes section entirely - showing a resident who opened this entry
+   * to read a dispute a screen with no disputes on it. The match itself is
+   * not reimplemented here; the route's old copy of it would not have stayed
+   * in step with the ledger's.
+   */
+  const flaggedState = entryDisputes(
+    { data: disputes.data, isPending: disputes.isPending, isError: disputes.isError },
+    r,
+  )
+  const flagged = flaggedState.kind === 'ready' ? flaggedState.rows : []
   const canReverse = isCommittee(me) && !r.reversed_by_seq && !r.reverses_seq && (r.effect === 'expense' || r.effect === 'receipt' || r.effect === 'charge')
 
   return (
@@ -83,7 +96,15 @@ function Detail({ r, p }: { r: LedgerRow; p: ProposalRow }) {
               : dir === 'flat' ? <Chip>No change to the balance</Chip>
               : <Chip tone="break">Direction could not be read</Chip>}
             {reversedBy && <Chip tone="break">Reversed</Chip>}
-            {flagged.some((d) => d.is_open) && <Chip tone="break" icon={<Flag className="size-3" />}>Disputed</Chip>}
+            {/*
+              * Three states. An absent chip says this entry is not disputed,
+              * so an unreadable dispute list must not render as one.
+              */}
+            {flaggedState.kind === 'ready'
+              ? flagged.some((d) => d.is_open) && <Chip tone="break" icon={<Flag className="size-3" />}>Disputed</Chip>
+              : flaggedState.kind === 'pending'
+                ? <Chip icon={<Flag className="size-3" />}>Checking for disputes</Chip>
+                : <Chip icon={<Flag className="size-3" />}>Dispute status unavailable</Chip>}
           </div>
           {r.narration && r.narration !== rowTitle(r) && <p className="mt-4 text-[15px] leading-relaxed">{r.narration}</p>}
         </div>
@@ -107,7 +128,24 @@ function Detail({ r, p }: { r: LedgerRow; p: ProposalRow }) {
         <Card className="p-5"><Trail p={p} r={r} names={names} /></Card>
       </section>
 
-      {flagged.length > 0 && (
+      {/*
+        * The section appears whenever the answer is not a confident "none".
+        * Hiding it on a failed read is the defect: this is the screen a
+        * resident opens to read the dispute itself.
+        */}
+      {flaggedState.kind === 'unknown' ? (
+        <section>
+          <Caption action={<Link to="/disputes" className="text-sm font-medium text-accent">All disputes</Link>}>Disputes</Caption>
+          <Card className="p-4 text-sm text-ink-2">
+            The dispute list did not load, so this is not saying there are none. The entry above is unaffected.
+          </Card>
+        </section>
+      ) : flaggedState.kind === 'pending' ? (
+        <section>
+          <Caption>Disputes</Caption>
+          <Loading rows={1} />
+        </section>
+      ) : flagged.length > 0 && (
         <section>
           <Caption action={<Link to="/disputes" className="text-sm font-medium text-accent">All disputes</Link>}>Disputes</Caption>
           <Card className="divide-y divide-line">

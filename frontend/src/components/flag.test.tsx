@@ -169,4 +169,31 @@ describe('the real components still make the three-way decision', () => {
      */
     expect(src).toMatch(/disputed\.kind === 'ready' \? disputed\.is\(/)
   })
+
+  it('the entry route discloses an unreadable dispute list instead of hiding the section', () => {
+    const src = at('../routes/entry.$seq.tsx')
+    // Decided in lib/, not refiltered in the route.
+    expect(src).toContain('entryDisputes(')
+    expect(src).toMatch(/flaggedState\.kind === 'unknown'/)
+    expect(src).toMatch(/flaggedState\.kind === 'pending'/)
+    /*
+     * The rows are read ONLY on 'ready'. Asserted on the argument, same
+     * reason as the ledger: any other arm carries no `rows` field, so a
+     * cast-based read of it produces `undefined` and then `[]`, which is
+     * exactly the empty list the fix exists to stop rendering.
+     */
+    expect(src).toMatch(/const flagged = flaggedState\.kind === 'ready' \? flaggedState\.rows : \[\]/)
+    /*
+     * And the CHIP branches three ways. Pinned to its own line rather than to
+     * the `kind === 'ready'` text, which also appears on the selection above
+     * - a loose pattern here stayed green with the chip reverted to a plain
+     * boolean, which is the defect on the most-read element of the screen.
+     */
+    expect(src).toMatch(/\{flaggedState\.kind === 'ready'\s*\n\s*\? flagged\.some/)
+    expect(src).toMatch(/Dispute status unavailable/)
+    // The old shape: filter the raw data, then hide the section on an empty
+    // result. Either returning is the defect.
+    expect(src).not.toMatch(/disputes\.data \?\? \[\]/)
+    expect(src).not.toMatch(/^\s*\{flagged\.length > 0 && \(/m)
+  })
 })

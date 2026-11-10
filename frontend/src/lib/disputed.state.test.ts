@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { disputeState } from './disputed'
+import { disputeState, entryDisputes } from './disputed'
 import type { DisputeRow, LedgerRow } from './types'
 
 /*
@@ -133,6 +133,145 @@ describe('disputeState', () => {
     }
     // And all three are genuinely reachable - a function that only ever
     // returned 'unknown' would pass every assertion above this one.
+    expect([...states].sort()).toEqual(['pending', 'ready', 'unknown'])
+  })
+})
+
+/*
+ * The same question on ONE entry, where the rows are the answer.
+ *
+ * The entry screen had the identical defect in a worse place: `(disputes.data
+ * ?? []).filter(...)` yielded nothing on a failed read, and the section was
+ * rendered behind `flagged.length > 0`, so it disappeared. That is the screen
+ * a resident opens in order to read the dispute.
+ *
+ * It also kept its own copy of the matching rule. These cases pin the rule as
+ * the ledger's - entry AND payee - and pin the one place the two deliberately
+ * differ: `is_open` is not filtered, because the section shows the
+ * append-only log while only the chip counts the open ones.
+ */
+describe('entryDisputes', () => {
+  const ENTRY = row({ seq: 7, counterparty: 'Sharma Plumbing' })
+
+  it('never reports a failed read as "no disputes on this entry"', () => {
+    // THE DEFECT. `?? []` made this case identical to a clean entry, and the
+    // section was hidden on an empty list.
+    expect(entryDisputes(failed, ENTRY).kind).toBe('unknown')
+  })
+
+  it('never reports a pending read as an answer', () => {
+    expect(entryDisputes(pending, ENTRY).kind).toBe('pending')
+  })
+
+  it('distinguishes a failure from a load in progress', () => {
+    expect(entryDisputes(failed, ENTRY).kind).not.toBe(entryDisputes(pending, ENTRY).kind)
+  })
+
+  it('reports a readable list with nothing against this entry as a real answer', () => {
+    const s = entryDisputes({ data: [dispute({ target_seqs: [999] })], isPending: false, isError: false }, ENTRY)
+    expect(s.kind).toBe('ready')
+    expect(s.kind === 'ready' && s.rows).toEqual([])
+  })
+
+  it('finds a dispute that names the entry by sequence', () => {
+    const d = dispute({ target_seqs: [7] })
+    const s = entryDisputes({ data: [d], isPending: false, isError: false }, ENTRY)
+    expect(s.kind === 'ready' && s.rows).toEqual([d])
+  })
+
+  it('finds a dispute that names the payee, not only the cited entries', () => {
+    // The half a reimplementation drops, and the reason the rule lives in
+    // one place: a resident disputing a payee is disputing every entry to
+    // them.
+    const d = dispute({ scope: 'counterparty', counterparty: 'sharma plumbing', target_seqs: [] })
+    const s = entryDisputes({ data: [d], isPending: false, isError: false }, ENTRY)
+    expect(s.kind === 'ready' && s.rows).toEqual([d])
+  })
+
+  it('does not match a payee dispute against an entry with no payee', () => {
+    const d = dispute({ scope: 'counterparty', counterparty: 'Sharma Plumbing' })
+    const s = entryDisputes({ data: [d], isPending: false, isError: false }, row({ seq: 7, counterparty: null }))
+    expect(s.kind === 'ready' && s.rows).toEqual([])
+  })
+
+  it('does not join two ABSENT payees to each other', () => {
+    /*
+     * `d.counterparty?.toLowerCase() === payee` reads as the same rule and is
+     * not: with no payee on either side it compares `undefined === undefined`
+     * and returns TRUE, so every payee-less dispute would attach itself to
+     * every payee-less entry - a dispute about one thing displayed on an
+     * unrelated one. Both sides are therefore required to be present, not
+     * merely equal.
+     *
+     * The case above cannot catch this: it gives the dispute a payee, where
+     * the two readings agree.
+     */
+    const d = dispute({ seq: 50, target_seqs: [999], counterparty: null })
+    const s = entryDisputes({ data: [d], isPending: false, isError: false }, row({ seq: 7, counterparty: null }))
+    expect(s.kind === 'ready' && s.rows).toEqual([])
+  })
+
+  it('still matches by sequence when neither side has a payee', () => {
+    // And the guard above must not cost the sequence half of the rule.
+    const d = dispute({ seq: 51, target_seqs: [7], counterparty: null })
+    const s = entryDisputes({ data: [d], isPending: false, isError: false }, row({ seq: 7, counterparty: null }))
+    expect(s.kind === 'ready' && s.rows).toEqual([d])
+  })
+
+  it('does not treat an empty-string payee as a payee', () => {
+    // `'' === ''` is true and `!!''` is false. The empty string is absence
+    // typed into a text field, not a payee two entries share.
+    const d = dispute({ seq: 52, target_seqs: [999], counterparty: '' })
+    const s = entryDisputes({ data: [d], isPending: false, isError: false }, row({ seq: 7, counterparty: '' }))
+    expect(s.kind === 'ready' && s.rows).toEqual([])
+  })
+
+  it('KEEPS resolved disputes, because the section is a log and not a count', () => {
+    /*
+     * The one place this deliberately differs from the ledger predicate.
+     * `disputedBy` ignores closed disputes - it drives a to-do filter - but
+     * dropping them here would delete part of an append-only record from the
+     * only screen that displays it. A resolved dispute naming a PAYEE cannot
+     * be reached through the predicate at all, which is why this matches
+     * directly rather than filtering through it.
+     */
+    const open = dispute({ seq: 1, target_seqs: [7], is_open: true })
+    const closed = dispute({ seq: 2, target_seqs: [7], is_open: false })
+    const closedPayee = dispute({ seq: 3, scope: 'counterparty', counterparty: 'Sharma Plumbing', is_open: false })
+    const s = entryDisputes({ data: [open, closed, closedPayee], isPending: false, isError: false }, ENTRY)
+    expect(s.kind === 'ready' && s.rows.map((d) => d.seq)).toEqual([1, 2, 3])
+  })
+
+  it('matches a payee case-insensitively on both sides', () => {
+    const d = dispute({ scope: 'counterparty', counterparty: 'SHARMA PLUMBING' })
+    const s = entryDisputes({ data: [d], isPending: false, isError: false }, row({ seq: 7, counterparty: 'sharma plumbing' }))
+    expect(s.kind === 'ready' && s.rows).toEqual([d])
+  })
+
+  it('refuses rows it is holding from a read that has since failed', () => {
+    const q = { data: [dispute({ target_seqs: [7] })], isPending: false, isError: true }
+    expect(entryDisputes(q, ENTRY).kind).toBe('unknown')
+  })
+
+  it('carries no rows in any state it refuses to answer', () => {
+    // The type makes this structural rather than a convention: there is no
+    // `rows` to misread outside the ready arm.
+    for (const q of [pending, failed, { data: [dispute({ target_seqs: [7] })], isPending: false, isError: true }]) {
+      const s = entryDisputes(q, ENTRY)
+      expect(s.kind, JSON.stringify(q)).not.toBe('ready')
+      expect('rows' in s, JSON.stringify(q)).toBe(false)
+    }
+  })
+
+  it('is exhaustive: every query shape resolves to one of the three states', () => {
+    const states = new Set<string>()
+    for (const data of [undefined, [], [dispute({ target_seqs: [7] })]]) {
+      for (const isPending of [true, false]) {
+        for (const isError of [true, false]) {
+          states.add(entryDisputes({ data, isPending, isError }, ENTRY).kind)
+        }
+      }
+    }
     expect([...states].sort()).toEqual(['pending', 'ready', 'unknown'])
   })
 })
