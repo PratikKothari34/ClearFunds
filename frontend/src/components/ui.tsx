@@ -11,6 +11,13 @@ import { parts } from '../lib/money'
 import { countable } from '../lib/countable'
 import { initials } from '../lib/format'
 import type { Reversed } from '../lib/reversed'
+/*
+ * From `lib/reachable`, never from `lib/supabase`, which re-exports the same
+ * names. The bundler splits on the import graph, not the call graph, so
+ * reaching them through `supabase.ts` would pull the Supabase SDK into the
+ * shared UI chunk - every route imports this file.
+ */
+import { Refused, unreachable } from '../lib/reachable'
 
 export const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(' ')
 
@@ -272,11 +279,34 @@ export function Loading({ rows = 4 }: { rows?: number }) {
   )
 }
 
+/*
+ * A read that did not arrive.
+ *
+ * It used to print `error.message` for any Error, which on a dropped
+ * connection is whatever the browser wrote - "Failed to fetch", "Load
+ * failed", "NetworkError when attempting to fetch resource". A resident on
+ * the stated target device, a mid-range Android on working 4G, is the person
+ * most likely to see that and the least able to act on it.
+ *
+ * So only a `Refused` is quoted, because the server wrote that sentence for
+ * the person reading it. Anything else is summarised, and a connection
+ * failure says so plainly and offers the retry, since that is the one case
+ * where trying again is likely to work.
+ *
+ * The ledger is never shown stale-but-cheerful in place of this: a read that
+ * failed is disclosed, per the same rule that forbids a green tick over a
+ * figure that could not be read.
+ */
 export function Failed({ error, retry }: { error: unknown; retry?: () => void }) {
+  const down = unreachable(error)
   return (
     <Card className="p-5">
-      <p className="font-medium text-break">Could not load this.</p>
-      <p className="mt-1 text-sm text-ink-2">{error instanceof Error ? error.message : 'The server did not answer.'}</p>
+      <p className="font-medium text-break">{down ? 'No connection to the ledger.' : 'Could not load this.'}</p>
+      <p className="mt-1 text-sm text-ink-2">
+        {down ? 'Nothing is missing from the record - this device could not reach it. Check your connection and try again.'
+          : error instanceof Refused ? error.message
+          : 'The server did not answer.'}
+      </p>
       {retry && <Button className="mt-3" onClick={retry}>Try again</Button>}
     </Card>
   )
