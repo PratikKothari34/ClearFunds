@@ -4,7 +4,7 @@ import { Check, CheckCheck, Inbox, Plus, Undo2, X } from 'lucide-react'
 import { useCast, useLimit, useNames, useProposals, useWithdraw } from '../lib/api'
 import { Refused } from '../lib/supabase'
 import { useMeStrict } from '../lib/session'
-import { actionLabel, ago, categoryLabel, day, flatSetLabel, plural, proposalTitle, roleLabel, tierLabel, writeOutcome } from '../lib/format'
+import { actionLabel, ago, approvalDiscloses, categoryLabel, day, flatSetLabel, plural, proposalTitle, roleLabel, tierLabel, writeOutcome } from '../lib/format'
 import { format } from '../lib/money'
 import { countable } from '../lib/countable'
 import { Amount, Avatar, Button, Card, Chip, Empty, Facts, Failed, Loading, Meter, PageTitle, Segmented, Sheet, useToast, cx } from '../components/ui'
@@ -111,6 +111,7 @@ function ProposalCard({ p, canAct }: { p: ProposalRow; canAct: boolean }) {
         </div>
 
         <Body p={p} limitNow={limitNow} />
+        <Disclosure p={p} />
 
         <div className="mt-4 space-y-2">
           <Meter have={p.approve_count} need={p.required} declined={p.decline_count} />
@@ -160,6 +161,26 @@ function ProposalCard({ p, canAct }: { p: ProposalRow; canAct: boolean }) {
         </p>
       </Sheet>
     </Card>
+  )
+}
+
+/*
+ * What approving consents to beyond the proposal itself, when it consents to
+ * anything. `approvalDiscloses` decides; this only renders.
+ *
+ * It sits in the card body, ABOVE the buttons and outside the confirm step on
+ * purpose: a consequence shown only after someone has already pressed Approve
+ * is not a disclosure, and a member who declines should see what they were
+ * being asked to authorise too.
+ */
+function Disclosure({ p }: { p: ProposalRow }) {
+  const names = useNames()
+  const say = approvalDiscloses[p.action]
+  if (!say) return null
+  return (
+    <p className="mt-3 border-l-2 border-attention/40 pl-3 text-[13px] leading-relaxed text-ink-2">
+      {say(names.get(p.person ?? '') ?? 'the auditor', p.fy ?? '—')}
+    </p>
   )
 }
 

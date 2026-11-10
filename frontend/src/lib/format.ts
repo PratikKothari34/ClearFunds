@@ -86,6 +86,31 @@ export const actionLabel: Record<Action, string> = {
   appoint_auditor: 'Appoint auditor',
 }
 
+/*
+ * What approving a proposal consents to, beyond the proposal itself, or null
+ * when it consents to nothing further.
+ *
+ * `appoint_auditor` is the one case today. The appointment posting IS the
+ * society's recorded authorisation to publish that auditor's statement for
+ * the year - there is no separate consent entry, deliberately, because a late
+ * or missing one would either publish a statement without consent or hand a
+ * committee a lever to stall a year whose opinion it disliked. The approver
+ * is therefore consenting to a disclosure, and has to be told so before
+ * deciding.
+ *
+ * This lives here, not in the route, because WHICH actions carry a
+ * consequence is a decision and the route is the reporter. A `Record` over
+ * `Action` rather than a `switch` with a default: adding an action to the
+ * union fails the typecheck here, so a new action that discloses something
+ * cannot ship silently without one.
+ */
+export const approvalDiscloses: Record<Action, ((who: string, fy: string) => string) | null> = {
+  expense: null, receipt: null, charge: null, reversal: null,
+  limit_change: null, seat_admin: null, unseat_admin: null,
+  appoint_auditor: (who, fy) =>
+    `Approving this authorises ${who}’s statement for FY ${fy} to be published to every member.`,
+}
+
 export const opinionLabel: Record<Opinion, string> = {
   clean: 'Clean', qualified: 'Qualified', adverse: 'Adverse', disclaimer: 'Disclaimer',
 }
