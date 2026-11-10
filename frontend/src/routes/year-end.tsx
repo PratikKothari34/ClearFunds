@@ -4,6 +4,7 @@ import { Gavel, Lock } from 'lucide-react'
 import { useCloseYear, useYears } from '../lib/api'
 import { Refused } from '../lib/supabase'
 import { checkStatement } from '../lib/statement'
+import { authorisation, nameIsAmbiguous } from '../lib/appointment'
 import { useMeStrict } from '../lib/session'
 import { instant, longDay, opinionChip, opinionHint, opinionLabel, opinionTone } from '../lib/format'
 import { Button, Card, Caption, Chip, Empty, Failed, Field, Loading, PageTitle, Sheet, Textarea, useToast, cx } from '../components/ui'
@@ -43,6 +44,8 @@ function YearEnd() {
 function YearCard({ y, mine }: { y: Year; mine: boolean }) {
   const [open, setOpen] = useState(false)
   const can = mine && y.ended && !y.closed
+  /* One name covering two appointments: the seq must then be on screen. */
+  const ambiguous = nameIsAmbiguous(y.history)
   return (
     <Card className={cx('p-5', can && 'border-attention/30')}>
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -56,9 +59,28 @@ function YearCard({ y, mine }: { y: Year; mine: boolean }) {
       <p className="mt-3 text-sm text-ink-2">
         {y.auditor?.length ? `Auditor: ${y.auditor.map((a) => a.name).join(', ')}` : 'No auditor appointed.'}
       </p>
-      {y.history.map((h) => (
-        <p key={h.seq} className="mt-2 text-[13px] text-ink-2">{opinionLabel[h.opinion]} by {h.auditor}, {instant(h.recorded_at)}</p>
-      ))}
+      {/*
+        * Each opinion names the appointment that authorised IT, not whoever
+        * holds the appointment now. The line above is the year's current
+        * appointment list; a closed year's statement was authorised by
+        * whichever appointment was live when it was signed, and the two are
+        * not the same claim. Matched by seq in lib/appointment.ts - never by
+        * name, because one person can hold two appointments for one year.
+        */}
+      {y.history.map((h) => {
+        const auth = authorisation(h, y.auditor)
+        return (
+          <p key={h.seq} className="mt-2 text-[13px] text-ink-2">
+            {opinionLabel[h.opinion]} by {auth.state === 'authorised' ? auth.name : h.auditor}
+            {auth.state === 'authorised' && ambiguous ? ` (appointed by #${auth.seq})` : ''}
+            , {instant(h.recorded_at)}
+            {auth.state === 'unauthorised' && (
+              <span className="text-attention"> · appointment #{auth.seq} is not among this year’s appointments</span>
+            )}
+            {auth.state === 'unconfirmable' && <span> · authorisation not reported</span>}
+          </p>
+        )
+      })}
       <div className="mt-4 flex flex-wrap gap-2">
         <Link to="/reports"><Button>Read the statements</Button></Link>
         {can && <Button tone="primary" icon={<Gavel className="size-4" />} onClick={() => setOpen(true)}>Give opinion and close</Button>}

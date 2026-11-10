@@ -93,7 +93,10 @@ const yearRow = (over: Record<string, unknown> = {}) => ({
   headline: null, headline_seq: null, history: [], auditor: null, ...over,
 })
 const opinionEntry = (over: Record<string, unknown> = {}) => ({
-  seq: 1, opinion: 'clean', statement: 's', auditor: 'CA A', recorded_at: 0, ...over,
+  /* `appointment_seq` is required, not optional: it is the society's
+   * authorisation to publish this statement, and the contract says never
+   * null. A fixture omitting it is rejected, which is the point. */
+  seq: 1, opinion: 'clean', statement: 's', auditor: 'CA A', appointment_seq: 9, recorded_at: 0, ...over,
 })
 
 /*
