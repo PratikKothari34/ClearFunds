@@ -192,6 +192,38 @@ export function parse(input: string, currency = 'INR'): number | null {
   return Number(minor)
 }
 
+/*
+ * WHAT A KEYSTROKE IN AN AMOUNT FIELD IS ALLOWED TO LEAVE BEHIND.
+ *
+ * `MoneyInput` filtered its own value with `replace(/[^\d.,]/g, '')`, which
+ * DELETES a minus sign rather than refusing the input. Typing `-5` left `5`
+ * in the field, and `parse` - which correctly returns null for `-5` - never
+ * saw the minus at all. So the field answered a request to subtract five
+ * rupees with a proposal to spend five rupees: the missing-x100 bug's exact
+ * shape, a plausible amount that does not look wrong to anyone. Measured on
+ * the running app as treasurer, on three screens at once (`/new`,
+ * `/committee` change-limit, and the reversal replacement amount), because
+ * all three share the component.
+ *
+ * A ledger entry is append-only and signed, so the correction for a wrong
+ * amount is a reversal that stays visible forever. Silently rewriting the
+ * number is therefore not a cosmetic input bug.
+ *
+ * The rule: a character that could change the VALUE is kept, so that `parse`
+ * is the one thing deciding whether the amount is acceptable, and the field
+ * shows what the person actually typed. Only characters that cannot change
+ * the value are dropped - the grouping and currency marks a person reasonably
+ * types or pastes, which `parse` itself also strips. Anything else stays,
+ * `parse` returns null, and the surface says so.
+ *
+ * `-` is therefore KEPT, which is the whole point: it reaches `parse`, which
+ * refuses it, and the screen tells the person the amount is not acceptable
+ * instead of quietly agreeing to a different one.
+ */
+export function typedAmount(raw: string): string {
+  return raw.replace(/[\s₹]/g, '')
+}
+
 /** Minor units back into what a person would type: "3250.01", no grouping. */
 export function toInput(minor: number, currency = 'INR'): string {
   const p = parts(Math.abs(minor), currency)

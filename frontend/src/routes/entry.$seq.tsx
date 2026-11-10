@@ -367,7 +367,12 @@ function ReverseSheet({ open, onClose, r, p }: { open: boolean; onClose: () => v
             Post the correct amount in the same step
           </label>
         )}
-        {replace && <Field label="Correct amount" htmlFor="repl"><MoneyInput id="repl" value={amount} onChange={setAmount} /></Field>}
+        {replace && (
+          <Field label="Correct amount" htmlFor="repl"
+            error={amount.trim() && repl === null ? 'Enter an amount like 12,500. A replacement cannot be negative.' : null}>
+            <MoneyInput id="repl" value={amount} onChange={setAmount} />
+          </Field>
+        )}
         <ul className="space-y-1.5 text-[13px] text-ink-2">
           <li>The original stays visible, marked reversed. Nothing is deleted.</li>
           <li>Needs {committee ? 'a committee vote' : 'the treasurer and the secretary'}: at least the approval the original had.</li>
