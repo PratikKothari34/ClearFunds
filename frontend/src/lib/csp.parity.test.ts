@@ -82,21 +82,23 @@ const directive = (csp: string, name: string): string[] => {
 }
 
 /*
- * The deployed policy arrives in a separate PR that is not merged yet, so
- * these assertions have nothing to read until it lands. They are SKIPPED while
- * `vercel.json` carries no CSP and run from the moment it does - the same
- * shape the kind-vector suite uses for a contract file still in review: a
- * suite that would be red for work that is not ours teaches people to ignore
- * it, and one that silently passes guards nothing.
+ * The policy HAS LANDED - `vercel.json` carries it, so `policyDeployed` is
+ * true and all of the assertions below run. This condition was written while
+ * the policy was still in another PR, to keep the suite from going red for
+ * work that was not ours; that reason has expired.
  *
- * The first test below is NOT skipped, and nothing in this file has to be
- * edited by hand when the policy lands. It asserts what holds in both states:
- * the headers array parses, at most one policy is declared, and any policy
- * present covers every route rather than one path.
+ * It is kept rather than deleted because the thing it still distinguishes is
+ * real: a tree that has not yet been given a CSP. But note what it now costs,
+ * because the condition is permanent in this repo - if someone DELETES the
+ * policy from `vercel.json`, this suite silently drops from eight assertions
+ * to one instead of failing. That is the shape a skipped block always has, and
+ * the first test below is the only thing standing in for it.
  *
- * Its limit is stated at the assertion: with no policy in the file, this suite
- * cannot tell "not merged yet" from "deleted". Closing that needs a check
- * against a deployed response, not a committed file.
+ * The first test is NOT skipped. It asserts what holds in both states: the
+ * headers array parses, at most one policy is declared, and any policy
+ * present covers every route rather than one path. It cannot tell "never
+ * configured" from "deleted" - closing that needs a check against a deployed
+ * response, not a committed file.
  */
 const policyDeployed =
   (vercel.headers ?? []).some((h: { headers?: { key: string }[] }) =>
