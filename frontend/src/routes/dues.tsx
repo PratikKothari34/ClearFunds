@@ -7,6 +7,7 @@ import { day, plural } from '../lib/format'
 import { parts, toInput } from '../lib/money'
 import { countable, owing, partition } from '../lib/countable'
 import { scopeOf } from '../lib/scope'
+import { listReadMap } from '../lib/listread'
 import { Amount, Button, Card, Failed, Loading, PageTitle, Segmented, Sheet, cx } from '../components/ui'
 import type { DuesRow } from '../lib/types'
 
@@ -117,7 +118,16 @@ function Dues() {
 export function FlatSheet({ d, onClose }: { d: DuesRow; onClose: () => void }) {
   const me = useMeStrict()
   const ledger = useLedger()
-  const paid = (ledger.data ?? []).filter((r) => r.flat_id === d.flat_id && r.origin_effect === 'receipt').slice(-6).toReversed()
+  /* Three outcomes, because "No payments recorded." is a claim about this
+   * flat. It was rendered from `(ledger.data ?? [])`, which is empty while
+   * the read is in flight AND after it has failed - so a flat that HAS paid
+   * read as one that had not, on the sheet a treasurer opens to decide
+   * whether to chase someone. Same family as `null <= 0` on the arrears
+   * figure two lines below. */
+  const paidRead = listReadMap(ledger, (rows) =>
+    rows.filter((r) => r.flat_id === d.flat_id && r.origin_effect === 'receipt').slice(-6).toReversed(),
+  )
+  const paid = paidRead.kind === 'ready' ? paidRead.rows : []
   const owed = countable(d.outstanding_minor)
   return (
     <Sheet open onClose={onClose} title={`Flat ${d.label}`}
@@ -149,8 +159,15 @@ export function FlatSheet({ d, onClose }: { d: DuesRow; onClose: () => void }) {
             </li>
           ))}
         </ul>
-      ) : <p className="text-sm text-ink-2">No payments recorded.</p>}
-      <p className="mt-4 text-xs text-ink-2">{plural(paid.length, 'payment')} shown. Charges follow each bill’s stored split.</p>
+      ) : paidRead.kind === 'pending' ? <p className="text-sm text-ink-2">Loading payments…</p>
+        : paidRead.kind === 'unknown' ? <p className="text-sm text-ink-2">The payment history could not be loaded, so this is not saying there are none.</p>
+        : <p className="text-sm text-ink-2">No payments recorded.</p>}
+      {/* The count is the same claim in figures: "0 payments shown" over an
+        * unreadable history is as wrong as the sentence above it. */}
+      <p className="mt-4 text-xs text-ink-2">
+        {paidRead.kind === 'ready' ? `${plural(paid.length, 'payment')} shown. ` : ''}
+        Charges follow each bill’s stored split.
+      </p>
     </Sheet>
   )
 }

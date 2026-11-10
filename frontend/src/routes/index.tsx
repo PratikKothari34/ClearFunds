@@ -1,10 +1,11 @@
 import { useMemo } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { ArrowRight, CheckCheck, Flag, Gavel, PenLine, Plus, Wallet, Sparkles } from 'lucide-react'
+import { ArrowRight, CheckCheck, Flag, Gavel, Hourglass, PenLine, Plus, Wallet, Sparkles } from 'lucide-react'
 import { useDisputes, useDues, useLedger, useNames, useProposals, useSignoffs, useSummary, useTenantFlags, useYears } from '../lib/api'
 import { useMeStrict, isCommittee } from '../lib/session'
 import { owing } from '../lib/countable'
 import { reversedIn, reversedOut } from '../lib/reversed'
+import { derivedRead, listReadMap } from '../lib/listread'
 import { categoryLabel, instant, month, monthOf, plural, proposalTitle, todayIST } from '../lib/format'
 import { Amount, Button, Caption, Card, Facts, ReversedNote, Skeleton, cx } from '../components/ui'
 import { EntryRow } from '../components/EntryRow'
@@ -21,7 +22,14 @@ function Home() {
   const s = summary.data
   const cur = monthOf(todayIST())
   const thisMonth = s?.months.find((m) => m.month === cur)
-  const recent = useMemo(() => (ledger.data ?? []).slice(-5).toReversed(), [ledger.data])
+  /* "No entries yet." claims this society has never recorded anything. It was
+   * rendered from `(ledger.data ?? [])` behind a pending-only arm, so a
+   * failed read said it on the first screen anyone sees. */
+  const recentRead = useMemo(
+    () => listReadMap(ledger, (rows) => rows.slice(-5).toReversed()),
+    [ledger.data, ledger.isPending, ledger.isError],
+  )
+  const recent = recentRead.kind === 'ready' ? recentRead.rows : []
 
   return (
     <div className="space-y-6">
@@ -47,13 +55,21 @@ function Home() {
         <section>
           <Caption>{month(cur, { month: 'long' })} so far</Caption>
           <Card className="p-5">
-            {thisMonth ? <InOut month={thisMonth} /> : s ? <p className="text-sm text-ink-2">No money moved yet this month.</p> : <Skeleton className="h-20" />}
+            {/* `s ? claim : <Skeleton>` was both defects at once: a failed
+              * summary read said no money had moved this month, and a failed
+              * read with no month row shimmered forever. */}
+            {thisMonth ? <InOut month={thisMonth} />
+              : summary.isError ? <p className="text-sm text-ink-2">This month’s figures could not be loaded.</p>
+              : s ? <p className="text-sm text-ink-2">No money moved yet this month.</p>
+              : <Skeleton className="h-20" />}
           </Card>
         </section>
         <section>
           <Caption>Spent this year, {s?.fy}</Caption>
           <Card className="p-5">
-            {s ? <Spend items={s.fy_spend} total={s.fy_spend_total_minor} /> : <Skeleton className="h-20" />}
+            {s ? <Spend items={s.fy_spend} total={s.fy_spend_total_minor} />
+              : summary.isError ? <p className="text-sm text-ink-2">This year’s figures could not be loaded.</p>
+              : <Skeleton className="h-20" />}
           </Card>
         </section>
       </div>
@@ -63,7 +79,8 @@ function Home() {
           Latest
         </Caption>
         <Card className="p-1.5">
-          {ledger.isPending ? <div className="space-y-2 p-2">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-14" />)}</div>
+          {recentRead.kind === 'pending' ? <div className="space-y-2 p-2">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-14" />)}</div>
+            : recentRead.kind === 'unknown' ? <p className="p-5 text-sm text-ink-2">The entries could not be loaded, so this is not saying there are none.</p>
             : recent.length ? recent.map((r) => <EntryRow key={r.seq} r={r} />)
             : <p className="p-5 text-sm text-ink-2">No entries yet.</p>}
         </Card>
@@ -148,8 +165,23 @@ function NeedsYou({ me }: { me: Me }) {
   const dues = useDues()
   const names = useNames()
 
+  /*
+   * Every read this VIEWER's obligations actually depend on, collected in the
+   * same role branches that consume them - so a resident is not held back by
+   * a proposals read they have no stake in, and a treasurer is not told the
+   * set is complete when the proposals read failed.
+   *
+   * "Nothing needs you right now." was rendered from `items.length` alone,
+   * over six reads all coalesced with `?? []` or `?.`. A treasurer with
+   * approvals waiting, on a dropped connection, was told there was nothing to
+   * do - the same defect as the nav badge, still live on the card the badge
+   * points at.
+   */
+  const relied: Array<{ isPending: boolean; isError: boolean }> = []
+
   const items: Item[] = []
   if (isCommittee(me)) {
+    relied.push(proposals)
     const mine = (proposals.data ?? []).filter((p) => waitsOn(p, me))
     for (const p of mine.slice(0, 3)) {
       items.push({ key: `p${p.seq}`, icon: CheckCheck, title: `Approve: ${proposalTitle(p, names)}`,
@@ -157,6 +189,7 @@ function NeedsYou({ me }: { me: Me }) {
     }
     if (mine.length > 3) items.push({ key: 'pmore', icon: CheckCheck, title: `${mine.length - 3} more waiting for your approval`, sub: 'Approvals', to: '/approvals' })
   }
+  if (me.seat?.role === 'president') relied.push(signoffs)
   if (me.seat?.role === 'president' && signoffs.data) {
     const done = new Set(signoffs.data.map((s) => s.body.month))
     const cur = monthOf(todayIST())
@@ -164,12 +197,14 @@ function NeedsYou({ me }: { me: Me }) {
       items.push({ key: `s${m}`, icon: PenLine, title: `Sign off ${month(m)}`, sub: 'The month’s expense sheet', to: '/sign-off' })
     }
   }
+  if (me.auditor_for.length) relied.push(years)
   for (const y of years.data ?? []) {
     if (me.auditor_for.includes(y.fy) && y.ended && !y.closed) {
       items.push({ key: `y${y.fy}`, icon: Gavel, title: `Close FY ${y.fy}`, sub: 'Give your opinion and seal the year', to: '/year-end' })
     }
   }
   if (me.tenure) {
+    relied.push(dues, disputes, tenantFlags)
     const own = (dues.data ?? []).find((d) => d.flat_id === me.tenure!.flat_id)
     /*
      * `owing()` is false for an unreadable amount, so a resident is not told
@@ -189,6 +224,8 @@ function NeedsYou({ me }: { me: Me }) {
       }
     }
   }
+
+  const waiting = derivedRead(items, relied)
 
   return (
     <section aria-label="What needs you">
@@ -215,9 +252,21 @@ function NeedsYou({ me }: { me: Me }) {
           </ul>
         </Card>
       ) : (
+        /*
+         * The quiet sentence is a CLAIM, so it is earned only by reads that
+         * all arrived. Pending and failed get the same reserved slot - the
+         * layout below must not move - with wording that does not discharge
+         * the viewer of an obligation nobody could count.
+         */
         <Card className={cx('flex items-center gap-3 px-4 py-4 text-ink-2')}>
-          <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-sunken"><Sparkles className="size-[18px]" /></span>
-          <span className="text-sm">Nothing needs you right now.</span>
+          <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-sunken">
+            {waiting.kind === 'ready' ? <Sparkles className="size-[18px]" /> : <Hourglass className="size-[18px]" />}
+          </span>
+          <span className="text-sm">
+            {waiting.kind === 'pending' ? 'Checking what needs you…'
+              : waiting.kind === 'unknown' ? 'What needs you could not be loaded, so this is not saying there is nothing.'
+              : 'Nothing needs you right now.'}
+          </span>
         </Card>
       )}
     </section>
