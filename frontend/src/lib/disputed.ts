@@ -93,3 +93,48 @@ export function disputeState(q: DisputeQuery): DisputeState {
   if (q.isPending || q.data === undefined) return { kind: 'pending', is }
   return { kind: 'ready', is }
 }
+
+/*
+ * THE SAME QUESTION ON ONE ENTRY, WHERE THE ROWS THEMSELVES ARE THE ANSWER.
+ *
+ * The entry screen does not want a predicate - it lists the disputes raised
+ * against this entry, open and resolved, because the log is the record while
+ * the count is a to-do list. It had the identical defect: `(disputes.data ??
+ * [])` filtered to nothing on a failed read, and `{flagged.length > 0 && ...}`
+ * then removed the whole Disputes section, so a resident who opened an entry
+ * specifically TO read a dispute was shown a screen with no disputes on it.
+ *
+ * The match must not be reimplemented here. The route's own version compared
+ * one dispute's payee at a time against the entry's, which happens to agree
+ * with `disputedBy` today and is a second copy of the rule that will not stay
+ * in step with it - so the rows are selected with `disputedBy` itself and the
+ * result is a filter over the same predicate.
+ */
+
+/** The disputes raised against one entry, and whether that could be read. */
+export type EntryDisputes =
+  | { kind: 'ready'; rows: readonly DisputeRow[] }
+  | { kind: 'pending' }
+  | { kind: 'unknown' }
+
+/**
+ * Every dispute naming one entry - by sequence or by payee, open or resolved.
+ *
+ * `is_open` is NOT filtered here. The section lists resolved disputes too,
+ * and only the chip above it counts the open ones; dropping the resolved rows
+ * would delete part of an append-only log from the one screen that shows it.
+ *
+ * Resolved disputes do not make `disputedBy` claim an entry, so a resolved
+ * dispute naming a PAYEE cannot be found through the predicate. It is matched
+ * directly, by the same two rules, which is why this does not simply filter
+ * `rows` through `is`.
+ */
+export function entryDisputes(q: DisputeQuery, entry: LedgerRow): EntryDisputes {
+  if (q.isError) return { kind: 'unknown' }
+  if (q.isPending || q.data === undefined) return { kind: 'pending' }
+  const payee = entry.counterparty?.toLowerCase()
+  const rows = q.data.filter(
+    (d) => d.target_seqs.includes(entry.seq) || (!!payee && !!d.counterparty && d.counterparty.toLowerCase() === payee),
+  )
+  return { kind: 'ready', rows }
+}
