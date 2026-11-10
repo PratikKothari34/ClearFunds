@@ -107,7 +107,15 @@ function ProposalCard({ p, canAct }: { p: ProposalRow; canAct: boolean }) {
       <div className="p-4 sm:p-5">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-xs text-ink-2"><Facts items={[actionLabel[p.action], ago(p.recorded_at), `#${p.seq}`]} /></p>
+            {/*
+              * The bare `#4241` reads as "number 4241" with nothing saying
+              * what the number is, and this is the identifier a resident
+              * quotes to the committee - `disputes.tsx` already writes
+              * "Entry #N" in full. Kept short on screen, said in full to a
+              * screen reader, rather than widening the fact line.
+              */}
+            <p className="text-xs text-ink-2"><Facts items={[actionLabel[p.action], ago(p.recorded_at),
+              <span key="seq"><span className="sr-only">Entry </span>#{p.seq}</span>]} /></p>
             <h3 className="mt-1 truncate text-[17px] font-semibold tracking-tight">{proposalTitle(p, names)}</h3>
           </div>
           {p.amount_minor !== null && (
