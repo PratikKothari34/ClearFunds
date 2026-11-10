@@ -9,6 +9,7 @@ import { isOfficer } from '../lib/pending'
 import { hasEarlierToPayee } from '../lib/structuring'
 import { approvalsNeeded, seatedCount } from '../lib/tier'
 import { categories, month, monthOf, todayIST } from '../lib/format'
+import { checkBusinessDate } from '../lib/businessdate'
 import { format, parse } from '../lib/money'
 import { countable } from '../lib/countable'
 import { Button, Card, Field, Input, MoneyInput, PageTitle, Segmented, cx, useToast } from '../components/ui'
@@ -95,7 +96,16 @@ function NewEntry() {
    * it does, and stops chasing the one it is actually waiting on.
    */
   const selfApproves = pair ? isOfficer(me) : true
-  const ready = !!minor && (kind === 'charge' || (kind === 'expense' ? !!payee.trim() : !!(flat || payee.trim()))) && (kind === 'charge' || !!note.trim())
+  /*
+   * The date input carries `max`, and nothing read it: the input is not in a
+   * `<form>`, so no implicit validation runs, and `ready` below tested the
+   * amount, payee and note only. A future date reached the server with the
+   * button fully enabled and came back as an error the screen already had
+   * enough to give. `max` alone is a claim that the control is bounded, not a
+   * bound.
+   */
+  const dateCheck = checkBusinessDate(date, todayIST())
+  const ready = !!minor && dateCheck.ok && (kind === 'charge' || (kind === 'expense' ? !!payee.trim() : !!(flat || payee.trim()))) && (kind === 'charge' || !!note.trim())
 
   const submit = async () => {
     setError(null)
@@ -173,7 +183,17 @@ function NewEntry() {
         )}
 
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Date" htmlFor="date"><Input id="date" type="date" max={todayIST()} value={date} onChange={(e) => setDate(e.target.value)} /></Field>
+          <Field label="Date" htmlFor="date">
+            <Input id="date" type="date" max={todayIST()} value={date} onChange={(e) => setDate(e.target.value)}
+              aria-invalid={!dateCheck.ok || undefined}
+              aria-describedby={dateCheck.ok ? undefined : 'date-error'} />
+            {/*
+              * Said out loud rather than only disabling Propose: a button that
+              * goes grey with no reason is a dead end, and the date is the one
+              * field whose problem is invisible once it is typed.
+              */}
+            {!dateCheck.ok && <p id="date-error" className="mt-1.5 text-sm text-break">{dateCheck.message}</p>}
+          </Field>
           <Field label={kind === 'receipt' ? 'Reference' : kind === 'charge' ? 'Title' : 'What for'} htmlFor="note">
             <Input id="note" value={note} onChange={(e) => setNote(e.target.value)} maxLength={280}
               placeholder={kind === 'receipt' ? 'UPI ref 6044…' : kind === 'charge' ? `Maintenance ${month(monthOf(date), { month: 'short', year: 'numeric' })}` : 'Pump repair, A wing'} />
