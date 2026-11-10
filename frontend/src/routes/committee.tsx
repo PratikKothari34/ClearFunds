@@ -12,7 +12,7 @@ import { auditorPresence } from '../lib/auditors'
 import { derivedRead } from '../lib/listread'
 import { Avatar, Button, Caption, Card, Chip, Failed, Field, Input, Loading, MoneyInput, PageTitle, Segmented, Sheet, useToast } from '../components/ui'
 import { ROLE_ORDER, type Role } from '../lib/types'
-import { approvalsNeeded } from '../lib/tier'
+import { approvalsNeeded, tierBasis } from '../lib/tier'
 
 /* Formats from the narrowed amount, never from the raw field: a guard that
  * checks one expression and formats another stops guarding the moment either
@@ -38,7 +38,7 @@ function Committee() {
     .sort((a, b) => order.indexOf(a.role) - order.indexOf(b.role)), [c.data])
   const name = (id: string) => c.data?.people.find((p) => p.id === id)?.full_name ?? 'Member'
   const m = active.length
-  const need = approvalsNeeded(m)
+  const need = approvalsNeeded(m, me.society.committee_threshold)
   /* An unreadable limit is left undefined so every surface below shows the
    * placeholder rather than a figure, and never implies the lower tier. */
   const auditors = useMemo(
@@ -73,7 +73,19 @@ function Committee() {
           <div className="mt-2 flex gap-1" aria-hidden>
             {Array.from({ length: m }, (_, i) => <span key={i} className={`h-1.5 flex-1 rounded-full ${i < need ? 'bg-accent' : 'bg-line'}`} />)}
           </div>
-          <p className="mt-2 text-[13px] text-ink-2">Two-thirds, rounded up. Fixed when the first approval is cast.</p>
+          {/*
+            * The caption has to name the rule that produced THIS number, not
+            * the rule in general. It read "Two-thirds, rounded up" always -
+            * correct only while the committee had not raised its threshold,
+            * which was every society at the time it was written. With M = 11
+            * and a configured 10 the figure above says 10, and two-thirds of
+            * 11 is 8: the caption then explains the number next to it as
+            * arithmetic a reader can do and find wrong.
+            *
+            * `basis` is not a second opinion about the count - it reads the
+            * same `need` the figure does, so the two cannot disagree.
+            */}
+          <p className="mt-2 text-[13px] text-ink-2">{tierBasis(need, m)} Fixed when the first approval is cast.</p>
         </Card>
       </div>
 

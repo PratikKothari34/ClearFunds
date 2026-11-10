@@ -143,7 +143,34 @@ export function exponent(currency: string): number {
   return known
 }
 
-const grouping = new Intl.NumberFormat('en-IN', { useGrouping: true })
+/*
+ * TWO GROUPINGS, because the server has two.
+ *
+ * `cf.money_text` groups INR in the Indian style - last three digits, then
+ * twos - and every other currency in threes. The frontend grouped everything
+ * `en-IN`, so a USD figure read `$1,23,456.00` on screen and `USD 123,456.00`
+ * in the server-generated report: the same amount, written two ways, in a
+ * product whose entire claim is that the record and what you are shown are
+ * the same thing. A resident comparing the screen against the AGM report has
+ * no way to tell a formatting difference from a discrepancy.
+ *
+ * It only bites once a society uses a currency other than INR, which none
+ * does today. It is fixed now rather than later because `currency` is carried
+ * from the first schema precisely so that day needs no migration, and a
+ * formatter that silently assumes INR would make that preparation useless.
+ *
+ * `en-IN` is kept for INR rather than hand-rolling the lakh grouping: `Intl`
+ * is correct about digit grouping, which is a locale question. It is only
+ * wrong about minor-unit EXPONENTS, which is an ISO 4217 question - see the
+ * note on `exponent` above, and never mix the two up.
+ */
+const groupingIndian = new Intl.NumberFormat('en-IN', { useGrouping: true })
+const groupingWestern = new Intl.NumberFormat('en-US', { useGrouping: true })
+
+function group(whole: string, currency: string): string {
+  const n = BigInt(whole)
+  return currency === 'INR' ? groupingIndian.format(n) : groupingWestern.format(n)
+}
 
 function symbol(currency: string): string {
   return (
@@ -163,7 +190,7 @@ export function parts(minor: number, currency: string, opts: { signed?: boolean 
   return {
     sign: minor < 0 ? '-' : opts.signed && minor > 0 ? '+' : '',
     symbol: symbol(currency),
-    whole: grouping.format(BigInt(whole)),
+    whole: group(whole, currency),
     fraction: e ? digits.slice(digits.length - e) : '',
   }
 }

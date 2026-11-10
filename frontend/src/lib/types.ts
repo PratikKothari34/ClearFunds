@@ -44,15 +44,31 @@ export type Society = {
   city: string | null
   currency: string
   /*
-   * The currency's minor-unit digits, from the server's ISO 4217 table. Null
-   * only on a deployment older than the migration that added it; `money.ts`
-   * then falls back to its own ISO table, which refuses an unknown currency
-   * rather than guessing. Never derived from `Intl` - it disagrees with ISO
-   * 4217 on real currencies.
+   * The currency's minor-unit digits, from the server's ISO 4217 table.
+   * Always sent: the migration that added it is deployed on production,
+   * verified 2026-11-11 against the live schema, so it is no longer optional.
+   *
+   * `money.ts` keeps its own ISO table regardless and refuses an unknown
+   * currency rather than guessing - that is the defence against the two
+   * sources disagreeing, which does not go away because the field is now
+   * always present. Never derived from `Intl`: it disagrees with ISO 4217 on
+   * real currencies, IQD among them, where the error is thousandfold.
    */
-  currency_exponent: number | null
+  currency_exponent: number
   fy_start_month: number
   structuring_window_days: number
+  /*
+   * The approvals an above-limit entry needs, where the committee has raised
+   * it above `ceil(2M/3)`. Null is the ordinary case, not a missing field: the
+   * column is nullable and most societies never set it.
+   *
+   * It is the third term of the server's count and the one the frontend used
+   * to drop. See `tier.ts` - a screen that computes two of three terms reports
+   * fewer signatures than the server will demand, and a member who counts the
+   * signatures on the card concludes the entry is waiting on the server rather
+   * than on a person who has not signed.
+   */
+  committee_threshold: number | null
 }
 
 export type Me = {

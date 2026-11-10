@@ -36,7 +36,7 @@
  * discloses one unreadable figure instead of blanking the screen, which is
  * the whole point of countable.ts.
  */
-import { array, bool, int, nullable, object, oneOf, optional, required, str } from './parse'
+import { array, bool, int, nullable, object, oneOf, required, str } from './parse'
 import type { Parser } from './parse'
 import { PROPOSAL_STATES, ROLE_ORDER } from './types'
 import type {
@@ -507,15 +507,36 @@ const society = object<Society>({
   city: nullable(str),
   currency: required(str),
   /*
-   * `optional`, not `required`, only because production runs a deployment
-   * older than the migration that added it. Absence has a correct answer -
-   * money.ts keeps its own ISO 4217 table and throws on a currency neither
-   * source knows - so this degrades to a checked table, never to a guess.
-   * Make it `required` once the migration is deployed everywhere.
+   * `required` since 2026-11-11: the migration that added it is deployed on
+   * production, verified by probe rather than by its merge - a function only
+   * that migration creates answers "permission denied" there, which is the
+   * live schema saying it exists, where an undeployed one answers "could not
+   * find the function".
+   *
+   * It was `optional` while production ran older code, because absence had a
+   * correct answer: `money.ts` keeps its own ISO 4217 table and throws on a
+   * currency neither source knows, so it degraded to a checked table rather
+   * than to a guess. That fallback stays - it is the defence against the two
+   * sources disagreeing, not just against a missing field. What changes is
+   * that a response WITHOUT the field is now a broken server rather than an
+   * old one, and should fail the parse and say so.
+   *
+   * `required`, not `nullable`: the server computes it from the currency and
+   * always sends a number. Null would mean it could not derive an exponent
+   * for a currency it accepted, which is not a state to render around.
    */
-  currency_exponent: optional(int),
+  currency_exponent: required(int),
   fy_start_month: required(int),
   structuring_window_days: required(int),
+  /*
+   * `nullable`, not `optional`: the column is nullable and NULL is the
+   * ordinary state, so null is a real answer meaning "no raised threshold"
+   * and `tier.ts` treats it as the zero term. A missing field would be a
+   * different claim - that the server did not say - and that should fail the
+   * parse rather than be read as "not raised", because reading absence as
+   * zero is how the term went missing in the first place.
+   */
+  committee_threshold: nullable(int),
 })
 
 export const me = nullable(object<Me>({

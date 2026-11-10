@@ -68,15 +68,64 @@ export function seatedCount(seats: readonly unknown[] | undefined): number {
 export const TIER_FLOOR = 2
 
 /**
- * Approvals needed above the limit: two-thirds of M rounded up, never below
- * `TIER_FLOOR`.
+ * Approvals needed above the limit: two-thirds of M rounded up, the society's
+ * configured threshold if it raised one, never below `TIER_FLOOR`.
+ *
+ * THREE TERMS, because the server has three. `cf.required_committee` is
+ * `greatest(ceil(2M/3), coalesce(committee_threshold, 0), 2)`, and this
+ * function carried only the first and the last. The missing term is invisible
+ * on every society that never raised its threshold - the column is nullable
+ * and usually NULL, so both sides compute the same number and no fixture built
+ * from real data disagrees. It separates the moment a committee uses the
+ * column `0006` promised them: with M = 11 and a configured 9, the server
+ * requires 9 and both screens said 8.
+ *
+ * Nothing is permitted by the wrong number - the server refuses the eighth
+ * signature regardless. The cost is that a member reads "8 of 11", counts
+ * eight signatures on the card, and concludes the entry is waiting on the
+ * system rather than on a ninth person nobody is going to fetch.
+ *
+ * `threshold` is `unknown` on purpose, like `seatedCount`'s rows: it arrives
+ * from the server, so the compiler cannot assert its shape and only a cast
+ * could. A value that is not a finite number contributes NOTHING rather than
+ * standing in as zero - zero is already the identity of this term, so an
+ * unreadable threshold and an unset one produce the same answer, which is the
+ * `ceil(2M/3)` floor. That is the safe direction: it can never lower the
+ * count below what the formula and the floor already demand.
  *
  * A non-finite or negative M returns the floor rather than NaN or a negative
  * threshold. `Math.max(NaN, 2)` is NaN, and a NaN threshold renders as "NaN
  * approvals needed" or, worse, compares false against every count and reads as
- * satisfied - so it is refused here rather than carried forward.
+ * satisfied - so it is refused here rather than carried forward. The same
+ * applies to a NaN arriving through `threshold`.
  */
-export function approvalsNeeded(m: number): number {
-  if (!Number.isFinite(m) || m <= 0) return TIER_FLOOR
-  return Math.max(Math.ceil((2 * m) / 3), TIER_FLOOR)
+/**
+ * Which rule produced the count a screen is showing.
+ *
+ * The committee screen captioned its figure "Two-thirds, rounded up", always.
+ * That was true only while no society had raised its threshold - and once one
+ * has, the caption sits directly under a number that contradicts it: 10 of 11
+ * members, explained as two-thirds of 11, which is 8. A reader who can do the
+ * arithmetic finds the screen wrong about its own figure, on the surface whose
+ * job is to explain who may move money.
+ *
+ * It derives from the SAME `need` the figure renders, never from a second
+ * computation, so the caption cannot drift from the number it captions. It
+ * says nothing about the threshold's value: the point is which rule is
+ * binding, not what the committee configured.
+ */
+export function tierBasis(need: number, m: number): string {
+  if (!Number.isFinite(need) || !Number.isFinite(m)) return 'The committee rule.'
+  // The floor is only *the* reason when it beats what the formula asked for.
+  if (need > Math.max(Math.ceil((2 * m) / 3), TIER_FLOOR)) return 'Raised by the committee, above the usual share.'
+  if (need === TIER_FLOOR && Math.ceil((2 * m) / 3) < TIER_FLOOR) return 'Never fewer than two, whatever the committee size.'
+  return 'Two-thirds, rounded up.'
+}
+
+export function approvalsNeeded(m: number, threshold?: unknown): number {
+  const raised = typeof threshold === 'number' && Number.isFinite(threshold) && threshold > 0
+    ? Math.ceil(threshold)
+    : 0
+  if (!Number.isFinite(m) || m <= 0) return Math.max(raised, TIER_FLOOR)
+  return Math.max(Math.ceil((2 * m) / 3), raised, TIER_FLOOR)
 }
