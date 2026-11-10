@@ -65,6 +65,7 @@ const GATED: Record<string, string> = {
   'lib/allocation.ts': 'compares Line.minor, a value this module computed itself',
   'lib/reversed.ts': 'takes unknown on purpose and gates before every comparison',
   'lib/countable.ts': 'IS the gate - it compares after proving readability',
+  'lib/spend.ts': 'refuses a non-safe-integer amount before every ordered comparison',
 }
 
 const files = sources(root)
