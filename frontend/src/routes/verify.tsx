@@ -72,7 +72,15 @@ function Verify() {
           </span>
           <div className="min-w-0">
             <p className={cx('text-[17px] font-semibold tracking-tight', v.tone === 'break' && 'text-break')}>{v.line}</p>
-            <p className="mt-1 text-sm text-ink-2">{plural(check!.entries, 'entry', 'entries')} checked {instant(check!.at)}</p>
+            {/*
+              * "chain entries", not "entries": this counts EVERY record in the
+              * chain - approvals, appointments, flags, resolutions, opinions -
+              * while the home card counts money postings alone. Both said
+              * "entries" and the two figures differ by thousands, which reads
+              * as the ledger concealing records from the reader rather than as
+              * two counts of different things.
+              */}
+            <p className="mt-1 text-sm text-ink-2">{plural(check!.entries, 'chain entry', 'chain entries')} checked {instant(check!.at)}</p>
           </div>
         </Card>
       )}

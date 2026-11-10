@@ -101,3 +101,9 @@ docs/*.docx.bak
 # of a signed-in demo screen can carry a session token in a console
 # line - which this repo is public, so it must not travel.
 .playwright-mcp/
+# Screenshots taken with an explicit filename land in the project root
+# rather than in that directory, so the rule above does not reach them.
+# Same material and the same reason: these are captures of a signed-in
+# demo society, and `Screenshot*.png` above only matches the browser's
+# own default naming.
+/*.png
