@@ -42,7 +42,22 @@ function Home() {
             {s ? <Amount minor={s.balance_minor} size="hero" /> : <Skeleton className="h-14 w-64" />}
           </div>
           <p className="mt-3 text-[13px] text-ink-2">
-            {s ? <Facts items={[`as of ${instant(s.as_of)}`, plural(s.entries, 'entry', 'entries')]} /> : <>&nbsp;</>}
+            {/*
+              * "entries" ALONE IS AMBIGUOUS ACROSS TWO SCREENS.
+              *
+              * This figure is `public.ledger`: money postings only, 989 on the
+              * seeded society. `/verify` counts every chain record - approvals,
+              * appointments, flags, resolutions, opinions - and reported
+              * "4,254 entries checked". Both were right and both said
+              * "entries", so a resident comparing them reads the chain as
+              * covering 3,265 records the ledger is hiding. That is the
+              * opposite of what verification is for, and the reader who does
+              * the most work to check is the one most misled.
+              *
+              * The noun is the fix: this card sits under the society balance,
+              * so what it counts is the postings that produced it.
+              */}
+            {s ? <Facts items={[`as of ${instant(s.as_of)}`, plural(s.entries, 'money entry', 'money entries')]} /> : <>&nbsp;</>}
           </p>
         </div>
         <div className="border-t border-line">

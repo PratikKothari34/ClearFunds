@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft, Check, CircleDashed, Flag, Undo2, X, ChevronDown } from 'lucide-react'
 import { useLedger, useNames, useProposals, usePropose, useSociety, useDisputes, useLimit } from '../lib/api'
 import { entryDisputes } from '../lib/disputed'
+import { entryMessage, entryOutcome } from '../lib/entryview'
 import { supabase, unwrap, bytea, Refused } from '../lib/supabase'
 import { useMeStrict, isCommittee } from '../lib/session'
 import { categoryLabel, instant, longDay, plural, roleLabel, rowTitle, tierLabel, actionLabel, writeOutcome } from '../lib/format'
@@ -29,15 +30,31 @@ function EntryPage() {
   const p = proposals.data?.find((x) => x.seq === r?.proposal_seq)
   const router = useRouter()
 
+  /*
+   * `!r || !p` printed "is not a money entry" for a failed read, a seq that
+   * never existed and a posting whose proposal was missing alike - a claim
+   * about the chain made in three cases where nothing had been established.
+   * The decision is in lib/ so it can be tested without mounting a router.
+   */
+  const outcome = entryOutcome(
+    Number.isFinite(n),
+    { isPending: ledger.isPending, isError: ledger.isError, found: !!r },
+    { isPending: proposals.isPending, isError: proposals.isError, found: !!p },
+  )
+  const message = entryMessage(outcome.kind, seq)
+
   return (
     <div>
       <button onClick={() => router.history.length > 1 ? router.history.back() : router.navigate({ to: '/ledger' })}
         className="mb-4 -ml-2 inline-flex h-10 cursor-pointer items-center gap-1.5 rounded-xl px-2 text-sm font-medium text-ink-2 hover:text-ink">
         <ArrowLeft className="size-4" /> Back
       </button>
-      {ledger.isPending || proposals.isPending ? <Loading rows={3} />
-        : !r || !p ? <Card className="p-6"><p className="font-medium">Entry #{seq} is not a money entry.</p><Link to="/verify" className="mt-2 inline-block text-sm text-accent">See the whole record</Link></Card>
-        : <Detail r={r} p={p} />}
+      {outcome.kind === 'loading' ? <Loading rows={3} />
+        : outcome.kind === 'ready' && r && p ? <Detail r={r} p={p} />
+        : <Card className="p-6">
+            <p className="font-medium">{message}</p>
+            <Link to="/verify" className="mt-2 inline-block text-sm text-accent">See the whole record</Link>
+          </Card>}
     </div>
   )
 }
