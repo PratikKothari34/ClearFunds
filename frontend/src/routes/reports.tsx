@@ -5,6 +5,7 @@ import { useReport, useYears } from '../lib/api'
 import { auditChip, categoryLabel, day, instant, longDay, month, opinionHint, opinionLabel, opinionTone } from '../lib/format'
 import { checkHeadline, governingSeq } from '../lib/opinion'
 import { authorisation, nameIsAmbiguous } from '../lib/appointment'
+import { gatedRead } from '../lib/listread'
 import { Amount, Button, Caption, Card, Chip, Failed, Fingerprint, Loading, PageTitle, Segmented, cx } from '../components/ui'
 import type { Report } from '../lib/types'
 import { direction } from '../lib/countable'
@@ -27,8 +28,21 @@ function Reports() {
         <Segmented<string> className="mb-5 print:hidden" label="Financial year" value={fy ?? ''} onChange={setFy}
           options={years.data.toReversed().map((y) => ({ value: y.fy, label: `FY ${y.fy}` }))} />
       )}
-      {report.isPending ? <Loading rows={5} /> : report.isError ? <Failed error={report.error} retry={() => report.refetch()} />
-        : <Body r={report.data} />}
+      {/*
+        * The years read GATES the report read (`useReport` is `enabled: !!fy`),
+        * so a disabled query sits at `isPending` forever. Gating the view on
+        * `report` alone drew a spinner that could never resolve whenever the
+        * years read failed. `gatedRead` reads both, failure first.
+        */}
+      {(() => {
+        const state = gatedRead(years, report)
+        if (state === 'failed') {
+          const failed = years.isError ? years : report
+          return <Failed error={failed.error} retry={() => void failed.refetch()} />
+        }
+        if (state === 'pending' || report.data === undefined) return <Loading rows={5} />
+        return <Body r={report.data} />
+      })()}
     </div>
   )
 }

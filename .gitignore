@@ -91,3 +91,13 @@ docs/pending-reviews/
 # documentation. Local-only.
 docs/*.docx
 docs/*.docx.bak
+
+# --- Browser-driving output (kept locally, never published) ---
+# The Playwright MCP server writes page snapshots, console logs and
+# screenshots here while a screen is being checked against the running
+# app. Kept in the project root on purpose, so a later session can
+# compare today's capture with a new one instead of re-deriving it. The
+# contents are a moment in time, not a product artefact, and a snapshot
+# of a signed-in demo screen can carry a session token in a console
+# line - which this repo is public, so it must not travel.
+.playwright-mcp/

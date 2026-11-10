@@ -92,3 +92,42 @@ export function derivedRead<T>(rows: readonly T[], reads: readonly { isPending: 
 export function mayClaimEmpty<T>(r: ListRead<T>): boolean {
   return r.kind === 'ready' && r.rows.length === 0
 }
+
+/**
+ * A READ THAT CANNOT START IS NOT A READ STILL ARRIVING.
+ *
+ * `/reports` hung on its loading skeleton forever. The screen reads two
+ * queries: `useYears()` supplies the financial year, and `useReport(fy)`
+ * carries `enabled: !!fy`, so it cannot fire until the first one lands. The
+ * gate read the inner query alone:
+ *
+ *     {report.isPending ? <Loading/> : report.isError ? <Failed/> : <Body/>}
+ *
+ * A disabled TanStack query reports `isPending: true` and `isError: false`
+ * indefinitely - it is not loading, it never started. So when the OUTER read
+ * failed, `fy` was never set, the inner query stayed disabled, and the route
+ * drew a spinner that could not resolve. The failure was in hand the whole
+ * time, on the other query, and nothing on screen said so.
+ *
+ * Found against the running app, not in a test: the backend does not yet send
+ * `appointment_seq`, the parse boundary correctly refused the row, and the
+ * screen presented that refusal as "still loading". A spinner is a promise
+ * that something is coming. Same family as the `/verify` stale-pass defect -
+ * a failed run must never be shown as a pass - and the fix is the same shape:
+ * read the failure BEFORE the data, and decide it in `lib/` rather than in a
+ * route where testing it means mounting a router.
+ *
+ * `gate` is the read that must land first; `inner` is the one waiting on it.
+ * Either failing is a failure. Only the inner one arriving is readiness, so a
+ * gate that succeeds while the inner read is disabled stays `pending` - which
+ * is honest, because that state is transient by construction: the effect that
+ * sets the key runs on the gate's data.
+ */
+export function gatedRead(
+  gate: { isPending: boolean; isError: boolean },
+  inner: { isPending: boolean; isError: boolean },
+): 'ready' | 'pending' | 'failed' {
+  if (gate.isError || inner.isError) return 'failed'
+  if (gate.isPending || inner.isPending) return 'pending'
+  return 'ready'
+}
