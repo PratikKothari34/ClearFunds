@@ -436,6 +436,40 @@ async function checkSignatures(entries: Entry[], onProgress: (n: number, total: 
   return { checked: signed.length, failed }
 }
 
+/**
+ * What the Steps may show, given a cached check and how the current run went.
+ *
+ * The screen keeps the last check in localStorage so it has something to
+ * render before the first run finishes. That is also what it still holds
+ * when a run FAILS - and a cached pass redrawn with a green tick, no date
+ * and "No gaps, no broken links" is a reassurance about a run that did not
+ * happen, on the one screen whose job is to say whether the record can be
+ * trusted.
+ *
+ * Four outcomes, never two, and `failed` is read BEFORE `check`, because a
+ * failed run arrives *with a cached check in hand* - the same shape as a
+ * background refetch that errors while the last good data is still there.
+ *
+ * - 'running'  a run is in flight: show progress, no result.
+ * - 'none'     nothing cached and nothing ran: show neither.
+ * - 'stale'    the run failed and a prior check is all we have. Its findings
+ *              are still true *of their own date*, so they are shown - dated,
+ *              and never as a current pass.
+ * - 'current'  the run that just finished is what is on screen.
+ *
+ * Returns the date to attribute a 'stale' reading to, so a caller cannot
+ * render one without it.
+ */
+export function stepsView(
+  check: Check | null,
+  opts: { running: boolean; failed: boolean },
+): { show: 'running' } | { show: 'none' } | { show: 'current' } | { show: 'stale'; at: number } {
+  if (opts.running) return { show: 'running' }
+  if (!check) return { show: 'none' }
+  if (opts.failed) return { show: 'stale', at: check.at }
+  return { show: 'current' }
+}
+
 /** One summary line for the whole check. Never "verified", never "proof". */
 export function verdict(c: Check): { tone: 'ok' | 'warn' | 'break'; line: string } {
   if (c.chain !== 'ok') return { tone: 'break', line: 'The record does not hold together. Do not rely on these figures.' }
