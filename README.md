@@ -38,6 +38,9 @@ Both exist and run. Each lane documents its own setup:
 The wire format between them is not either lane's to decide. It lives in
 [`contracts/`](contracts/), with test vectors both sides check against.
 
+On Windows, `.\start.ps1` from the project root brings up both lanes, seeds the
+demo society and opens the app. By hand:
+
 ```sh
 # frontend
 cd frontend && npm install && npm run dev
@@ -49,6 +52,11 @@ cd backend && supabase start && deno run -A scripts/seed.ts
 Run each lane's own README before anything else — the backend needs an edge
 function secret generated locally, and the frontend needs the Supabase URL and
 publishable key in its environment.
+
+Those two lines are Bash. [`docs/running-locally.md`](docs/running-locally.md)
+has the same commands for **PowerShell**, which has no `&&`, plus how to leave
+the dev server running in its own window, the local service URLs, how to seed
+and sign in to the demo society, and what the common failures actually mean.
 
 ## Repository layout
 
