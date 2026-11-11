@@ -90,6 +90,37 @@ describe('navFor(): what each person can reach', () => {
     expect(ids(navFor(me()))).not.toContain('yearend')
   })
 
+  it('keeps disputes out of a pure auditor’s nav, and in everyone else’s', () => {
+    /*
+     * A dispute is a resident questioning the committee. The auditor is not a
+     * party to it - he cannot raise one and cannot resolve one - so the tab
+     * would put other people's grievances in his nav and imply they are his
+     * to act on.
+     *
+     * ASSERTED BOTH WAYS ON PURPOSE. Dropping the id from every branch of
+     * `navFor` would satisfy a one-sided "auditor has no disputes" test
+     * while silently removing the surface from the residents whose product
+     * it is, so each other role is named here too.
+     *
+     * The seat-holding auditor KEEPS it: the exclusion follows from having no
+     * seat and no tenure, not from the auditor flag - a committee member who
+     * is also an auditor is still a party to the dispute as a member. That is
+     * also why this is a nav decision and not access control: `/disputes`
+     * stays reachable and read-only for him, because the server owns the row
+     * filter and a hidden nav link has never refused anybody.
+     */
+    expect(ids(navFor(me({ auditor_for: ['2025-26'] })))).not.toContain('disputes')
+
+    for (const role of ROLE_ORDER) {
+      expect(ids(navFor(seated(role))), role).toContain('disputes')
+    }
+    expect(ids(navFor(me({ tenure: { id: 't' } as Me['tenure'] })))).toContain('disputes')
+    expect(ids(navFor(me()))).toContain('disputes')
+    expect(
+      ids(navFor(me({ seat: { role: 'member', derived: false }, auditor_for: ['2025-26'] }))),
+    ).toContain('disputes')
+  })
+
   it('gives the flat surface only to someone with a tenure', () => {
     const tenure = { id: 't' } as Me['tenure']
     expect(ids(navFor(me({ tenure })))).toContain('flat')
@@ -288,7 +319,16 @@ describe('splitTabs(): a waiting obligation is never pushed into More', () => {
   it('splits as soon as a list cannot fit the cells', () => {
     // One past the boundary: the sixth surface forces a More button, and the
     // bar gives up a cell for it rather than dropping a surface entirely.
-    const items = navFor(me({ auditor_for: ['2025-26'] }))
+    //
+    // THE SIX IS THE BOUNDARY, NOT A ROLE'S LENGTH. This read
+    // `navFor(auditor)` and asserted it returned 6 - so removing Disputes
+    // from the auditor's nav (5 items, which fit) failed this test, which is
+    // about splitTabs and not about auditors at all. Worse, the reverse
+    // drift is silent: had some role grown to 7, the test would still pass
+    // while no longer exercising the first overflow. Take the longest role
+    // and slice to the boundary, so the case under test is the boundary
+    // itself whatever any role happens to carry.
+    const items = navFor(seated('president')).slice(0, 6)
     expect(items.length).toBe(6)
     const { tabs, more } = split(items, {})
     expect(more.length).toBeGreaterThan(0)

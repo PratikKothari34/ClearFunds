@@ -8,6 +8,7 @@ docs/research/
 docs/subagents/
 docs/process/
 action_report.md
+OVERNIGHT_REPORT.md
 docs/github-contributors-ticket.md
 .claude/settings.local.json
 

@@ -28,7 +28,21 @@ export function navFor(me: Me): NavItem[] {
     role === 'president' ? ['home', 'signoff', 'approvals', 'disputes', 'ledger', 'dues', 'reports', 'committee']
     : role === 'treasurer' || role === 'secretary' ? ['home', 'ledger', 'approvals', 'dues', 'disputes', 'reports', 'committee']
     : role === 'member' ? ['home', 'ledger', 'approvals', 'disputes', 'dues', 'reports', 'committee']
-    : me.auditor_for.length ? ['home', 'ledger', 'yearend', 'disputes', 'reports', 'committee']
+    /*
+     * NO DISPUTES FOR THE AUDITOR.
+     *
+     * A dispute is a resident questioning the committee, and the auditor is
+     * not a party to it: he does not raise one, cannot resolve one, and the
+     * flag has no financial effect for him to audit. Carrying the tab would
+     * put a queue of other people's grievances in his nav and imply it is
+     * his to act on.
+     *
+     * The route itself stays reachable and read-only - already role-aware,
+     * no Raise button and no "Mine" tab without a tenure - because the
+     * server owns the row filter and a client-side nav is not access
+     * control. This decides what his job is, not what he is permitted.
+     */
+    : me.auditor_for.length ? ['home', 'ledger', 'yearend', 'reports', 'committee']
     : me.tenure ? ['home', 'ledger', 'flat', 'disputes', 'reports', 'committee']
     : ['home', 'ledger', 'disputes', 'reports', 'committee']
   if (me.tenure && role && !order.includes('flat')) order.splice(order.length - 2, 0, 'flat')
