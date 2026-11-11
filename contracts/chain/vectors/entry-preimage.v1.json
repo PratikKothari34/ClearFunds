@@ -196,7 +196,7 @@
   "must_reject": [
     {
       "name": "text with a lone surrogate",
-      "json_value": "\\ud800",
+      "json_value": "\ud800",
       "why": "not well-formed; TextEncoder would silently substitute U+FFFD (spec 2.2)"
     },
     {
