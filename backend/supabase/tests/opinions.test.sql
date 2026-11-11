@@ -1,7 +1,7 @@
 -- The year's headline (AGENTS.md rule 19): the most serious opinion ever received.
 -- No later opinion supersedes an earlier one, whoever appointed its auditor.
 begin;
-select plan(11);
+select plan(14);
 
 create temp table u (k text primary key, id uuid);
 insert into u select k, gen_random_uuid()
@@ -68,6 +68,17 @@ select is((select string_agg(h->>'appointment_seq', ',' order by (h->>'seq')::bi
   '101,102,103,104,105', 'each opinion names the appointment that authorised it');
 select is((select count(*) from jsonb_array_elements(cf.year_opinions('soc_h', pg_temp.fy())->'history') h
             where h->>'appointment_seq' is null), 0::bigint, 'and none is without one');
+
+-- api_years is what /year-end reads (#138). The year closed above has no
+-- postings, so it is reachable only because the list starts at the earliest
+-- appointment, not the first posting.
+create function pg_temp.year() returns jsonb language sql as $$
+  select y from jsonb_array_elements(api_years('soc_h')) y where y->>'fy' = pg_temp.fy() $$;
+select ok(pg_temp.year() is not null, 'api_years lists a closed year that has no postings');
+select is(pg_temp.year()->>'headline', 'disclaimer', 'with the same headline year_opinions gives');
+select is((select string_agg(k, ',' order by k) from jsonb_object_keys(pg_temp.year()->'history'->0) k),
+  'appointment_seq,auditor,opinion,recorded_at,seq,statement',
+  'and each history entry carries exactly the contracted fields, appointment_seq among them');
 
 select * from finish();
 rollback;
