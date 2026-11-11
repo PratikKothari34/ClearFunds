@@ -30,3 +30,4 @@ Append-only. One line per contract PR:
 2026-11-07 | chain-entry.v1 | ADD vectors ledger-kinds.v1.json for the ten ledger kinds; no layout change | #94 | additive
 2026-11-10 | api.v1 | ADD appointment_seq on each opinion in history; specify the opinions object | #131 | additive
 2026-11-08 | chain-entry.v1 | FIX the lone-surrogate must_reject vector: one backslash, so it parses to U+D800 | #124 | not breaking
+2026-11-11 | api.v1 | ADD Amounts: the ±(2^53 − 1) range on every *_minor, the too-large message, the posted-total bound; DOCUMENT society.committee_threshold and the required-count formula on api_me | #136 #137 | additive
