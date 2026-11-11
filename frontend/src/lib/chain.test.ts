@@ -150,27 +150,37 @@ describe('contracts/chain/vectors/entry-preimage.v1.json', () => {
   const CHAIN_LEVEL = ['entry 2 served with sequence 3', 'entry with kind test_vector inside a real chain']
 
   /*
-   * Type, and in one case the value, stay ours. The type because the contract's
-   * rows do not carry one. The value because of a defect in the vector file,
-   * found by driving these from it:
+   * THE LONE-SURROGATE ROW, AND WHY IT IS THE ONE ROW WE DO NOT TRUST BLINDLY.
    *
-   * The lone-surrogate row is written `"\\\\ud800"` - a DOUBLED backslash -
-   * so it parses to the six-character string `\\ud800` rather than to U+D800.
-   * Measured in Node against the real file: length 6, first code unit 0x5c.
-   * That string is perfectly well-formed text, so an implementation that never
-   * rejects lone surrogates passes the vector that exists to catch it.
+   * Type stays ours because the contract's rows do not carry one. The value is
+   * taken from the contract - with one guard, because this row was written
+   * `"\\\\ud800"` for a while: a DOUBLED backslash, which parses to the
+   * six-character string `\\ud800` rather than to U+D800. Measured in Node
+   * against the real file at the time: length 6, first code unit 0x5c,
+   * `isWellFormed()` true. That string is ordinary text, so the vector whose
+   * whole purpose is catching an implementation that ACCEPTS lone surrogates
+   * was passed by one that never rejects them. Found by driving these cases
+   * from the file rather than hand-writing them (#124).
    *
-   * It is a one-character fix on his side: a SINGLE `\\ud800` in the JSON
-   * parses to a real one-code-unit surrogate, in both Node and Python. So this
-   * is an escaping slip in a generated file, not a limit of the format.
+   * `surrogateFallback` is therefore not an override of the contract - it is
+   * what runs ONLY while the row cannot express its own subject. The moment
+   * the file carries a real surrogate the contract's value is used, and the
+   * case below asserts which of the two happened rather than asserting the
+   * defect is still present. The previous version of this file pinned the
+   * doubled escape itself, which was right while the fix was outstanding and
+   * turns into a test that FAILS ON THE FIX - so it is replaced rather than
+   * deleted, because something must still prove the row is load-bearing.
    *
-   * Until it lands, `override` supplies the real U+D800 while the row is still
-   * READ - its presence, its name and its count all stay asserted below - and
-   * the case after this one fails the moment the fix arrives, so the override
-   * cannot outlive its cause.
+   * What makes either path safe is that this row stays READ: its presence, its
+   * name and its count are asserted by the coverage case above, and the
+   * encoder must refuse whichever value is used.
    */
-  const ENCODER_TYPE: Readonly<Record<string, { type: string; override?: unknown }>> = {
-    'text with a lone surrogate': { type: 'text', override: '\ud800' },
+  const SURROGATE_ROW = 'text with a lone surrogate'
+  const surrogateFallback = '\ud800'
+  const hasLoneSurrogate = (v: unknown): boolean =>
+    typeof v === 'string' && /[\uD800-\uDFFF]/.test(v) && !v.isWellFormed()
+  const ENCODER_TYPE: Readonly<Record<string, { type: string }>> = {
+    [SURROGATE_ROW]: { type: 'text' },
     'int above 2^53-1': { type: 'int' },
     'bytes in uppercase hex': { type: 'bytes' },
   }
@@ -185,25 +195,70 @@ describe('contracts/chain/vectors/entry-preimage.v1.json', () => {
       .toEqual(Object.keys(ENCODER_TYPE).sort())
   })
 
-  it('the lone-surrogate vector still carries the doubled escape', () => {
+  it('refuses a lone surrogate on the contract value once it can express one', () => {
     /*
-     * Pins the reason the override exists so it cannot outlive its cause. The
-     * assertion is on the VALUE, not on a version or a date: the day his row
-     * holds a real surrogate this fails, and whoever reads the message deletes
-     * the override rather than carrying it forever.
+     * Asserts the row is load-bearing, whichever side of the fix the contract
+     * is on - and says which. It replaces a case that pinned the DEFECT (the
+     * doubled escape still being there), which was correct while the fix was
+     * outstanding and would have failed the moment it landed, teaching whoever
+     * read it to delete the only thing keeping this row honest.
      *
-     * Checked by code unit rather than by `length`, because that is the whole
-     * subject - a lone surrogate is one UTF-16 code unit that is not valid
-     * text, and `\\ud800` is six that are.
+     * Checked by code unit and by `isWellFormed`, not by `length`, because
+     * that is the whole subject: a lone surrogate is one UTF-16 code unit that
+     * is not valid text, and `\\ud800` is six that are. `length` cannot tell
+     * them apart in general - a 6-character string of valid text and a
+     * 6-character string containing an unpaired surrogate are both 6.
+     *
+     * The real surrogate is refused EITHER WAY, so the suite never stops
+     * covering the subject while the contract is wrong. What changes when the
+     * fix lands is only whether the proof comes from the contract or from us,
+     * which is what the two branches record.
      */
-    const row = rejections.find((r) => r.name === 'text with a lone surrogate')
+    const row = rejections.find((r) => r.name === SURROGATE_ROW)
     expect(row, 'the lone-surrogate rejection left the contract').toBeDefined()
     const v = row!.json_value
     expect(typeof v, 'json_value is no longer a string').toBe('string')
+
+    // The subject itself, independent of what the file says: this must always hold.
     expect(
-      /[\uD800-\uDFFF]/.test(v as string),
-      'the contract now carries a real lone surrogate: delete the override and use json_value',
-    ).toBe(false)
+      hasLoneSurrogate(surrogateFallback),
+      'the fallback is not a lone surrogate, so this suite proves nothing about one',
+    ).toBe(true)
+    expect(() => encode('text', surrogateFallback)).toThrow(ChainError)
+
+    /*
+     * `hasLoneSurrogate` decides which branch runs, so it has to distinguish a
+     * LONE surrogate from a valid astral pair - and a code-unit range test
+     * alone cannot: '\u{1F600}' is two code units both inside U+D800..U+DFFF,
+     * and is perfectly well-formed text the encoder must ACCEPT. Without the
+     * `isWellFormed` term this predicate calls an emoji a lone surrogate, and
+     * every row of the contract that happens to contain one would be quietly
+     * swapped for the fallback - the substitution firing where no defect
+     * exists, which is how it would outlive its cause after all.
+     *
+     * Asserted here because no vector row carries an emoji today, so nothing
+     * else in this file fails when that term is dropped. Measured: removing it
+     * leaves all 30 cases green.
+     */
+    expect(hasLoneSurrogate('\u{1F600}'), 'a valid astral pair is not a lone surrogate').toBe(false)
+    expect(() => encode('text', '\u{1F600}')).not.toThrow()
+    expect(hasLoneSurrogate('a\ud800b'), 'an embedded unpaired surrogate is one').toBe(true)
+    expect(hasLoneSurrogate('\u{1F600}\ud800'), 'an unpaired surrogate after a valid pair is one').toBe(true)
+    expect(hasLoneSurrogate('plain'), 'ordinary text is not one').toBe(false)
+
+    if (hasLoneSurrogate(v)) {
+      // The fix landed: the contract now states its own subject, so use it.
+      expect(() => encode('text', v)).toThrow(ChainError)
+    } else {
+      /*
+       * Still the doubled escape. The row parses to ordinary text, which the
+       * encoder correctly ACCEPTS - so assert exactly that, to record that the
+       * contract value cannot fail anything today and the fallback is why this
+       * row is still covered.
+       */
+      expect(v as string).toBe('\\ud800')
+      expect(() => encode('text', v)).not.toThrow()
+    }
   })
 
   for (const r of rejections) {
@@ -218,7 +273,17 @@ describe('contracts/chain/vectors/entry-preimage.v1.json', () => {
          */
         throw new Error(`no encoder type mapped for "${r.name}"`)
       }
-      expect(() => encode(m.type, 'override' in m ? m.override : r.json_value)).toThrow(ChainError)
+      /*
+       * The contract's value, except for the one row that cannot yet express
+       * its own subject (see `surrogateFallback` above). The substitution is
+       * conditional on the VALUE, not on the row's name alone, so it stops
+       * happening by itself the moment the contract is fixed - nobody has to
+       * remember to remove it.
+       */
+      const value = r.name === SURROGATE_ROW && !hasLoneSurrogate(r.json_value)
+        ? surrogateFallback
+        : r.json_value
+      expect(() => encode(m.type, value)).toThrow(ChainError)
     })
   }
   it('rejects a gap in the sequence', async () => {
