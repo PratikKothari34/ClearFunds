@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { AlertTriangle, Printer } from 'lucide-react'
 import { useReport, useYears } from '../lib/api'
+import { useCurrency } from '../lib/session'
 import { auditChip, categoryLabel, day, instant, longDay, month, opinionHint, opinionLabel, opinionTone } from '../lib/format'
 import { checkHeadline, governingSeq } from '../lib/opinion'
 import { authorisation, nameIsAmbiguous } from '../lib/appointment'
@@ -48,6 +49,7 @@ function Reports() {
 }
 
 function Body({ r }: { r: Report }) {
+  const ccy = r.currency
   const ie = r.income_expenditure
   /*
    * WHETHER THE YEAR READS SURPLUS OR DEFICIT IS A DECISION, NOT A FORMAT.
@@ -141,7 +143,7 @@ function Body({ r }: { r: Report }) {
                     ? 'Neither surplus nor deficit for the year'
                     : 'Surplus for the year'}
             </span>
-            <Amount minor={ie.surplus_minor} />
+            <Amount currency={ccy} minor={ie.surplus_minor} />
           </div>
         </Card>
       </section>
@@ -187,7 +189,7 @@ function Body({ r }: { r: Report }) {
                   <li key={a.seq} className="py-3 text-sm">
                     <div className="flex items-center justify-between gap-3">
                       <Link to="/entry/$seq" params={{ seq: String(a.seq) }} className="font-medium text-accent">#{a.seq} corrects FY {a.corrects_fy}</Link>
-                      <Amount minor={a.amount_minor} signed />
+                      <Amount currency={ccy} minor={a.amount_minor} signed />
                     </div>
                     <p className="mt-1 text-ink-2">{a.counterparty}: {a.reason}</p>
                   </li>
@@ -208,7 +210,7 @@ function Body({ r }: { r: Report }) {
                 <li key={x.seq} className="py-3 text-sm">
                   <div className="flex items-center justify-between gap-3">
                     <Link to="/entry/$seq" params={{ seq: String(x.seq) }} className="font-medium">#{x.seq} reverses #{x.reverses_seq}, {x.counterparty}</Link>
-                    <Amount minor={x.amount_minor} signed />
+                    <Amount currency={ccy} minor={x.amount_minor} signed />
                   </div>
                   <p className="mt-1 text-ink-2">{day(x.business_date)}: {x.reason}</p>
                 </li>
@@ -226,10 +228,10 @@ function Body({ r }: { r: Report }) {
             <div key={g.counterparty + g.first_date} className="py-2 text-sm">
               <div className="flex items-center justify-between gap-3">
                 <Link to="/ledger" search={{ q: g.counterparty }} className="font-medium">{g.counterparty}</Link>
-                <Amount minor={g.total_minor} />
+                <Amount currency={ccy} minor={g.total_minor} />
               </div>
               <p className="mt-1 text-ink-2">
-                {g.constituents.length} below-limit payments, {day(g.first_date)} to {day(g.last_date)}, together above the <Amount minor={g.limit_minor} size="sm" /> limit.
+                {g.constituents.length} below-limit payments, {day(g.first_date)} to {day(g.last_date)}, together above the <Amount currency={ccy} minor={g.limit_minor} size="sm" /> limit.
               </p>
             </div>
           )) : <p className="text-sm text-ink-2">None this year.</p>}
@@ -297,9 +299,10 @@ function Body({ r }: { r: Report }) {
 }
 
 function Mini({ label, minor, className }: { label: string; minor: number; className?: string }) {
+  const ccy = useCurrency()
   return (
     <div className="rounded-xl bg-sunken px-2 py-3">
-      <Amount minor={minor} size="sm" className={cx('font-semibold', className)} />
+      <Amount currency={ccy} minor={minor} size="sm" className={cx('font-semibold', className)} />
       <p className="text-xs text-ink-2">{label}</p>
     </div>
   )
@@ -317,10 +320,11 @@ function Table({ title, rows, total }: { title: string; rows: { category: string
 }
 
 function Line({ label, minor, strong, total }: { label: string; minor: number; strong?: boolean; total?: boolean }) {
+  const ccy = useCurrency()
   return (
     <div className={cx('flex items-baseline justify-between gap-3 py-1.5 text-sm', total && 'mt-1 border-t border-line pt-2.5 font-semibold', strong && 'font-medium')}>
       <span>{label}</span>
-      <Amount minor={minor} size="sm" className={cx((total || strong) && 'font-semibold')} />
+      <Amount currency={ccy} minor={minor} size="sm" className={cx((total || strong) && 'font-semibold')} />
     </div>
   )
 }

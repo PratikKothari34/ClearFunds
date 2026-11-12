@@ -3,7 +3,7 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import { Check, PenLine } from 'lucide-react'
 import { useNames, useSignoff, useSignoffs, useSummary } from '../lib/api'
 import { Refused } from '../lib/supabase'
-import { useMeStrict } from '../lib/session'
+import { useMeStrict, useCurrency } from '../lib/session'
 import { instant, month, monthOf, todayIST } from '../lib/format'
 import { isDue, signoffMonths } from '../lib/signoff'
 import { Amount, Button, Card, Chip, Failed, Field, Input, Loading, PageTitle, ReversedNote, Sheet, useToast, cx } from '../components/ui'
@@ -14,6 +14,7 @@ import type { Summary } from '../lib/types'
 export const Route = createFileRoute('/sign-off')({ component: SignOff })
 
 function SignOff() {
+  const ccy = useCurrency()
   const me = useMeStrict()
   const signoffs = useSignoffs()
   const summary = useSummary()
@@ -72,7 +73,7 @@ function SignOff() {
                   */}
                 {t && (
                   <span className="hidden text-right text-xs sm:block">
-                    <Amount minor={t.out_minor} size="sm" className="text-debit" />
+                    <Amount currency={ccy} minor={t.out_minor} size="sm" className="text-debit" />
                     <span className="block text-ink-2">
                       out{monthReversal(t) === 'none' ? '' : monthReversal(t) === 'unknown' ? ', may include corrections' : ', includes corrections'}
                     </span>
@@ -95,6 +96,7 @@ function SignOff() {
  * needs them: the president signs here, and a signature cannot be withdrawn.
  */
 function SignSheet({ m, onClose, t }: { m: string; onClose: () => void; t: Summary['months'][number] | undefined }) {
+  const ccy = useCurrency()
   const sign = useSignoff()
   const toast = useToast()
   const [note, setNote] = useState('')
@@ -107,14 +109,14 @@ function SignSheet({ m, onClose, t }: { m: string; onClose: () => void; t: Summa
       {t && (
         <div className="grid grid-cols-3 gap-2 text-center">
           <div className="rounded-xl bg-sunken p-3">
-            <Amount minor={t.in_minor} size="sm" className="font-semibold text-credit" />
+            <Amount currency={ccy} minor={t.in_minor} size="sm" className="font-semibold text-credit" />
             <p className="text-xs text-ink-2">In</p>
-            <ReversedNote of={reversedIn(t)} className="mt-1" />
+            <ReversedNote currency={ccy} of={reversedIn(t)} className="mt-1" />
           </div>
           <div className="rounded-xl bg-sunken p-3">
-            <Amount minor={t.out_minor} size="sm" className="font-semibold text-debit" />
+            <Amount currency={ccy} minor={t.out_minor} size="sm" className="font-semibold text-debit" />
             <p className="text-xs text-ink-2">Out</p>
-            <ReversedNote of={reversedOut(t)} className="mt-1" />
+            <ReversedNote currency={ccy} of={reversedOut(t)} className="mt-1" />
           </div>
           <div className="rounded-xl bg-sunken p-3"><p className="tnum text-sm font-semibold">{t.entries}</p><p className="text-xs text-ink-2">Entries</p></div>
         </div>

@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { ArrowRight, CheckCheck, Flag, Gavel, Hourglass, PenLine, Plus, Wallet, Sparkles } from 'lucide-react'
 import { useDisputes, useDues, useLedger, useNames, useProposals, useSignoffs, useSummary, useTenantFlags, useYears } from '../lib/api'
-import { useMeStrict, isCommittee } from '../lib/session'
+import { useMeStrict, isCommittee, useCurrency } from '../lib/session'
 import { owing } from '../lib/countable'
 import { reversedIn, reversedOut } from '../lib/reversed'
 import { derivedRead, listReadMap } from '../lib/listread'
@@ -17,6 +17,7 @@ import type { Me, Summary } from '../lib/types'
 export const Route = createFileRoute('/')({ component: Home })
 
 function Home() {
+  const ccy = useCurrency()
   const me = useMeStrict()
   const summary = useSummary()
   const ledger = useLedger()
@@ -39,7 +40,7 @@ function Home() {
         <div className="px-5 pt-5 pb-6">
           <p className="text-[13px] font-medium text-ink-2">Society balance</p>
           <div className="mt-3 min-h-14">
-            {s ? <Amount minor={s.balance_minor} size="hero" /> : <Skeleton className="h-14 w-64" />}
+            {s ? <Amount currency={ccy} minor={s.balance_minor} size="hero" /> : <Skeleton className="h-14 w-64" />}
           </div>
           <p className="mt-3 text-[13px] text-ink-2">
             {/*
@@ -121,19 +122,20 @@ function Home() {
  * `aria-hidden` decoration; the disclosure below carries the meaning.
  */
 function InOut({ month }: { month: Summary['months'][number] }) {
+  const ccy = useCurrency()
   const total = month.in_minor + month.out_minor || 1
   return (
     <div>
       <div className="grid grid-cols-2 gap-4">
         <div>
           <p className="text-[13px] text-ink-2">In</p>
-          <Amount minor={month.in_minor} size="lg" className="text-credit" />
-          <ReversedNote of={reversedIn(month)} className="mt-1" />
+          <Amount currency={ccy} minor={month.in_minor} size="lg" className="text-credit" />
+          <ReversedNote currency={ccy} of={reversedIn(month)} className="mt-1" />
         </div>
         <div>
           <p className="text-[13px] text-ink-2">Out</p>
-          <Amount minor={month.out_minor} size="lg" className="text-debit" />
-          <ReversedNote of={reversedOut(month)} className="mt-1" />
+          <Amount currency={ccy} minor={month.out_minor} size="lg" className="text-debit" />
+          <ReversedNote currency={ccy} of={reversedOut(month)} className="mt-1" />
         </div>
       </div>
       <div className="mt-4 flex h-2 overflow-hidden rounded-full bg-sunken" aria-hidden>
@@ -153,6 +155,7 @@ function InOut({ month }: { month: Summary['months'][number] }) {
 const SPEND_ROWS = 4
 
 function Spend({ items, total }: { items: { category: string; amount_minor: number }[]; total: number }) {
+  const ccy = useCurrency()
   if (!items.length) return <p className="text-sm text-ink-2">Nothing spent yet this year.</p>
   const v = spendView(items, total, SPEND_ROWS)
   return (
@@ -163,7 +166,7 @@ function Spend({ items, total }: { items: { category: string; amount_minor: numb
           <div key={c.category}>
             <div className="flex items-baseline justify-between gap-3 text-sm">
               <span>{categoryLabel(c.category)}</span>
-              <Amount minor={c.amount_minor} size="sm" className="text-ink-2" />
+              <Amount currency={ccy} minor={c.amount_minor} size="sm" className="text-ink-2" />
             </div>
             <div className="mt-1 h-1.5 rounded-full bg-sunken" aria-hidden>
               {width === null ? null : <div className="h-full rounded-full bg-ink/70" style={{ width: `${width}%` }} />}
@@ -172,12 +175,12 @@ function Spend({ items, total }: { items: { category: string; amount_minor: numb
         )
       })}
       {v.covers === 'all' ? (
-        <p className="pt-1 text-right text-[13px] text-ink-2">Total <Amount minor={v.allTotal} size="sm" /></p>
+        <p className="pt-1 text-right text-[13px] text-ink-2">Total <Amount currency={ccy} minor={v.allTotal} size="sm" /></p>
       ) : (
         <div className="pt-1 text-right text-[13px] text-ink-2">
           <p>
             {v.hidden > 0 ? `Total, all ${v.shown.length + v.hidden} categories ` : 'Total, whole year '}
-            <Amount minor={v.allTotal} size="sm" />
+            <Amount currency={ccy} minor={v.allTotal} size="sm" />
           </p>
           {v.hidden > 0 ? (
             <p className="text-ink-2">

@@ -27,7 +27,7 @@ afterEach(() => vi.restoreAllMocks())
 
 function Boom({ minor }: { minor: number }) {
   // The real path: format() raises RangeError on a non-safe-integer amount.
-  return <span>{format(minor)}</span>
+  return <span>{format(minor, 'INR')}</span>
 }
 
 describe('the render boundary', () => {
@@ -36,7 +36,7 @@ describe('the render boundary', () => {
     // Guard the premise: this input must actually throw, or the test proves
     // nothing. A version of money.ts that stopped throwing would make every
     // assertion below pass vacuously.
-    expect(() => format(NaN)).toThrow(RangeError)
+    expect(() => format(NaN, 'INR')).toThrow(RangeError)
 
     render(
       <div>
@@ -77,7 +77,7 @@ describe('the render boundary', () => {
     // A resident reporting this to the committee is how we hear about it.
     let thrown = ''
     try {
-      format(NaN)
+      format(NaN, 'INR')
     } catch (e) {
       thrown = e instanceof Error ? e.message : ''
     }

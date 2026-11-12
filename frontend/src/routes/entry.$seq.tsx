@@ -233,13 +233,14 @@ function Trail({ p, r, names }: { p: ProposalRow; r: LedgerRow; names: Map<strin
         ))}
       </ol>
       <p className="mt-4 rounded-xl bg-sunken px-3 py-2.5 text-[13px] text-ink-2">
-        Needed {tierLabel(p)}{p.tier === 'pair' ? `, at or below the ${format(p.limit_minor, 'INR', { compact: true })} limit then in force` : `, above the ${format(p.limit_minor, 'INR', { compact: true })} limit then in force`}.
+        Needed {tierLabel(p)}{p.tier === 'pair' ? `, at or below the ${format(p.limit_minor, r.currency, { compact: true })} limit then in force` : `, above the ${format(p.limit_minor, r.currency, { compact: true })} limit then in force`}.
       </p>
     </div>
   )
 }
 
 function Allocation({ r }: { r: LedgerRow }) {
+  const ccy = r.currency
   const me = useMeStrict()
   const s = useSociety()
   const [all, setAll] = useState(false)
@@ -274,7 +275,7 @@ function Allocation({ r }: { r: LedgerRow }) {
       <Card className="p-5">
         <div className="grid grid-cols-3 gap-3 text-center">
           <Stat label="Flats" value={alloc.lines.length.toString()} />
-          <Stat label="Each" value={eachReadable.readable ? format(eachReadable.minor) : 'Not available'} />
+          <Stat label="Each" value={eachReadable.readable ? format(eachReadable.minor, ccy) : 'Not available'} />
           <Stat label="+1 paisa" value={plural(alloc.remainderCount, 'flat')} />
         </div>
         {/* A broken entry is disclosed, not truncated in silence: a flat
@@ -288,7 +289,7 @@ function Allocation({ r }: { r: LedgerRow }) {
         {mine && (
           <div className="mt-4 flex items-center justify-between rounded-xl bg-accent-soft px-4 py-3 text-sm">
             <span className="font-medium">Your flat, {me.tenure!.flat}</span>
-            <Amount minor={mine.minor} />
+            <Amount currency={ccy} minor={mine.minor} />
           </div>
         )}
         <p className="mt-4 text-[13px] text-ink-2">The paisa that does not divide goes to the flats that have had it least often, so no flat pays more over time.</p>
@@ -300,7 +301,7 @@ function Allocation({ r }: { r: LedgerRow }) {
             {alloc.lines.map((l) => (
               <div key={l.flat_id} className="flex justify-between gap-2 py-0.5">
                 <span className={cx(l.remainder && 'font-medium')}>{flats.get(l.flat_id) ?? l.flat_id}</span>
-                <Amount minor={l.minor} size="sm" className={cx(!l.remainder && 'text-ink-2')} />
+                <Amount currency={ccy} minor={l.minor} size="sm" className={cx(!l.remainder && 'text-ink-2')} />
               </div>
             ))}
           </div>
@@ -320,6 +321,7 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 function ReverseSheet({ open, onClose, r, p }: { open: boolean; onClose: () => void; r: LedgerRow; p: ProposalRow }) {
+  const ccy = r.currency
   const propose = usePropose()
   const limit = useLimit()
   const toast = useToast()
@@ -329,7 +331,7 @@ function ReverseSheet({ open, onClose, r, p }: { open: boolean; onClose: () => v
   const [error, setError] = useState<string | null>(null)
   // `null` here means the field would not parse; `reversaltier` needs that
   // distinct from "no replacement", so it is never coalesced to a number.
-  const repl = replace ? parse(amount) : null
+  const repl = replace ? parse(amount, ccy) : null
   /*
    * The tier is `lib/reversaltier.ts`'s decision, not this sheet's. It used
    * to be computed here, which meant reaching it required mounting a router
@@ -373,7 +375,7 @@ function ReverseSheet({ open, onClose, r, p }: { open: boolean; onClose: () => v
       <div className="space-y-5">
         <div className="flex items-center justify-between rounded-2xl bg-sunken p-4">
           <span className="text-sm font-medium">{rowTitle(r)}</span>
-          <Amount minor={r.amount_minor} signed />
+          <Amount currency={ccy} minor={r.amount_minor} signed />
         </div>
         <Field label="Why?" htmlFor="reason" hint="Required. Everyone can read it, forever." error={error}>
           <Textarea id="reason" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Invoice entered twice" />

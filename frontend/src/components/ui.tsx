@@ -74,7 +74,7 @@ type AmountProps = {
   /* Nullable because the wire is: Amount discloses what it cannot read
    * rather than making every call site guard first. */
   minor: number | null
-  currency?: string
+  currency: string
   signed?: boolean
   size?: 'sm' | 'md' | 'lg' | 'hero'
   tone?: 'auto' | 'ink' | 'muted'
@@ -94,7 +94,7 @@ const uncoloured = (cls: string | undefined): string | undefined =>
     .join(' ') || undefined
 
 /** The most important pixels on every screen. Sign and colour together, never colour alone. */
-export function Amount({ minor, currency = 'INR', signed, size = 'md', tone = 'ink', struck, className }: AmountProps) {
+export function Amount({ minor, currency, signed, size = 'md', tone = 'ink', struck, className }: AmountProps) {
   /*
    * An amount that cannot be read is disclosed, never thrown. parts() raises
    * RangeError on anything that is not a safe integer, and there is no error
@@ -186,7 +186,7 @@ const toneClass: Record<Tone, string> = {
  * rendering nothing: silence here is indistinguishable from "no reversals",
  * which is the overstatement this component exists to prevent.
  */
-export function ReversedNote({ of, className }: { of: Reversed; className?: string }) {
+export function ReversedNote({ of, currency, className }: { of: Reversed; currency: string; className?: string }) {
   if (of.kind === 'none') return null
   if (of.kind === 'unknown') {
     return (
@@ -197,7 +197,7 @@ export function ReversedNote({ of, className }: { of: Reversed; className?: stri
   }
   return (
     <p className={cx('text-xs text-ink-2', className)}>
-      includes <Amount minor={of.minor} size="sm" tone="muted" /> of corrections
+      includes <Amount minor={of.minor} currency={currency} size="sm" tone="muted" /> of corrections
     </p>
   )
 }
