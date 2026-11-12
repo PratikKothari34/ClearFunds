@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isDue, isMonth, signoffMonths } from './signoff'
+import { isDue, isMonth, signoffDue, signoffMonths } from './signoff'
 import { recentMonths } from './pending'
 
 /*
@@ -110,5 +110,87 @@ describe('isDue', () => {
     for (const m of months) {
       expect(isDue(m, '2026-11', none), `${m} against 2026-11`).toBe(m < '2026-11')
     }
+  })
+})
+
+/*
+ * signoffDue is the DASHBOARD's copy of this decision. It is tested here
+ * rather than through the home route because the bug it fixes lived at a call
+ * site in that route - `recentMonths(cur, 3)` - where the only way to reach it
+ * was to mount a router, which is why it survived the fix to the screen beside
+ * it. Every test below is about WHICH MONTHS ARE CONSIDERED, never about how a
+ * card renders them.
+ */
+describe('signoffDue', () => {
+  const cur = '2026-11'
+  /* The floor the dashboard passes: a few recent months, as the old code
+   * generated. The point of these tests is that it is a FLOOR and not a
+   * horizon. */
+  const floor = recentMonths(cur, 3)
+
+  it('keeps an unsigned month OLDER than the rolling window, which is the bug', () => {
+    /*
+     * The month is far outside any small window from `cur`, has ledger
+     * activity, and was never signed. The old card filtered a generated
+     * window, so this month was absent - not overdue, absent - and the
+     * dashboard said nothing needed the president. Derived from activity, it
+     * is still due however long it has been waiting.
+     */
+    const old = '2025-01'
+    expect(floor).not.toContain(old)
+    expect(signoffDue([old], [], floor, cur)).toContain(old)
+  })
+
+  it('still answers for a month whose activity the summary has not loaded', () => {
+    /* The floor only ever ADDS. With no activity read at all, the recent
+     * ended months are still offered, so the card is not blank mid-read. */
+    const due = signoffDue(undefined, undefined, floor, cur)
+    expect(due.length).toBeGreaterThan(0)
+    for (const m of due) expect(m < cur).toBe(true)
+  })
+
+  it('drops a month once it is signed, whatever its age', () => {
+    const old = '2025-01'
+    expect(signoffDue([old], [old], floor, cur)).not.toContain(old)
+  })
+
+  it('never asks for the current month or a future one', () => {
+    /* The current month is in progress; a future month means a clock skew or
+     * a bad row. Neither is waiting on anyone. */
+    const due = signoffDue([cur, '2027-06', '2026-10'], [], floor, cur)
+    expect(due).not.toContain(cur)
+    expect(due).not.toContain('2027-06')
+    expect(due).toContain('2026-10')
+  })
+
+  it('drops a malformed month instead of letting it reach a date formatter', () => {
+    for (const bad of ['', '2026', '2026-13', '2026-00', 'x']) {
+      expect(signoffDue([bad], [], [], cur), `activity ${bad}`).not.toContain(bad)
+    }
+  })
+
+  it('agrees with isDue on every month it returns, rather than restating the rule', () => {
+    /*
+     * The card and the screen must not answer "waiting on me" two ways. This
+     * asserts the composition, so an inlined copy of the comparison in either
+     * place is a failure rather than a silent second opinion.
+     */
+    const signed = ['2026-08']
+    const activity = ['2025-01', '2026-08', '2026-09', '2026-10', cur]
+    const signedSet = new Set(signed)
+    const due = signoffDue(activity, signed, floor, cur)
+    for (const m of signoffMonths(activity, signed, floor)) {
+      expect(due.includes(m), `${m}`).toBe(isDue(m, cur, signedSet))
+    }
+  })
+
+  it('returns newest first, so a cap on the card drops the OLDEST last', () => {
+    /*
+     * The caller shows the first few and counts the rest. If the order were
+     * reversed, a cap would hide the most recent month and keep the stale
+     * ones - and the overflow line would be counting the wrong end.
+     */
+    const due = signoffDue(['2025-01', '2026-09', '2026-10'], [], [], cur)
+    expect(due).toEqual([...due].sort().reverse())
   })
 })

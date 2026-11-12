@@ -80,3 +80,41 @@ export function isDue(month: string, cur: string, signedMonths: ReadonlySet<stri
   if (signedMonths.has(month)) return false
   return month < cur
 }
+
+/**
+ * WHICH MONTHS THE DASHBOARD MUST PROMPT THE PRESIDENT TO SIGN.
+ *
+ * The same decision as `signoffMonths`, for the other surface that states it,
+ * and it carried the ORIGINAL bug long after the sign-off screen was fixed:
+ * the home card generated `recentMonths(cur, 3)` and filtered that, so a sheet
+ * left unsigned for more than three months silently left the list. Nothing
+ * said it had gone. The sign-off screen still offered it, but the card is the
+ * PROMPT - it is what tells a president the screen is worth opening - so an
+ * unsigned month aged out of the only place anyone would have seen it, and the
+ * dashboard then said "Nothing needs you right now."
+ *
+ * That is the serious direction, and it is worse here than it was there: on
+ * the sign-off screen the month was missing from a list someone had chosen to
+ * go and read; here it is missing from the reason to go at all.
+ *
+ * So the candidates are DERIVED FROM DATA exactly as `signoffMonths` derives
+ * them - the months the ledger has activity in, plus the months already
+ * signed, with a small rolling window kept only as a floor that can ADD a
+ * month and never remove one. `isDue` then decides each one, so the card and
+ * the screen answer "is this waiting on me" with one rule rather than two.
+ *
+ * `limit` caps what the CARD renders, never what is considered: the overflow
+ * is counted by the caller and disclosed, the way the approvals block already
+ * discloses its own. A cap applied before the decision would be the same bug
+ * wearing a different number.
+ */
+export function signoffDue(
+  activity: readonly unknown[] | undefined,
+  signed: readonly unknown[] | undefined,
+  floor: readonly string[],
+  cur: string,
+): string[] {
+  const signedSet = new Set<string>()
+  for (const m of signed ?? []) if (isMonth(m)) signedSet.add(m)
+  return signoffMonths(activity, signed, floor).filter((m) => isDue(m, cur, signedSet))
+}
