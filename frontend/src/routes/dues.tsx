@@ -4,8 +4,9 @@ import { Check, Receipt } from 'lucide-react'
 import { useDues, useLedger, useSummary } from '../lib/api'
 import { useMeStrict, isCommittee } from '../lib/session'
 import { day, plural } from '../lib/format'
-import { parts, toInput } from '../lib/money'
+import { toInput } from '../lib/money'
 import { countable, owing, partition } from '../lib/countable'
+import { duesTile } from '../lib/duestile'
 import { scopeOf } from '../lib/scope'
 import { listReadMap } from '../lib/listread'
 import { Amount, Button, Card, Failed, Loading, PageTitle, Segmented, Sheet, cx } from '../components/ui'
@@ -80,26 +81,21 @@ function Dues() {
           {wings.map(([w, flats]) => (
             <section key={w}>
               <h2 className="mb-2 px-1 text-[13px] font-medium text-ink-2">Wing {w}</h2>
-              <div className="grid grid-cols-4 gap-2 sm:grid-cols-6 md:grid-cols-8">
+              {/* Three columns below 380px: the figure is held to the 16px
+                  floor, and a lakh-sized arrears figure does not fit a quarter
+                  of a 320px screen at that size. */}
+              <div className="grid grid-cols-3 gap-2 min-[380px]:grid-cols-4 sm:grid-cols-6 md:grid-cols-8">
                 {flats.map((d) => {
-                  /*
-                   * Three states. A green check is a claim that the flat has
-                   * settled, so a figure that could not be read must not get
-                   * one - it reads as "paid" to every resident and treasurer
-                   * who sees it. "?" plus the muted tile says unknown, and
-                   * the accessible name says it in words.
-                   */
-                  const c = countable(d.outstanding_minor)
-                  const owes = c.readable && c.owing
-                  const unknown = !c.readable
+                  /* lib/duestile.ts decides the state and the accessible
+                   * name, which carries the exact figure. */
+                  const t = duesTile(d.label, d.outstanding_minor, me.society.currency)
                   return (
-                    <button key={d.flat_id} onClick={() => setOpen(d)}
-                      aria-label={`${d.label}, ${unknown ? 'amount could not be read' : owes ? 'owes' : 'settled'}`}
+                    <button key={d.flat_id} onClick={() => setOpen(d)} aria-label={t.label}
                       className={cx('flex aspect-square cursor-pointer flex-col items-center justify-center rounded-2xl border text-center transition-transform active:scale-95',
-                        unknown ? 'border-line bg-sunken text-ink-2' : owes ? 'border-debit/25 bg-debit-soft text-debit' : 'border-line bg-surface text-ink')}>
+                        t.state === 'unknown' ? 'border-line bg-sunken text-ink-2' : t.state === 'owes' ? 'border-debit/25 bg-debit-soft text-debit' : 'border-line bg-surface text-ink')}>
                       <span className="tnum text-[13px] font-semibold">{d.label.split('-')[1]}</span>
-                      {unknown ? <span className="mt-0.5 text-[10.5px] font-medium" aria-hidden="true">?</span>
-                        : owes ? <span className="tnum mt-0.5 text-[10.5px] font-medium">{parts(c.minor, 'INR').whole}</span>
+                      {t.state === 'unknown' ? <span className="mt-0.5 text-base font-medium" aria-hidden="true">?</span>
+                        : t.state === 'owes' ? <span className="tnum mt-0.5 text-base font-semibold leading-tight">{t.figure}</span>
                         : <Check className="mt-0.5 size-3.5 text-credit" strokeWidth={3} />}
                     </button>
                   )
@@ -107,7 +103,7 @@ function Dues() {
               </div>
             </section>
           ))}
-          <p className="px-1 text-xs text-ink-2">Tiles show whole rupees owed. Tap a flat for the exact figure.</p>
+          <p className="px-1 text-xs text-ink-2">Tiles show the amount owed without its decimals. Tap a flat for the exact figure.</p>
         </div>
       )}
       {open && <FlatSheet d={open} onClose={() => setOpen(null)} />}
