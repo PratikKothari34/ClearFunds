@@ -12,6 +12,7 @@ import { Amount, Button, Caption, Card, Facts, ReversedNote, Skeleton, cx } from
 import { EntryRow } from '../components/EntryRow'
 import { Provenance } from '../components/Provenance'
 import { recentMonths, waitsOn } from '../components/Shell'
+import { signoffDue } from '../lib/signoff'
 import type { Me, Summary } from '../lib/types'
 
 export const Route = createFileRoute('/')({ component: Home })
@@ -202,6 +203,10 @@ type Item = { key: string; icon: typeof Flag; title: string; sub: string; to: st
 function NeedsYou({ me }: { me: Me }) {
   const proposals = useProposals()
   const signoffs = useSignoffs()
+  /* The months the ledger has activity in, which is where an unsigned month
+   * older than any rolling window comes from. Same query as the block above;
+   * the cache serves both. */
+  const summary = useSummary()
   const years = useYears()
   const disputes = useDisputes()
   const tenantFlags = useTenantFlags()
@@ -234,11 +239,32 @@ function NeedsYou({ me }: { me: Me }) {
   }
   if (me.seat?.role === 'president') relied.push(signoffs)
   if (me.seat?.role === 'president' && signoffs.data) {
-    const done = new Set(signoffs.data.map((s) => s.body.month))
+    /*
+     * The month set is lib/signoff.ts's decision, not this card's. It was
+     * `recentMonths(cur, 3)` filtered inline here, which dropped a sheet left
+     * unsigned for longer than that window - and this card is the PROMPT, so
+     * the month vanished from the one place a president would have seen it
+     * while the dashboard said nothing needed them. The sign-off screen was
+     * fixed for this; the card was not brought along.
+     *
+     * The summary is also relied on now: the activity months come from it, so
+     * a failed summary read must not let this card imply nothing is waiting.
+     */
+    relied.push(summary)
     const cur = monthOf(todayIST())
-    for (const m of recentMonths(cur, 3).filter((r) => r < cur && !done.has(r))) {
+    const due = signoffDue(
+      (summary.data?.months ?? []).map((m) => m.month),
+      signoffs.data.map((s) => s.body.month),
+      recentMonths(cur, 3),
+      cur,
+    )
+    /* The cap is on what this card RENDERS; `due` above is the whole answer,
+     * and the overflow is disclosed rather than dropped - the same shape as
+     * the approvals block. */
+    for (const m of due.slice(0, 3)) {
       items.push({ key: `s${m}`, icon: PenLine, title: `Sign off ${month(m)}`, sub: 'The month’s expense sheet', to: '/sign-off' })
     }
+    if (due.length > 3) items.push({ key: 'smore', icon: PenLine, title: `${due.length - 3} more months waiting for your sign-off`, sub: 'Sign off', to: '/sign-off' })
   }
   if (me.auditor_for.length) relied.push(years)
   for (const y of years.data ?? []) {
