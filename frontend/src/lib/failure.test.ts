@@ -56,6 +56,6 @@ describe('failureKind()', () => {
     const kinds = new Set([
       new TypeError('x'), new Refused('x'), new ShapeError('p', 'd'), new Error('x'),
     ].map(failureKind))
-    expect([...kinds].sort()).toEqual(['refused', 'shape', 'unknown', 'unreachable'])
+    expect([...kinds].toSorted()).toEqual(['refused', 'shape', 'unknown', 'unreachable'])
   })
 })
