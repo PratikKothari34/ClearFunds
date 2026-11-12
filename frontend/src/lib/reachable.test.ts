@@ -197,24 +197,30 @@ describe('edge(): a transport failure is never reported as a refusal', () => {
 describe('the Failed surface quotes the server only when the server spoke', () => {
   it('reads unreachable() rather than re-deriving the test', async () => {
     /*
-     * `ui.tsx` is the only consumer, and the thing that would break silently
-     * is it growing its own `error instanceof TypeError` check - correct the
-     * day it is written, then wrong the first time `edge()` classifies
-     * something the component has not heard of. A source read, because the
-     * decision is which function is called.
+     * The chain is `ui.tsx` -> `failureKind()` -> `unreachable()`, and the
+     * thing that would break silently is either file growing its own
+     * `error instanceof TypeError` check - correct the day it is written, then
+     * wrong the first time `edge()` classifies something it has not heard of.
+     * A source read, because the decision is which function is called.
      */
     const { readFileSync } = await import('node:fs')
     const { join } = await import('node:path')
-    const src = readFileSync(join(import.meta.dirname, '..', 'components', 'ui.tsx'), 'utf8')
+    const read = (...p: string[]) => readFileSync(join(import.meta.dirname, '..', ...p), 'utf8')
       .replace(/\/\*[\s\S]*?\*\//g, '')
       .replace(/^\s*\/\/.*$/gm, '')
+    const ui = read('components', 'ui.tsx')
+    const failure = read('lib', 'failure.ts')
 
-    expect(src, 'ui.tsx stopped calling unreachable()').toMatch(/unreachable\(\s*error\s*\)/)
-    expect(src, 'ui.tsx grew its own network test instead of calling unreachable()')
-      .not.toMatch(/instanceof\s+TypeError/)
-    // And it must reach them from the dependency-free module, not through the
-    // SDK - every route imports ui.tsx, so the import graph is the budget.
-    expect(src).toMatch(/from\s+'\.\.\/lib\/reachable'/)
-    expect(src, 'ui.tsx must not import from lib/supabase').not.toMatch(/from\s+'\.\.\/lib\/supabase'/)
+    expect(ui, 'ui.tsx stopped calling failureKind()').toMatch(/failureKind\(\s*error\s*\)/)
+    expect(failure, 'failure.ts stopped calling unreachable()').toMatch(/unreachable\(\s*error\s*\)/)
+    for (const [name, src] of [['ui.tsx', ui], ['failure.ts', failure]] as const) {
+      expect(src, `${name} grew its own network test instead of calling unreachable()`)
+        .not.toMatch(/instanceof\s+TypeError/)
+      // Every route imports ui.tsx, so the import graph is the budget: neither
+      // file may reach these classes through the SDK.
+      expect(src, `${name} must not import from lib/supabase`).not.toMatch(/from\s+'(\.\.\/lib|\.)\/supabase'/)
+    }
+    expect(ui).toMatch(/from\s+'\.\.\/lib\/failure'/)
+    expect(failure).toMatch(/from\s+'\.\/reachable'/)
   })
 })

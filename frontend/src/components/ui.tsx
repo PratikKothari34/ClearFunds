@@ -17,7 +17,7 @@ import type { Reversed } from '../lib/reversed'
  * reaching them through `supabase.ts` would pull the Supabase SDK into the
  * shared UI chunk - every route imports this file.
  */
-import { Refused, unreachable } from '../lib/reachable'
+import { failureKind } from '../lib/failure'
 
 export const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(' ')
 
@@ -291,21 +291,25 @@ export function Loading({ rows = 4 }: { rows?: number }) {
  * So only a `Refused` is quoted, because the server wrote that sentence for
  * the person reading it. Anything else is summarised, and a connection
  * failure says so plainly and offers the retry, since that is the one case
- * where trying again is likely to work.
+ * where trying again is likely to work. An answer the parser refused says the
+ * server answered - it did - rather than sending the reader to check a
+ * connection that is fine. Which of the four it is, is decided in
+ * `lib/failure.ts`; this only renders it.
  *
  * The ledger is never shown stale-but-cheerful in place of this: a read that
  * failed is disclosed, per the same rule that forbids a green tick over a
  * figure that could not be read.
  */
 export function Failed({ error, retry }: { error: unknown; retry?: () => void }) {
-  const down = unreachable(error)
+  const kind = failureKind(error)
   return (
     <Card className="p-5">
-      <p className="font-medium text-break">{down ? 'No connection to the ledger.' : 'Could not load this.'}</p>
+      <p className="font-medium text-break">{kind === 'unreachable' ? 'No connection to the ledger.' : 'Could not load this.'}</p>
       <p className="mt-1 text-sm text-ink-2">
-        {down ? 'Nothing is missing from the record - this device could not reach it. Check your connection and try again.'
-          : error instanceof Refused ? error.message
-          : 'The server did not answer.'}
+        {kind === 'unreachable' ? 'Nothing is missing from the record - this device could not reach it. Check your connection and try again.'
+          : kind === 'refused' && error instanceof Error ? error.message
+          : kind === 'shape' ? 'The server answered, but not in a form this screen can read, so nothing is shown rather than a guess. Your connection is fine.'
+          : 'Something went wrong on this screen.'}
       </p>
       {retry && <Button className="mt-3" onClick={retry}>Try again</Button>}
     </Card>
