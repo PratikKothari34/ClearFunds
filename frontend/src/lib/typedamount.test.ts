@@ -24,7 +24,7 @@ import { join } from 'node:path'
 import { parse, typedAmount } from './money'
 
 /** The pipeline as the field really runs it: filter the keystroke, then parse. */
-const field = (raw: string) => parse(typedAmount(raw))
+const field = (raw: string) => parse(typedAmount(raw), 'INR')
 
 /** The filter as it used to be, for the contrast the tests assert against. */
 const oldFilter = (raw: string) => raw.replace(/[^\d.,]/g, '')
@@ -32,7 +32,7 @@ const oldFilter = (raw: string) => raw.replace(/[^\d.,]/g, '')
 describe('typedAmount', () => {
   it('THE DEFECT: a negative amount is refused, never rewritten as positive', () => {
     // The old filter turned "-5" into "5" and the field proposed ₹5.00.
-    expect(parse(oldFilter('-5'))).toBe(500)
+    expect(parse(oldFilter('-5'), 'INR')).toBe(500)
     // It must now reach the parser intact and be refused.
     expect(typedAmount('-5')).toContain('-')
     expect(field('-5')).toBeNull()
@@ -92,7 +92,7 @@ describe('typedAmount', () => {
       for (const b of pieces) {
         for (const c of pieces) {
           const raw = a + b + c
-          expect(field(raw)).toBe(parse(raw.replace(/[\s₹]/g, '')))
+          expect(field(raw)).toBe(parse(raw.replace(/[\s₹]/g, ''), 'INR'))
           // And the real guarantee: a value-bearing character is never lost.
           expect(typedAmount(raw)).toBe(raw.replace(/[\s₹]/g, ''))
         }

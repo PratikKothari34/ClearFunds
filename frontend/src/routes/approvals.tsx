@@ -3,7 +3,7 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import { Check, CheckCheck, Inbox, Plus, Undo2, X } from 'lucide-react'
 import { useCast, useLimit, useNames, useProposals, useWithdraw } from '../lib/api'
 import { Refused } from '../lib/supabase'
-import { useMeStrict } from '../lib/session'
+import { useMeStrict, useCurrency } from '../lib/session'
 import { actionLabel, ago, approvalDiscloses, categoryLabel, day, flatSetLabel, plural, proposalTitle, roleLabel, tierLabel, writeOutcome } from '../lib/format'
 import { format } from '../lib/money'
 import { countable } from '../lib/countable'
@@ -57,6 +57,8 @@ function Approvals() {
 }
 
 function ProposalCard({ p, canAct }: { p: ProposalRow; canAct: boolean }) {
+  const society = useCurrency()
+  const ccy = p.currency ?? society
   const me = useMeStrict()
   const names = useNames()
   const cast = useCast()
@@ -119,7 +121,7 @@ function ProposalCard({ p, canAct }: { p: ProposalRow; canAct: boolean }) {
             <h3 className="mt-1 truncate text-[17px] font-semibold tracking-tight">{proposalTitle(p, names)}</h3>
           </div>
           {p.amount_minor !== null && (
-            <Amount minor={p.action === 'expense' ? -p.amount_minor : p.amount_minor} signed={p.action !== 'limit_change'} size="lg"
+            <Amount currency={ccy} minor={p.action === 'expense' ? -p.amount_minor : p.amount_minor} signed={p.action !== 'limit_change'} size="lg"
               tone={p.action === 'expense' || p.action === 'receipt' ? 'auto' : 'ink'} className="shrink-0 text-xl" />
           )}
         </div>
@@ -217,6 +219,8 @@ function Disclosure({ p }: { p: ProposalRow }) {
 }
 
 function Body({ p, limitNow }: { p: ProposalRow; limitNow: number | undefined }) {
+  const society = useCurrency()
+  const ccy = p.currency ?? society
   const names = useNames()
   const line = (() => {
     switch (p.action) {
@@ -226,9 +230,9 @@ function Body({ p, limitNow }: { p: ProposalRow; limitNow: number | undefined })
       case 'charge':
         return <Facts items={[plural(p.flat_count, 'flat'), flatSetLabel(p.flat_set), day(p.business_date)]} />
       case 'reversal':
-        return <>Reverses <Link to="/entry/$seq" params={{ seq: String(p.target_seq) }} className="font-medium text-accent">#{p.target_seq}</Link>{p.replacement_amount_minor ? <>, replaced by {format(p.replacement_amount_minor)}</> : null}. {p.reason}</>
+        return <>Reverses <Link to="/entry/$seq" params={{ seq: String(p.target_seq) }} className="font-medium text-accent">#{p.target_seq}</Link>{p.replacement_amount_minor ? <>, replaced by {format(p.replacement_amount_minor, ccy)}</> : null}. {p.reason}</>
       case 'limit_change':
-        return <>From {format(limitNow ?? p.limit_minor, 'INR', { compact: true })} to {format(p.amount_minor ?? 0, 'INR', { compact: true })}. {p.narration}</>
+        return <>From {format(limitNow ?? p.limit_minor, ccy, { compact: true })} to {format(p.amount_minor ?? 0, ccy, { compact: true })}. {p.narration}</>
       case 'seat_admin':
         return <>{names.get(p.person ?? '')} as {roleLabel[p.role ?? 'member']}. {p.narration}</>
       case 'appoint_auditor':
@@ -242,6 +246,7 @@ function Body({ p, limitNow }: { p: ProposalRow; limitNow: number | undefined })
 
 /** A month of maintenance receipts is routine; one sheet signs them all, each separately. */
 function BulkReceipts({ items }: { items: ProposalRow[] }) {
+  const ccy = useCurrency()
   const cast = useCast()
   const toast = useToast()
   const [open, setOpen] = useState(false)
@@ -271,7 +276,7 @@ function BulkReceipts({ items }: { items: ProposalRow[] }) {
           {items.map((p) => (
             <li key={p.seq} className="flex items-center justify-between gap-3 py-2.5 text-sm">
               <span className="min-w-0"><span className="block truncate font-medium">{p.counterparty}</span><span className="text-xs text-ink-2">{day(p.business_date)} · {p.narration}</span></span>
-              <Amount minor={p.amount_minor ?? 0} signed tone="auto" />
+              <Amount currency={ccy} minor={p.amount_minor ?? 0} signed tone="auto" />
             </li>
           ))}
         </ul>

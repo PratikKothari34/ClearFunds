@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { Check, Receipt } from 'lucide-react'
 import { useDues, useLedger, useSummary } from '../lib/api'
-import { useMeStrict, isCommittee } from '../lib/session'
+import { useMeStrict, isCommittee, useCurrency } from '../lib/session'
 import { day, plural } from '../lib/format'
 import { toInput } from '../lib/money'
 import { countable, owing, partition } from '../lib/countable'
@@ -15,6 +15,7 @@ import type { DuesRow } from '../lib/types'
 export const Route = createFileRoute('/dues')({ component: Dues })
 
 function Dues() {
+  const ccy = useCurrency()
   const me = useMeStrict()
   const dues = useDues()
   const summary = useSummary()
@@ -57,7 +58,7 @@ function Dues() {
         <div className="mb-6 grid grid-cols-2 gap-3">
           <Card className="p-4">
             <p className="text-[13px] text-ink-2">Outstanding</p>
-            <Amount minor={summary.data.outstanding_minor} size="lg" className="mt-1 block" />
+            <Amount currency={ccy} minor={summary.data.outstanding_minor} size="lg" className="mt-1 block" />
           </Card>
           <Card className="p-4">
             <p className="text-[13px] text-ink-2">Flats owing</p>
@@ -112,6 +113,7 @@ function Dues() {
 }
 
 export function FlatSheet({ d, onClose }: { d: DuesRow; onClose: () => void }) {
+  const ccy = useCurrency()
   const me = useMeStrict()
   const ledger = useLedger()
   /* Three outcomes, because "No payments recorded." is a claim about this
@@ -128,7 +130,7 @@ export function FlatSheet({ d, onClose }: { d: DuesRow; onClose: () => void }) {
   return (
     <Sheet open onClose={onClose} title={`Flat ${d.label}`}
       footer={isCommittee(me) && owed.readable && owed.owing ? (
-        <Link to="/new" search={{ kind: 'receipt', flat: d.flat_id, amount: toInput(owed.minor) }}>
+        <Link to="/new" search={{ kind: 'receipt', flat: d.flat_id, amount: toInput(owed.minor, ccy) }}>
           <Button tone="primary" className="w-full">Record a payment</Button>
         </Link>
       ) : undefined}>
@@ -138,7 +140,7 @@ export function FlatSheet({ d, onClose }: { d: DuesRow; onClose: () => void }) {
             {/* Amount discloses an unreadable figure itself; the debit colour
                 must not be applied to one, because `null > 0` is false and it
                 would read as a settled amount in plain ink. */}
-            <Amount minor={v} size="sm" className={cx('font-semibold', l === 'Owes' && owing(v) && 'text-debit')} />
+            <Amount currency={ccy} minor={v} size="sm" className={cx('font-semibold', l === 'Owes' && owing(v) && 'text-debit')} />
             <p className="text-xs text-ink-2">{l}</p>
           </div>
         ))}
@@ -150,7 +152,7 @@ export function FlatSheet({ d, onClose }: { d: DuesRow; onClose: () => void }) {
             <li key={r.seq}>
               <Link to="/entry/$seq" params={{ seq: String(r.seq) }} className="flex items-center justify-between py-2.5 text-sm">
                 <span className={cx(r.reversed_by_seq !== null && 'line-through text-ink-2')}>{day(r.business_date, { day: 'numeric', month: 'short', year: 'numeric' })}</span>
-                <Amount minor={r.amount_minor} signed tone="auto" struck={!!r.reversed_by_seq} />
+                <Amount currency={r.currency} minor={r.amount_minor} signed tone="auto" struck={!!r.reversed_by_seq} />
               </Link>
             </li>
           ))}

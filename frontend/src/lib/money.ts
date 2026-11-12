@@ -196,7 +196,7 @@ export function parts(minor: number, currency: string, opts: { signed?: boolean 
 }
 
 /** ₹1,25,075.00 style, Indian digit grouping. */
-export function format(minor: number, currency = 'INR', opts: { signed?: boolean; compact?: boolean } = {}): string {
+export function format(minor: number, currency: string, opts: { signed?: boolean; compact?: boolean } = {}): string {
   const p = parts(minor, currency, opts)
   const frac = p.fraction && !(opts.compact && /^0+$/.test(p.fraction)) ? `.${p.fraction}` : ''
   return `${p.sign === '-' ? '−' : p.sign}${p.symbol}${p.whole}${frac}`
@@ -207,7 +207,7 @@ export function format(minor: number, currency = 'INR', opts: { signed?: boolean
  * Returns null for anything that is not a plain non-negative amount with no
  * more decimal places than the currency has.
  */
-export function parse(input: string, currency = 'INR'): number | null {
+export function parse(input: string, currency: string): number | null {
   const e = exponent(currency)
   const s = input.replace(/[\s,₹]/g, '')
   const m = new RegExp(`^(\\d+)(?:\\.(\\d{0,${e}}))?$`).exec(s)
@@ -252,7 +252,7 @@ export function typedAmount(raw: string): string {
 }
 
 /** Minor units back into what a person would type: "3250.01", no grouping. */
-export function toInput(minor: number, currency = 'INR'): string {
+export function toInput(minor: number, currency: string): string {
   const p = parts(Math.abs(minor), currency)
   return p.whole.replace(/[^\d]/g, '') + (p.fraction ? `.${p.fraction}` : '')
 }

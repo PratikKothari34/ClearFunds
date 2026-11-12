@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { Check, Eye } from 'lucide-react'
 import { useDues, useLedger } from '../lib/api'
-import { useMeStrict } from '../lib/session'
+import { useMeStrict, useCurrency } from '../lib/session'
 import { longDay } from '../lib/format'
 import { countable } from '../lib/countable'
 import { lookup } from '../lib/lookup'
@@ -10,6 +10,7 @@ import { Amount, Card, Caption, Empty, EntryIcon, Failed, Loading, PageTitle, cx
 export const Route = createFileRoute('/my-flat')({ component: MyFlat })
 
 function MyFlat() {
+  const ccy = useCurrency()
   const me = useMeStrict()
   const dues = useDues()
   const ledger = useLedger()
@@ -60,13 +61,13 @@ function MyFlat() {
           <p className="text-[13px] font-medium text-ink-2">{unknown ? 'Not available' : owes ? 'Outstanding' : 'Settled'}</p>
           <div className="mt-2 flex items-center gap-3">
             {unknown ? <span className="text-2xl font-semibold tracking-tight text-ink-2">Could not be read</span>
-              : owes ? <Amount minor={owed.minor} size="hero" className="text-debit" />
+              : owes ? <Amount currency={ccy} minor={owed.minor} size="hero" className="text-debit" />
               : <span className="flex items-center gap-3 text-4xl font-semibold tracking-tight"><span className="grid size-11 place-items-center rounded-full bg-credit-soft"><Check className="size-6 text-credit" strokeWidth={3} /></span>Nothing due</span>}
           </div>
           {unknown && <p className="mt-3 text-[13px] text-ink-2">This figure did not arrive in a form this page could read, so it is not shown. Your entries below are unaffected. Ask the treasurer to confirm the balance.</p>}
           <div className="mt-5 grid grid-cols-2 gap-3 text-sm">
-            <div className="rounded-xl bg-sunken p-3"><p className="text-ink-2">Charged to date</p><Amount minor={row.row.charged_minor} className="mt-0.5 block" /></div>
-            <div className="rounded-xl bg-sunken p-3"><p className="text-ink-2">Paid to date</p><Amount minor={row.row.paid_minor} className="mt-0.5 block" /></div>
+            <div className="rounded-xl bg-sunken p-3"><p className="text-ink-2">Charged to date</p><Amount currency={ccy} minor={row.row.charged_minor} className="mt-0.5 block" /></div>
+            <div className="rounded-xl bg-sunken p-3"><p className="text-ink-2">Paid to date</p><Amount currency={ccy} minor={row.row.paid_minor} className="mt-0.5 block" /></div>
           </div>
           {owes && <p className="mt-4 text-[13px] text-ink-2">Pay the society’s bank account. The treasurer records it, and it shows here once approved.</p>}
         </Card>
@@ -89,7 +90,7 @@ function MyFlat() {
               <span className={cx('block truncate font-medium', r.reversed_by_seq !== null && 'line-through text-ink-2')}>{r.narration}</span>
               <span className="block text-[13px] text-ink-2">{longDay(r.business_date)}</span>
             </span>
-            <Amount minor={r.amount_minor} signed tone="auto" struck={!!r.reversed_by_seq} />
+            <Amount currency={r.currency} minor={r.amount_minor} signed tone="auto" struck={!!r.reversed_by_seq} />
           </Link>
         )) : <p className="p-4 text-sm text-ink-2">No payments recorded yet.</p>}
       </Card>

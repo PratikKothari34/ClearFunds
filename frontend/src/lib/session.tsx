@@ -78,3 +78,14 @@ export function useMeStrict(): Me {
   if (!data) throw new Error('useMeStrict outside the signed-in shell')
   return data
 }
+
+/**
+ * The society's currency, for a figure whose row does not carry its own.
+ * money.ts and <Amount> take the currency as a required argument with no
+ * default: a literal 'INR' at a call site is the hardcoded divide-by-100 the
+ * money rule forbids, one step removed. A row that carries `currency`
+ * (ledger rows, reports, proposals) passes its own instead.
+ */
+export function useCurrency(): string {
+  return useMeStrict().society.currency
+}

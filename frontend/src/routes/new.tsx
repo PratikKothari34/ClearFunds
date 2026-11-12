@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { ArrowDownLeft, ArrowUpRight, Receipt, Users, Vote } from 'lucide-react'
 import { previewCharge, useCommittee, useLedger, useLimit, usePropose, useSociety } from '../lib/api'
 import { supabase, unwrap, Refused } from '../lib/supabase'
-import { useMeStrict } from '../lib/session'
+import { useMeStrict, useCurrency } from '../lib/session'
 import { isOfficer } from '../lib/pending'
 import { hasEarlierToPayee } from '../lib/structuring'
 import { approvalsNeeded, seatedCount } from '../lib/tier'
@@ -26,6 +26,7 @@ export const Route = createFileRoute('/new')({
 })
 
 function NewEntry() {
+  const ccy = useCurrency()
   const me = useMeStrict()
   const s = useSociety()
   const search = Route.useSearch()
@@ -48,7 +49,7 @@ function NewEntry() {
 
   useEffect(() => { setCategory(kind === 'expense' ? 'repairs' : kind === 'charge' ? 'maintenance' : 'maintenance') }, [kind])
 
-  const minor = parse(amount)
+  const minor = parse(amount, ccy)
   /*
    * An unreadable limit must never produce `pair`. `minor <= null` is true in
    * JavaScript, so the old shape would have claimed the treasurer+secretary
@@ -215,7 +216,7 @@ function NewEntry() {
 
         {kind === 'charge' && preview.data && (
           <Card className="rise p-4">
-            <p className="text-sm font-medium">{preview.data.flats} flats, {format(preview.data.base_minor)} each</p>
+            <p className="text-sm font-medium">{preview.data.flats} flats, {format(preview.data.base_minor, ccy)} each</p>
             <p className="mt-1 text-[13px] text-ink-2">
               {preview.data.extra_flats
                 ? `${preview.data.extra_flats} flats pay 1 paisa more this time: the ones that have had it least often.`
@@ -231,7 +232,7 @@ function NewEntry() {
           <div className="min-w-0 text-sm">
             <p className="font-medium">{!minor ? 'Approval depends on the amount' : pair ? 'Needs the treasurer and the secretary' : `Needs ${needed} of ${seated} committee members`}</p>
             <p className="mt-0.5 text-[13px] text-ink-2">
-              {lim !== undefined && `The limit is ${format(lim, 'INR', { compact: true })}. `}
+              {lim !== undefined && `The limit is ${format(lim, ccy, { compact: true })}. `}
               {minor ? (selfApproves ? 'Your approval is signed as you submit.' : 'You propose; the treasurer and secretary approve.') : ''}
             </p>
           </div>

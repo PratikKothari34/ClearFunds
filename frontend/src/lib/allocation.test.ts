@@ -65,7 +65,7 @@ describe('split', () => {
     ]) {
       for (const l of split(ok(over)).lines) {
         expect(countable(l.minor).readable).toBe(true)
-        expect(() => format(l.minor)).not.toThrow()
+        expect(() => format(l.minor, 'INR')).not.toThrow()
       }
     }
   })
@@ -82,7 +82,7 @@ describe('split', () => {
   it('gives a base share that is formattable whenever there are lines', () => {
     const s = split(ok())
     expect(countable(s.each).readable).toBe(true)
-    expect(() => format(s.each!)).not.toThrow()
+    expect(() => format(s.each!, 'INR')).not.toThrow()
   })
 
   it('is the share every flat pays, so no line is below it', () => {

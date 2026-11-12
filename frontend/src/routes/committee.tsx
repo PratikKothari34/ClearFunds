@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Gavel, Scale, UserMinus, UserPlus, Users } from 'lucide-react'
 import { useAddResident, useCommittee, useLimit, usePropose, useSociety, useYears } from '../lib/api'
 import { supabase, unwrap, Refused } from '../lib/supabase'
-import { useMeStrict, isCommittee } from '../lib/session'
+import { useMeStrict, isCommittee, useCurrency } from '../lib/session'
 import { instant, roleLabel, todayIST, fyOf, opinionChip, opinionTone, writeOutcome } from '../lib/format'
 import { format, parse } from '../lib/money'
 import { countable } from '../lib/countable'
@@ -17,9 +17,9 @@ import { approvalsNeeded, tierBasis } from '../lib/tier'
 /* Formats from the narrowed amount, never from the raw field: a guard that
  * checks one expression and formats another stops guarding the moment either
  * is edited, and format() throws on an unreadable one. */
-const histLimit = (h: { limit_minor: unknown }) => {
+const histLimit = (h: { limit_minor: unknown }, ccy: string) => {
   const c = countable(h.limit_minor)
-  return c.readable ? format(c.minor, 'INR', { compact: true }) : null
+  return c.readable ? format(c.minor, ccy, { compact: true }) : null
 }
 
 export const Route = createFileRoute('/committee')({ component: Committee })
@@ -29,6 +29,7 @@ const order = ROLE_ORDER
 type Action = null | 'limit' | 'seat' | 'auditor' | 'resident' | { unseat: string }
 
 function Committee() {
+  const ccy = useCurrency()
   const me = useMeStrict()
   const c = useCommittee()
   const limit = useLimit()
@@ -63,7 +64,7 @@ function Committee() {
 
       <div className="grid gap-3 sm:grid-cols-2">
         <Card className="p-5">
-          <div className="flex items-center gap-2 text-[13px] font-medium text-ink-2"><Users className="size-4" />At or below {lim !== undefined ? format(lim, 'INR', { compact: true }) : '…'}</div>
+          <div className="flex items-center gap-2 text-[13px] font-medium text-ink-2"><Users className="size-4" />At or below {lim !== undefined ? format(lim, ccy, { compact: true }) : '…'}</div>
           <p className="mt-2 text-xl font-semibold tracking-tight">Treasurer + Secretary</p>
           <p className="mt-1 text-[13px] text-ink-2">Both, never either alone.</p>
         </Card>
@@ -170,7 +171,7 @@ function Committee() {
           : histRead.rows.map((h, i) => (
             <div key={h.seq} className="flex items-center justify-between px-4 py-3 text-sm">
               <span className="text-ink-2">{i === 0 ? 'In force since' : 'From'} {instant(h.recorded_at, { day: 'numeric', month: 'short', year: 'numeric' })} · #{h.seq}</span>
-              <span className="tnum font-medium">{histLimit(h) ?? 'Not available'}</span>
+              <span className="tnum font-medium">{histLimit(h, ccy) ?? 'Not available'}</span>
             </div>
           ))}
       </Card>
@@ -181,6 +182,7 @@ function Committee() {
 }
 
 function Actions({ action, onClose, name, lim }: { action: Action; onClose: () => void; name: (id: string) => string; lim: number | undefined }) {
+  const ccy = useCurrency()
   const s = useSociety()
   const propose = usePropose()
   const add = useAddResident()
@@ -247,7 +249,7 @@ function Actions({ action, onClose, name, lim }: { action: Action; onClose: () =
   }
 
   const title = action === 'limit' ? 'Change the approval limit' : action === 'seat' ? 'Seat a member' : action === 'auditor' ? 'Appoint an auditor' : `Unseat ${name(action.unseat)}`
-  const minor = parse(amount)
+  const minor = parse(amount, ccy)
   const ready = action === 'limit' ? minor !== null && why.trim() : action === 'seat' || action === 'auditor' ? person && why.trim() : why.trim()
   return (
     <Sheet open onClose={onClose} title={title}
@@ -260,7 +262,7 @@ function Actions({ action, onClose, name, lim }: { action: Action; onClose: () =
         {action === 'limit' && (
           <Field label="New limit" htmlFor="lim"
             error={amount.trim() && minor === null ? 'Enter an amount like 25,000. A limit cannot be negative.' : null}
-            hint={`Now ${lim !== undefined ? format(lim, 'INR', { compact: true }) : '…'}. Zero sends every entry to the committee.`}>
+            hint={`Now ${lim !== undefined ? format(lim, ccy, { compact: true }) : '…'}. Zero sends every entry to the committee.`}>
             <MoneyInput id="lim" value={amount} onChange={setAmount} autoFocus />
           </Field>
         )}

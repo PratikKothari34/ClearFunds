@@ -3,7 +3,7 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import { useWindowVirtualizer } from '@tanstack/react-virtual'
 import { Plus, Search, SearchX } from 'lucide-react'
 import { useDisputes, useLedger, useSummary } from '../lib/api'
-import { useMeStrict, isCommittee } from '../lib/session'
+import { useMeStrict, isCommittee, useCurrency } from '../lib/session'
 import { month, monthOf } from '../lib/format'
 import { countable, owing } from '../lib/countable'
 import { monthHasReversal as monthReversal } from '../lib/reversed'
@@ -52,6 +52,7 @@ export function useDisputed(): DisputeState {
 }
 
 function Ledger() {
+  const ccy = useCurrency()
   const me = useMeStrict()
   const search = Route.useSearch()
   const nav = Route.useNavigate()
@@ -191,8 +192,8 @@ function Ledger() {
                       {months.get(it.month) && (
                         <span className="text-xs text-ink-2">
                           <Facts items={[
-                            <span key="i">In <Amount minor={months.get(it.month)!.in_minor} size="sm" className="text-xs text-credit" /></span>,
-                            <span key="o">Out <Amount minor={months.get(it.month)!.out_minor} size="sm" className="text-xs text-debit" /></span>,
+                            <span key="i">In <Amount currency={ccy} minor={months.get(it.month)!.in_minor} size="sm" className="text-xs text-credit" /></span>,
+                            <span key="o">Out <Amount currency={ccy} minor={months.get(it.month)!.out_minor} size="sm" className="text-xs text-debit" /></span>,
                             /*
                              * Both figures above carry reversals gross, so
                              * this says when part of them is a correction
