@@ -101,8 +101,10 @@ authoritative over any summary here.
 
 **The reasoning behind every rule below is in `docs/GOALS.md` → "The hard
 decisions".** Read it when you need to know *why*; the rules here are what
-binds. One decision is still open, auditor identity, and it does not block a
-schema.
+binds. Two are still open, and neither blocks a schema: **auditor identity**
+(how an auditor proves who they are at sign-off), and **the structuring
+window** in rule 10 — its length, and whether it keys on payee, category or
+both.
 
 Settled, and binding on backend work. **Each is a rule, not an argument** —
 the reasoning behind them is in `docs/GOALS.md` and the decision records, and

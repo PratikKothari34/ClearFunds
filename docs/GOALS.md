@@ -190,8 +190,10 @@ entries are chained and real money is recorded. **Nearly all of them are
 settled** — this section is the reasoning, and `AGENTS.md` states the resulting
 rules in the form that binds code.
 
-**One thing is genuinely still open**, called out in place below: **how an
-auditor proves who they are** when they come to sign off.
+**Two things are genuinely still open.** **How an auditor proves who they are**
+when they come to sign off, called out in place below. And **the structuring
+window** — how long the rolling period is, and whether it keys on the payee,
+the category or both. That the window exists is settled; its shape is not.
 
 **Tamper-evident is not tamper-proof.** Hash-chaining makes tampering
 *detectable* by anyone who verifies the chain. It does not make tampering
