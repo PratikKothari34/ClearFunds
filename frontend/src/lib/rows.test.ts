@@ -12,7 +12,7 @@ import { describe, expect, it } from 'vitest'
 import { ShapeError } from './parse'
 import {
   chargePreview, disputeRow, duesRow, duesRows, ledgerRow, limitEntries, me, proposalRow,
-  resolvedHandle, seat, structuring, summary,
+  resolvedHandle, seat, signoffEntries, signoffEntry, structuring, summary,
 } from './rows'
 import { countable } from './countable'
 
@@ -706,5 +706,64 @@ describe('me', () => {
 
   it('rejects a response that is not an object at all', () => {
     expect(() => me('asha', 'useMe')).toThrow(ShapeError)
+  })
+})
+
+/*
+ * `signoffEntry` had no case here, and the omission is the redundancy trap:
+ * downgrading `through_seq` from `required` to `nullable` left every one of
+ * the 1163 library tests green. Nothing was then WRONG - `int64` refuses a
+ * null when the signed message is rebuilt, so the forgery surfaces one layer
+ * down - but the outer claim went unpinned, and a redundancy with only one
+ * end asserted is one edit from being a single point of failure.
+ *
+ * So these assert the CONTRACT claim: every field of a month sign-off is
+ * guaranteed, because the signed message is rebuilt from all of them and a
+ * missing one cannot be recovered. `types.ts` types `through_seq` as a plain
+ * number, so a `nullable` parser here would hand a null to code the compiler
+ * has already told not to expect one.
+ */
+const signoff = (body: Record<string, unknown> = {}) => ({
+  sequence: 41, recorded_at: 1_760_000_000, actor: 'person-1',
+  body: { month: '2026-10', through_seq: 41, ...body },
+})
+
+describe('signoffEntry', () => {
+  it('accepts the shape the contract promises', () => {
+    expect(signoffEntry(signoff(), 'useSignoffs').body.month).toBe('2026-10')
+  })
+
+  for (const field of ['month', 'through_seq']) {
+    it(`rejects a null ${field}, which the signed message is rebuilt from`, () => {
+      expect(() => signoffEntry(signoff({ [field]: null }), 'useSignoffs')).toThrow(ShapeError)
+    })
+
+    it(`rejects an absent ${field} as firmly as a null one`, () => {
+      const body = signoff().body as Record<string, unknown>
+      delete body[field]
+      expect(() => signoffEntry({ ...signoff(), body }, 'useSignoffs')).toThrow(ShapeError)
+    })
+  }
+
+  it('names the nested field that failed, so it can be acted on', () => {
+    expect(() => signoffEntry(signoff({ through_seq: null }), 'useSignoffs'))
+      .toThrow(/body\.through_seq/)
+  })
+
+  it('rejects a through_seq that arrives as a numeric string', () => {
+    // The field is fed to int64() as a 64-bit integer; '41' is not one.
+    expect(() => signoffEntry(signoff({ through_seq: '41' }), 'useSignoffs')).toThrow(ShapeError)
+  })
+})
+
+describe('signoffEntries', () => {
+  it('rejects the whole page when one sign-off is malformed', () => {
+    expect(() => signoffEntries([signoff(), signoff({ month: null })], 'useSignoffs'))
+      .toThrow(ShapeError)
+  })
+
+  it('accepts an empty list, which is a real answer', () => {
+    // A society in its first month has signed nothing off yet.
+    expect(signoffEntries([], 'useSignoffs')).toEqual([])
   })
 })
