@@ -7,6 +7,7 @@ import { navFor, splitTabs, type NavId, type NavItem } from '../lib/nav'
 import { useDisputes, useLive, useProposals, useSignoffs, useYears } from '../lib/api'
 import { monthOf, roleLabel, todayIST } from '../lib/format'
 import { recentMonths, waitsOn } from '../lib/pending'
+import { badgeCount, NO_COUNT, UNKNOWN, type BadgeCount } from '../lib/badge'
 
 /*
  * Re-exported, and the routes import them from HERE rather than from lib/.
@@ -29,24 +30,52 @@ import { Avatar, IconButton, Sheet, cx } from './ui'
 import { Logo } from './Logo'
 import type { Me } from '../lib/types'
 
-export function useBadges(me: Me): Partial<Record<NavId, number>> {
+/*
+ * Each badge is a BadgeCount, never a bare number, so a read that failed is
+ * distinguishable from a count of zero.
+ *
+ * The old version wrote `(proposals.data ?? []).filter(...).length`, which
+ * made a FAILED proposals read produce a confident `0`. Since the badge
+ * rendered nothing on zero, a treasurer on a dropped connection was told - in
+ * the only language this surface speaks - that nothing was waiting for them.
+ * `?? []` is the same defect as `null <= 0`: a fallback indistinguishable
+ * from a real answer.
+ *
+ * A key is written only when the surface applies to this person, and its
+ * absence means "no obligation here", which is known. When it applies but the
+ * read has not succeeded, the key is written as UNKNOWN - present, and
+ * honestly empty.
+ */
+export function useBadges(me: Me): Partial<Record<NavId, BadgeCount>> {
   const committee = !!me.seat
   const proposals = useProposals()
   const signoffs = useSignoffs()
   const years = useYears()
   const disputes = useDisputes()
   return useMemo(() => {
-    const b: Partial<Record<NavId, number>> = {}
-    if (committee) b.approvals = (proposals.data ?? []).filter((p) => waitsOn(p, me)).length
-    if (me.seat?.role === 'president' && signoffs.data) {
-      const done = new Set(signoffs.data.map((s) => s.body.month))
-      const cur = monthOf(todayIST())
-      b.signoff = recentMonths(cur, 3).filter((m) => m < cur && !done.has(m)).length
+    const b: Partial<Record<NavId, BadgeCount>> = {}
+    if (committee) {
+      b.approvals = proposals.data
+        ? badgeCount(proposals.data.filter((p) => waitsOn(p, me)).length)
+        : UNKNOWN
     }
-    if (me.auditor_for.length && years.data) {
-      b.yearend = years.data.filter((y) => me.auditor_for.includes(y.fy) && y.ended && !y.closed).length
+    if (me.seat?.role === 'president') {
+      if (signoffs.data) {
+        const done = new Set(signoffs.data.map((s) => s.body.month))
+        const cur = monthOf(todayIST())
+        b.signoff = badgeCount(recentMonths(cur, 3).filter((m) => m < cur && !done.has(m)).length)
+      } else b.signoff = UNKNOWN
     }
-    if (committee && disputes.data) b.disputes = disputes.data.filter((d) => d.is_open).length
+    if (me.auditor_for.length) {
+      b.yearend = years.data
+        ? badgeCount(years.data.filter((y) => me.auditor_for.includes(y.fy) && y.ended && !y.closed).length)
+        : UNKNOWN
+    }
+    if (committee) {
+      b.disputes = disputes.data
+        ? badgeCount(disputes.data.filter((d) => d.is_open).length)
+        : UNKNOWN
+    }
     return b
   }, [committee, me, proposals.data, signoffs.data, years.data, disputes.data])
 }
@@ -71,8 +100,32 @@ export function ThemeSwitch() {
   )
 }
 
-function Badge({ n, tone = 'attention' }: { n?: number | undefined; tone?: 'attention' }) {
-  if (!n) return null
+/*
+ * Three states, never two. `if (!n) return null` rendered a failed read, a
+ * pending read and a true zero identically - and the absence of a badge is a
+ * positive claim that nothing is waiting.
+ *
+ * The unknown state draws a dot rather than a number, because there is no
+ * number to draw and inventing one is the bug. It is deliberately quieter
+ * than a count (it is not an obligation, it is the absence of an answer) but
+ * it is NOT nothing, and it carries its own words for a screen reader: the
+ * visual dot alone would say "something" to a sighted user and nothing at all
+ * to anyone else.
+ */
+function Badge({ count, tone = 'attention' }: { count?: BadgeCount | undefined; tone?: 'attention' }) {
+  const c = count ?? NO_COUNT
+  // Narrowed on `known`, not re-read after a kind check: a non-null assertion
+  // here would be a cast, and a cast is where trust leaks back in.
+  if (!c.known) {
+    return (
+      <span className="grid h-5 min-w-5 place-items-center" title="Could not be checked">
+        <span aria-hidden className="size-1.5 rounded-full bg-ink-2/50" />
+        <span className="sr-only">count unavailable</span>
+      </span>
+    )
+  }
+  if (c.n === 0) return null
+  const n = c.n
   return (
     <span className={cx('tnum grid h-5 min-w-5 place-items-center rounded-full px-1.5 text-[11px] font-semibold', tone === 'attention' && 'bg-attention text-surface')}>
       {n > 40 ? '40+' : n}
@@ -203,25 +256,32 @@ export function Shell({ children }: { children: ReactNode }) {
  */
 const NAV_PRELOAD = 'viewport' as const
 
-function RailLink({ item, active, badge }: { item: NavItem; active: boolean; badge?: number | undefined }) {
+function RailLink({ item, active, badge }: { item: NavItem; active: boolean; badge?: BadgeCount | undefined }) {
   return (
     <Link to={item.to} preload={NAV_PRELOAD} aria-current={active ? 'page' : undefined}
       className={cx('flex h-10 items-center gap-3 rounded-xl px-3 text-[14.5px] font-medium transition-colors',
         active ? 'bg-accent-soft text-accent' : 'text-ink-2 hover:bg-sunken hover:text-ink')}>
       <item.icon className="size-[18px]" strokeWidth={1.9} />
       <span className="flex-1">{item.label}</span>
-      <Badge n={badge} />
+      <Badge count={badge} />
     </Link>
   )
 }
 
-function TabLink({ item, active, badge }: { item: NavItem; active: boolean; badge?: number | undefined }) {
+function TabLink({ item, active, badge }: { item: NavItem; active: boolean; badge?: BadgeCount | undefined }) {
   return (
     <Link to={item.to} preload={NAV_PRELOAD} aria-current={active ? 'page' : undefined}
       className={cx('relative flex h-16 flex-col items-center justify-center gap-1 text-[11px] font-medium', active ? 'text-accent' : 'text-ink-2')}>
       <span className="relative">
         <item.icon className="size-[22px]" strokeWidth={active ? 2.2 : 1.8} />
-        {badge ? <span className="absolute -top-1.5 -right-2.5"><Badge n={badge} /></span> : null}
+        {/*
+          * No `badge ? ... : null` wrapper here. A BadgeCount is an OBJECT, so
+          * it is always truthy and the old test passed a bare `0` through as
+          * falsy by accident - which was the only reason a zero count did not
+          * render an empty positioned span. Badge itself decides; this just
+          * positions what it returns.
+          */}
+        <span className="absolute -top-1.5 -right-2.5"><Badge count={badge} /></span>
       </span>
       {item.label}
     </Link>

@@ -4,9 +4,10 @@ import { Gavel, Lock } from 'lucide-react'
 import { useCloseYear, useYears } from '../lib/api'
 import { Refused } from '../lib/supabase'
 import { checkStatement } from '../lib/statement'
+import { authorisation, nameIsAmbiguous } from '../lib/appointment'
 import { useMeStrict } from '../lib/session'
 import { instant, longDay, opinionChip, opinionHint, opinionLabel, opinionTone } from '../lib/format'
-import { Button, Card, Caption, Chip, Empty, Field, Loading, PageTitle, Sheet, Textarea, useToast, cx } from '../components/ui'
+import { Button, Card, Caption, Chip, Empty, Failed, Field, Loading, PageTitle, Sheet, Textarea, useToast, cx } from '../components/ui'
 import type { Opinion, Year } from '../lib/types'
 
 export const Route = createFileRoute('/year-end')({ component: YearEnd })
@@ -20,7 +21,18 @@ function YearEnd() {
   return (
     <div>
       <PageTitle title="Year-end" sub="Only the appointed auditor closes a year. The committee cannot close its own books." />
-      {years.isPending ? <Loading /> : !list.length ? <Empty icon={<Gavel className="size-5" />} title="No financial years yet" /> : (
+      {/*
+        * The error arm comes BEFORE the empty one. `years.data ?? []` makes a
+        * FAILED read indistinguishable from a society with no years, and the
+        * empty state then asserts "No financial years yet" from no data - on
+        * the page that gates the one irreversible action in this product. An
+        * auditor who cannot see the year they were appointed to close has to
+        * be told the read failed, and offered a retry, not told there is
+        * nothing to close.
+        */}
+      {years.isPending ? <Loading />
+        : years.isError ? <Failed error={years.error} retry={() => years.refetch()} />
+        : !list.length ? <Empty icon={<Gavel className="size-5" />} title="No financial years yet" /> : (
         <div className="space-y-3">
           {list.map((y) => <YearCard key={y.fy} y={y} mine={me.auditor_for.includes(y.fy)} />)}
         </div>
@@ -32,6 +44,8 @@ function YearEnd() {
 function YearCard({ y, mine }: { y: Year; mine: boolean }) {
   const [open, setOpen] = useState(false)
   const can = mine && y.ended && !y.closed
+  /* One name covering two appointments: the seq must then be on screen. */
+  const ambiguous = nameIsAmbiguous(y.history)
   return (
     <Card className={cx('p-5', can && 'border-attention/30')}>
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -45,9 +59,28 @@ function YearCard({ y, mine }: { y: Year; mine: boolean }) {
       <p className="mt-3 text-sm text-ink-2">
         {y.auditor?.length ? `Auditor: ${y.auditor.map((a) => a.name).join(', ')}` : 'No auditor appointed.'}
       </p>
-      {y.history.map((h) => (
-        <p key={h.seq} className="mt-2 text-[13px] text-ink-2">{opinionLabel[h.opinion]} by {h.auditor}, {instant(h.recorded_at)}</p>
-      ))}
+      {/*
+        * Each opinion names the appointment that authorised IT, not whoever
+        * holds the appointment now. The line above is the year's current
+        * appointment list; a closed year's statement was authorised by
+        * whichever appointment was live when it was signed, and the two are
+        * not the same claim. Matched by seq in lib/appointment.ts - never by
+        * name, because one person can hold two appointments for one year.
+        */}
+      {y.history.map((h) => {
+        const auth = authorisation(h, y.auditor)
+        return (
+          <p key={h.seq} className="mt-2 text-[13px] text-ink-2">
+            {opinionLabel[h.opinion]} by {auth.state === 'authorised' ? auth.name : h.auditor}
+            {auth.state === 'authorised' && ambiguous ? ` (appointed by #${auth.seq})` : ''}
+            , {instant(h.recorded_at)}
+            {auth.state === 'unauthorised' && (
+              <span className="text-attention"> · appointment #{auth.seq} is not among this year’s appointments</span>
+            )}
+            {auth.state === 'unconfirmable' && <span> · authorisation not reported</span>}
+          </p>
+        )
+      })}
       <div className="mt-4 flex flex-wrap gap-2">
         <Link to="/reports"><Button>Read the statements</Button></Link>
         {can && <Button tone="primary" icon={<Gavel className="size-4" />} onClick={() => setOpen(true)}>Give opinion and close</Button>}
@@ -126,20 +159,31 @@ function CloseSheet({ y, open, onClose }: { y: Year; open: boolean; onClose: () 
             * what an adverse opinion needs. It appears in time to matter and
             * is announced politely, so it does not interrupt typing.
             */}
-          {near && (
-            <p id="st-left" aria-live="polite" className={cx('mt-1.5 text-right text-xs tnum', st.over ? 'text-debit' : 'text-ink-2')}>
-              {/*
-                * Labelled from `st.unit`, never hardcoded. The server bounds
-                * the statement two ways - bytes of UTF-8 and characters -
-                * and a Devanagari statement hits the character ceiling
-                * first. Calling that figure "bytes" would show the auditor
-                * a wrong number at the one irreversible action here.
-                */}
-              {st.over
+          {/*
+            * The ELEMENT is always rendered; only its CONTENT is conditional.
+            * A live region has to be in the DOM before its content changes -
+            * inserting a node that already carries `aria-live` is announced
+            * unreliably across assistive tech, and the announcement most
+            * likely to be dropped is the FIRST one: the warning that the
+            * auditor is approaching the limit, at the one irreversible action
+            * in this product. An empty region announces nothing, so the
+            * design intent is unchanged - no counter on a short statement -
+            * and the first warning is now a content change inside a region
+            * that already existed.
+            */}
+          <p id="st-left" aria-live="polite" className={cx('mt-1.5 text-right text-xs tnum', st.over ? 'text-debit' : 'text-ink-2')}>
+            {/*
+              * Labelled from `st.unit`, never hardcoded. The server bounds
+              * the statement two ways - bytes of UTF-8 and characters - and a
+              * Devanagari statement hits the character ceiling first. Calling
+              * that figure "bytes" would show the auditor a wrong number at
+              * the one irreversible action here.
+              */}
+            {near &&
+              (st.over
                 ? `${(st.used - st.max).toLocaleString('en-IN')} ${st.unit === 'chars' ? 'characters' : 'bytes'} over the limit`
-                : `${(st.max - st.used).toLocaleString('en-IN')} ${st.unit === 'chars' ? 'characters' : 'bytes'} left`}
-            </p>
-          )}
+                : `${(st.max - st.used).toLocaleString('en-IN')} ${st.unit === 'chars' ? 'characters' : 'bytes'} left`)}
+          </p>
         </Field>
         <ul className="space-y-1.5 text-[13px] text-ink-2">
           <li>Any opinion closes the year, including adverse and disclaimer. Closing seals it; it does not endorse it.</li>

@@ -4,28 +4,32 @@ import { useQuery } from '@tanstack/react-query'
 import { Gavel, Scale, UserMinus, UserPlus, Users } from 'lucide-react'
 import { useAddResident, useCommittee, useLimit, usePropose, useSociety, useYears } from '../lib/api'
 import { supabase, unwrap, Refused } from '../lib/supabase'
-import { useMeStrict, isCommittee } from '../lib/session'
+import { useMeStrict, isCommittee, useCurrency } from '../lib/session'
 import { instant, roleLabel, todayIST, fyOf, opinionChip, opinionTone, writeOutcome } from '../lib/format'
 import { format, parse } from '../lib/money'
 import { countable } from '../lib/countable'
-import { Avatar, Button, Caption, Card, Chip, Field, Input, Loading, MoneyInput, PageTitle, Segmented, Sheet, useToast } from '../components/ui'
-import type { Role } from '../lib/types'
+import { auditorPresence } from '../lib/auditors'
+import { derivedRead } from '../lib/listread'
+import { Avatar, Button, Caption, Card, Chip, Failed, Field, Input, Loading, MoneyInput, PageTitle, Segmented, Sheet, useToast } from '../components/ui'
+import { ROLE_ORDER, type Role } from '../lib/types'
+import { approvalsNeeded, tierBasis } from '../lib/tier'
 
 /* Formats from the narrowed amount, never from the raw field: a guard that
  * checks one expression and formats another stops guarding the moment either
  * is edited, and format() throws on an unreadable one. */
-const histLimit = (h: { limit_minor: unknown }) => {
+const histLimit = (h: { limit_minor: unknown }, ccy: string) => {
   const c = countable(h.limit_minor)
-  return c.readable ? format(c.minor, 'INR', { compact: true }) : null
+  return c.readable ? format(c.minor, ccy, { compact: true }) : null
 }
 
 export const Route = createFileRoute('/committee')({ component: Committee })
 
-const order: Role[] = ['president', 'treasurer', 'secretary', 'member']
+const order = ROLE_ORDER
 
 type Action = null | 'limit' | 'seat' | 'auditor' | 'resident' | { unseat: string }
 
 function Committee() {
+  const ccy = useCurrency()
   const me = useMeStrict()
   const c = useCommittee()
   const limit = useLimit()
@@ -35,9 +39,21 @@ function Committee() {
     .sort((a, b) => order.indexOf(a.role) - order.indexOf(b.role)), [c.data])
   const name = (id: string) => c.data?.people.find((p) => p.id === id)?.full_name ?? 'Member'
   const m = active.length
-  const need = Math.max(Math.ceil((2 * m) / 3), 2)
+  const need = approvalsNeeded(m, me.society.committee_threshold)
   /* An unreadable limit is left undefined so every surface below shows the
    * placeholder rather than a figure, and never implies the lower tier. */
+  const auditors = useMemo(
+    () => auditorPresence({ data: years.data, isPending: years.isPending, isError: years.isError }),
+    [years.data, years.isPending, years.isError],
+  )
+  /*
+   * `limit.data` is an object, not a list, so the rows are derived and the
+   * read's own flags are what decide - `derivedRead` over the one query.
+   */
+  const histRead = useMemo(
+    () => derivedRead((limit.data?.history ?? []).toReversed(), [limit]),
+    [limit.data, limit.isPending, limit.isError],
+  )
   const limRead = countable(limit.data?.current.limit_minor)
   const lim = limRead.readable ? limRead.minor : undefined
   const mine = isCommittee(me)
@@ -48,7 +64,7 @@ function Committee() {
 
       <div className="grid gap-3 sm:grid-cols-2">
         <Card className="p-5">
-          <div className="flex items-center gap-2 text-[13px] font-medium text-ink-2"><Users className="size-4" />At or below {lim !== undefined ? format(lim, 'INR', { compact: true }) : '…'}</div>
+          <div className="flex items-center gap-2 text-[13px] font-medium text-ink-2"><Users className="size-4" />At or below {lim !== undefined ? format(lim, ccy, { compact: true }) : '…'}</div>
           <p className="mt-2 text-xl font-semibold tracking-tight">Treasurer + Secretary</p>
           <p className="mt-1 text-[13px] text-ink-2">Both, never either alone.</p>
         </Card>
@@ -58,7 +74,19 @@ function Committee() {
           <div className="mt-2 flex gap-1" aria-hidden>
             {Array.from({ length: m }, (_, i) => <span key={i} className={`h-1.5 flex-1 rounded-full ${i < need ? 'bg-accent' : 'bg-line'}`} />)}
           </div>
-          <p className="mt-2 text-[13px] text-ink-2">Two-thirds, rounded up. Fixed when the first approval is cast.</p>
+          {/*
+            * The caption has to name the rule that produced THIS number, not
+            * the rule in general. It read "Two-thirds, rounded up" always -
+            * correct only while the committee had not raised its threshold,
+            * which was every society at the time it was written. With M = 11
+            * and a configured 10 the figure above says 10, and two-thirds of
+            * 11 is 8: the caption then explains the number next to it as
+            * arithmetic a reader can do and find wrong.
+            *
+            * `basis` is not a second opinion about the count - it reads the
+            * same `need` the figure does, so the two cannot disagree.
+            */}
+          <p className="mt-2 text-[13px] text-ink-2">{tierBasis(need, m)} Fixed when the first approval is cast.</p>
         </Card>
       </div>
 
@@ -72,7 +100,14 @@ function Committee() {
       )}
 
       <Caption className="mt-6">Seated</Caption>
-      {c.isPending ? <Loading /> : (
+      {/*
+        * A failed read must not render as an empty committee. `active` comes
+        * from `c.data?.seats ?? []`, so losing the read draws a society with
+        * nobody seated - on the screen whose entire job is who may approve an
+        * entry. An empty list there is not a blank space, it is a claim.
+        */}
+      {c.isPending ? <Loading />
+        : c.isError ? <Failed error={c.error} retry={() => c.refetch()} /> : (
         <Card className="divide-y divide-line">
           {active.map((s) => (
             <div key={s.person_id} className="flex items-center gap-3 px-4 py-3">
@@ -93,32 +128,52 @@ function Committee() {
       {active.some((s) => s.derived) && <p className="mt-2 px-1 text-xs text-ink-2">An emergency seat cannot vote to seat further members. It counts for everything else.</p>}
 
       <Caption className="mt-6">Auditors</Caption>
+      {/* Four outcomes, decided in lib/auditors.ts. "No auditor appointed yet"
+        * is a statement about this society's statutory position, so it may
+        * only be reached once the read has actually succeeded: it used to be
+        * rendered from `(years.data ?? [])`, which is empty while the read is
+        * pending AND when it has failed. The route's error arm covers `c`
+        * alone and this card sits outside it. */}
       <Card className="divide-y divide-line">
-        {(years.data ?? []).filter((y) => y.auditor?.length).map((y) => (
-          <div key={y.fy} className="flex items-center gap-3 px-4 py-3">
-            <Avatar name={y.auditor![0]!.name} />
-            <div className="min-w-0 flex-1">
-              <p className="truncate font-medium">{y.auditor!.map((a) => a.name).join(', ')}</p>
-              <p className="text-[13px] text-ink-2">FY {y.fy}</p>
+        {auditors.kind === 'pending' ? <Loading rows={1} />
+          : auditors.kind === 'unknown' ? (
+            <p className="p-4 text-sm text-ink-2">
+              The auditor appointments could not be loaded, so this is not saying there are none.
+            </p>
+          )
+          : auditors.kind === 'none' ? <p className="p-4 text-sm text-ink-2">No auditor appointed yet.</p>
+          : auditors.years.map((y) => (
+            <div key={y.fy} className="flex items-center gap-3 px-4 py-3">
+              <Avatar name={y.auditor![0]!.name} />
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-medium">{y.auditor!.map((a) => a.name).join(', ')}</p>
+                <p className="text-[13px] text-ink-2">FY {y.fy}</p>
+              </div>
+              {/* A closed year carries its OPINION, never a bare "Year closed" in
+                * the reassuring tone. An adverse opinion or a disclaimer rendered
+                * as calm green here, with the opinion shown nowhere on the
+                * screen - the data was in hand and the chip ignored it. */}
+              <Chip tone={y.closed ? opinionTone(y.headline) : 'neutral'}>{y.closed ? opinionChip(y.headline) : 'Open'}</Chip>
             </div>
-            {/* A closed year carries its OPINION, never a bare "Year closed" in
-              * the reassuring tone. An adverse opinion or a disclaimer rendered
-              * as calm green here, with the opinion shown nowhere on the
-              * screen - the data was in hand and the chip ignored it. */}
-            <Chip tone={y.closed ? opinionTone(y.headline) : 'neutral'}>{y.closed ? opinionChip(y.headline) : 'Open'}</Chip>
-          </div>
-        ))}
-        {!(years.data ?? []).some((y) => y.auditor?.length) && <p className="p-4 text-sm text-ink-2">No auditor appointed yet.</p>}
+          ))}
       </Card>
 
       <Caption className="mt-6">Limit history</Caption>
+      {/* An EMPTY card under this heading is the claim "the limit has never
+        * changed", made without words - the shape needs no sentence to lie.
+        * It was rendered from `(limit.data?.history ?? [])`, so a failed read
+        * showed a society whose approval threshold had always been what it is
+        * now, on the screen that exists to show when it moved. */}
       <Card className="divide-y divide-line">
-        {(limit.data?.history ?? []).toReversed().map((h, i) => (
-          <div key={h.seq} className="flex items-center justify-between px-4 py-3 text-sm">
-            <span className="text-ink-2">{i === 0 ? 'In force since' : 'From'} {instant(h.recorded_at, { day: 'numeric', month: 'short', year: 'numeric' })} · #{h.seq}</span>
-            <span className="tnum font-medium">{histLimit(h) ?? 'Not available'}</span>
-          </div>
-        ))}
+        {histRead.kind === 'pending' ? <Loading rows={2} />
+          : histRead.kind === 'unknown' ? <p className="px-4 py-3 text-sm text-ink-2">The limit history could not be loaded, so this is not saying it has never changed.</p>
+          : histRead.rows.length === 0 ? <p className="px-4 py-3 text-sm text-ink-2">The limit has not changed since it was first set.</p>
+          : histRead.rows.map((h, i) => (
+            <div key={h.seq} className="flex items-center justify-between px-4 py-3 text-sm">
+              <span className="text-ink-2">{i === 0 ? 'In force since' : 'From'} {instant(h.recorded_at, { day: 'numeric', month: 'short', year: 'numeric' })} · #{h.seq}</span>
+              <span className="tnum font-medium">{histLimit(h, ccy) ?? 'Not available'}</span>
+            </div>
+          ))}
       </Card>
 
       {mine && <Actions action={action} onClose={() => setAction(null)} name={name} lim={lim} />}
@@ -127,6 +182,7 @@ function Committee() {
 }
 
 function Actions({ action, onClose, name, lim }: { action: Action; onClose: () => void; name: (id: string) => string; lim: number | undefined }) {
+  const ccy = useCurrency()
   const s = useSociety()
   const propose = usePropose()
   const add = useAddResident()
@@ -193,7 +249,7 @@ function Actions({ action, onClose, name, lim }: { action: Action; onClose: () =
   }
 
   const title = action === 'limit' ? 'Change the approval limit' : action === 'seat' ? 'Seat a member' : action === 'auditor' ? 'Appoint an auditor' : `Unseat ${name(action.unseat)}`
-  const minor = parse(amount)
+  const minor = parse(amount, ccy)
   const ready = action === 'limit' ? minor !== null && why.trim() : action === 'seat' || action === 'auditor' ? person && why.trim() : why.trim()
   return (
     <Sheet open onClose={onClose} title={title}
@@ -204,7 +260,9 @@ function Actions({ action, onClose, name, lim }: { action: Action; onClose: () =
           : go({ action: 'unseat_admin', person: action.unseat, narration: why })}>Propose</Button>}>
       <div className="space-y-4">
         {action === 'limit' && (
-          <Field label="New limit" htmlFor="lim" hint={`Now ${lim !== undefined ? format(lim, 'INR', { compact: true }) : '…'}. Zero sends every entry to the committee.`}>
+          <Field label="New limit" htmlFor="lim"
+            error={amount.trim() && minor === null ? 'Enter an amount like 25,000. A limit cannot be negative.' : null}
+            hint={`Now ${lim !== undefined ? format(lim, ccy, { compact: true }) : '…'}. Zero sends every entry to the committee.`}>
             <MoneyInput id="lim" value={amount} onChange={setAmount} autoFocus />
           </Field>
         )}

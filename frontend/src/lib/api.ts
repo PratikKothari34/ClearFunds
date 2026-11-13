@@ -342,30 +342,88 @@ export async function fetchChain(society: string, onPage?: (n: number) => void):
      */
     for (const r of rows) out.push({ ...r, prev_hash: bytea(r.prev_hash) } as unknown as Entry)
     onPage?.(out.length)
-    if (rows.length < PAGE) return out
+    /*
+     * The SAME stop decision `all()` uses, including its refusal - this loop
+     * had only the short-page exit, so it was the one walk in the file with
+     * no ceiling at all.
+     *
+     * Why it matters more here than on a read model: this is the verification
+     * path. A short download returns a PREFIX of the chain, and a prefix of a
+     * hash chain verifies perfectly - every link resolves, because the
+     * entries that would break it are the ones after where the walk stopped.
+     * A reachable anchor catches that (`highest_sequence > headSeq` reports
+     * 'behind'), but the anchor is 'unpublished' or 'unreachable' today, and
+     * in that state nothing else bounds the walk: the check reports a clean
+     * chain having seen a fraction of it, and writes a `checkedThrough` that
+     * only ever RISES, so a later complete download treats the entries above
+     * the short head as already covered.
+     *
+     * Throw rather than return what we have. `runCheck` surfaces a failure;
+     * it cannot surface a silence.
+     */
+    const step = walkStep(rows.length, from + PAGE)
+    if (step === 'done') return out
+    if (step === 'refuse') {
+      throw new Error(`the record could not be read in full: more than ${MAX_ROWS} entries`)
+    }
   }
 }
 
 /** Keeps open screens current: a new entry anywhere refreshes the read models. */
 /*
- * Every read this society has cached. A chain entry can change any of them -
- * the kind is not in the realtime payload, so narrowing by kind would mean
- * trusting a guess about what an insert touched.
+ * Every read a chain entry can change. The kind is not in the realtime
+ * payload, so narrowing by kind would mean trusting a guess about what an
+ * insert touched.
  *
- * Two of the names this list used to carry, 'head' and 'structuring', were
- * never query keys at all: invalidating them did nothing in either
- * direction. 'tenant-flags' IS a query key and was missing, so a flag raised
- * on another device left this one's set stale until a reload.
+ * This list has drifted twice, in both directions, which is why
+ * `live.test.ts` now derives the full set of query keys from the source and
+ * asserts this list against it. 'head' and 'structuring' were names that were
+ * never query keys at all, so invalidating them did nothing. 'tenant-flags'
+ * IS a key and was missing, so a flag raised on another device left this
+ * one's set stale until a reload. 'me' was missing for the same reason and is
+ * the worst of the three: it carries the viewer's SEAT, and seating is a
+ * chain entry (`seat_admin`, `unseat_admin`, `appoint_auditor`). A treasurer
+ * seated mid-session saw no approval controls, and an auditor appointed
+ * mid-session got no year-end screen, because `nav.ts`, `pending.ts` and
+ * every `isCommittee` gate read `me.seat` - and `useMe` holds it for
+ * `staleTime: 60_000`, or indefinitely while the tab stays mounted.
+ *
+ * It is a stale-SCREEN defect, not an access one: the server refuses what the
+ * seat does not permit either way. The screen being wrong about who you are
+ * is still the kind of thing a volunteer reports as the app being broken.
+ *
+ * EXCLUDED ON PURPOSE, and `live.test.ts` pins each reason:
+ *   'entry', 'alloc'  - one past entry's hash or body. Append-only, so the
+ *                       row cannot change once written.
+ *   'preview'         - a server computation keyed on the viewer's own form
+ *                       input, not on society state.
+ *   'flats'           - the flat registry, not a chain entry. A new flat
+ *                       arrives out of band and no insert signals it.
  */
 const LIVE_KEYS = [
   'ledger', 'proposals', 'disputes', 'dues', 'committee',
-  'years', 'report', 'signoffs', 'limit', 'tenant-flags',
+  'years', 'report', 'signoffs', 'limit', 'tenant-flags', 'me',
 ] as const
+
+/** Query keys a chain insert deliberately does NOT refresh. See above. */
+export const NOT_LIVE = ['entry', 'alloc', 'preview', 'flats'] as const
+
+export const LIVE_KEYS_FOR_TEST = LIVE_KEYS
 
 export function useLive(society: string) {
   const qc = useQueryClient()
   useEffect(() => {
     let t: ReturnType<typeof setTimeout> | undefined
+    /*
+     * `removeChannel()` in the cleanup below makes the library call the
+     * status callback with CLOSED - a deliberate teardown takes the same
+     * branch as a dropped connection. Harmless today, because that branch
+     * only marks stale and the next mount re-reads anyway, but it would make
+     * the branch useless for anything a resident can SEE: every navigation
+     * between societies would report the connection as degraded. So the
+     * teardown says so, and the branch asks.
+     */
+    let closing = false
     const ch = supabase
       .channel(`chain:${society}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chain_entries', filter: `society_id=eq.${society}` },
@@ -404,8 +462,39 @@ export function useLive(society: string) {
             }
           }, 400)
         })
-      .subscribe()
+      /*
+       * The status callback is not optional decoration. `.subscribe()` with no
+       * callback discards `CHANNEL_ERROR` and `TIMED_OUT`, so a channel that
+       * never connects - blocked websocket, dropped network, expired token -
+       * is INDISTINGUISHABLE from a society where nobody has posted anything.
+       * Every screen then quietly serves `staleTime: 5 * 60_000` with nothing
+       * reporting that the live path is gone.
+       *
+       * The degradation is mild, which is exactly why it needs saying: the
+       * viewer's own writes still blanket-invalidate, `refetchOnWindowFocus`
+       * still fires, so the failure is "up to five minutes behind until you
+       * switch tabs", not a wrong figure. Mild and invisible is the
+       * combination that survives for months.
+       *
+       * On a failed or closed channel the fallback is made explicit rather
+       * than left implicit: mark every live read stale, so the next mount or
+       * focus re-reads instead of serving a five-minute-old cache from a
+       * session that has no live path at all. It cannot repair the channel -
+       * Supabase retries on its own - but it stops a dead channel from also
+       * meaning a stale cache.
+       *
+       * It deliberately does NOT render anything. Telling a resident their
+       * connection is degraded is a product surface, and whether this app
+       * wants one is not a decision to make inside a cache hook.
+       */
+      .subscribe((status) => {
+        if (closing) return
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          for (const k of LIVE_KEYS) qc.invalidateQueries({ queryKey: [k], refetchType: 'none' })
+        }
+      })
     return () => {
+      closing = true
       clearTimeout(t)
       supabase.removeChannel(ch)
     }

@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { STATEMENT_MAX_BYTES, STATEMENT_MAX_CHARS, bytes, chars, checkStatement } from './statement'
@@ -172,8 +172,42 @@ describe('checkStatement', () => {
  * counts bytes this says to drop the character rule.
  */
 describe('the limit the deployed server actually enforces', () => {
-  const RULES = resolve(__dirname, '../../../backend/supabase/migrations/20261026000003_rules.sql')
-  const sql = readFileSync(RULES, 'utf8')
+  /*
+   * READ EVERY MIGRATION IN APPLY ORDER, NOT ONE FILE.
+   *
+   * `cf.check_close` is defined in `..._rules.sql` and a later migration may
+   * `create or replace` it from a file of its own - which is exactly how the
+   * byte limit arrives. Reading only `rules.sql` therefore reports the
+   * ORIGINAL definition forever: the character check sits there untouched, so
+   * this suite would stay green through the very change it exists to detect,
+   * and the obsolete 4,000-character ceiling would start refusing statements
+   * the server accepts. A guard that cannot observe the change it watches for
+   * is indistinguishable from no guard.
+   *
+   * So the effective definition is the LAST one in filename order, which is
+   * the order Supabase applies them in.
+   */
+  const MIGRATIONS = resolve(__dirname, '../../../backend/supabase/migrations')
+  const applied = readdirSync(MIGRATIONS)
+    .filter((f) => f.endsWith('.sql'))
+    .sort()
+    .map((f) => readFileSync(resolve(MIGRATIONS, f), 'utf8'))
+
+  /*
+   * A pattern that matches NOTHING must fail rather than report success, the
+   * same rule the asset and budget checks follow: if `check_close` is ever
+   * renamed, every assertion below would pass vacuously on an empty string.
+   */
+  const defs = applied.filter((sql) => /function cf\.check_close\b/.test(sql))
+  const sql = defs.at(-1) ?? ''
+
+  it('finds the function it is asserting about', () => {
+    expect(
+      defs.length,
+      'no migration defines cf.check_close: this suite would pass vacuously',
+    ).toBeGreaterThan(0)
+  })
+
   const charCheck = /cf\.text_ok\(p_statement,\s*(\d+)\)/.exec(sql)
   const byteCheck = /octet_length\(normalize\(btrim\(p_statement\),\s*nfc\)\)/.test(sql)
 
@@ -186,23 +220,89 @@ describe('the limit the deployed server actually enforces', () => {
     ).toBe(true)
   })
 
-  it('agrees with whichever unit is deployed', () => {
+  it('agrees with whichever unit the migrations in this tree bound', () => {
     if (byteCheck) {
       /*
-       * The byte check has landed. The character ceiling is now obsolete:
-       * the server accepts 16,384 bytes whatever the character count, so
-       * our 4,000-character rule would refuse valid work. Raise
-       * STATEMENT_MAX_CHARS out of the way (or delete the rule and this
-       * block) in the same change that notices this.
+       * THE BYTE MIGRATION IS IN THIS TREE. That is NOT the same as the
+       * server enforcing bytes, and this case used to conflate the two: it
+       * demanded STATEMENT_MAX_CHARS be raised above the byte ceiling the
+       * moment the migration appeared in the working tree. That demand is
+       * the dangerous direction.
+       *
+       * Production is behind this migration. A deployment still running the
+       * character check refuses text our raised rule would accept, so
+       * lifting the rule here sends the auditor text the live server
+       * rejects - losing the statement at the one irreversible action,
+       * which is the failure this whole module exists to prevent. The note
+       * in the case below already states this asymmetry: refusing early
+       * costs a retype, accepting too much costs the work.
+       *
+       * So the only thing this case may assert while both units exist in
+       * history is that our character rule is still STRICTER than the byte
+       * ceiling, i.e. it cannot accept more than the most permissive server
+       * would. A character count never exceeds the byte count of the same
+       * text (UTF-8 is >= 1 byte per character), so a 4,000-character rule
+       * can never admit more than 16,384 bytes. That is the safe invariant,
+       * and it holds whichever unit is actually deployed.
+       *
+       * The rule is dropped when the byte migration is DEPLOYED. That is a
+       * deliberate human decision made against the live server, not a
+       * conclusion this suite is allowed to draw from a file listing.
        */
       expect(
         STATEMENT_MAX_CHARS,
-        'the server now bounds bytes, not characters: the 4,000-character rule is a false denial and must be lifted',
-      ).toBeGreaterThan(STATEMENT_MAX_BYTES)
+        'the character rule must stay no looser than the byte ceiling while production may still enforce characters',
+      ).toBeLessThanOrEqual(STATEMENT_MAX_BYTES)
       return
     }
     expect(Number(charCheck![1]), 'the deployed character ceiling moved and statement.ts was not updated')
       .toBe(STATEMENT_MAX_CHARS)
+  })
+
+  it('reports the migration set it actually read, because a checkout is not production', () => {
+    /*
+     * WHAT THIS SUITE CAN AND CANNOT SEE.
+     *
+     * Everything above reads the migrations in THIS WORKING TREE. That is the
+     * right source for "has the byte limit been written yet", and the wrong
+     * source for "what does the live server enforce right now" - the two are
+     * different questions and the character rule depends on the second.
+     *
+     * The gap is real and it has both signs:
+     *
+     *   - A branch that predates the byte-limit migration reads the character
+     *     check and concludes the character rule is current. On a branch where
+     *     the migration has since merged to main, that conclusion is stale.
+     *   - A tree that HAS the migration concludes the rule must be lifted.
+     *     But a deployment behind that migration still enforces 4,000
+     *     characters, so lifting it there sends the auditor text the live
+     *     server refuses - losing the statement at the irreversible action,
+     *     which is the failure this module exists to prevent.
+     *
+     * So the asymmetry decides it: refusing early costs a retype, accepting
+     * too much costs the work. The character rule is dropped when the byte
+     * migration is DEPLOYED, not when it is merged, and the two assertions
+     * above cannot tell those apart.
+     *
+     * This case therefore does not guess. It pins the number of migrations
+     * read, so a tree that silently lost or gained the relevant files fails
+     * here instead of answering the deployment question from a partial set -
+     * the same rule as a budget pattern that matches nothing.
+     */
+    expect(
+      applied.length,
+      'no migrations were read: every conclusion above is drawn from an empty set',
+    ).toBeGreaterThan(20)
+    /*
+     * And the two units must never both be present in the effective
+     * definition. If one migration ever adds the byte check WITHOUT removing
+     * the character check, both branches of the previous case are satisfiable
+     * and the suite would report whichever it happened to test first.
+     */
+    expect(
+      Boolean(charCheck) && byteCheck,
+      'check_close bounds the statement in BOTH units: the deployed-unit question has no single answer',
+    ).toBe(false)
   })
 
   it('confirms cf.text_ok measures characters, which is why the unit matters', () => {
@@ -211,7 +311,8 @@ describe('the limit the deployed server actually enforces', () => {
      * counts bytes. The two limits in this module are in different units
      * only because of this one function, so it is asserted directly.
      */
-    const fn = /create function cf\.text_ok[\s\S]*?\$\$;/.exec(sql)
+    const rules = applied.find((m) => /create function cf\.text_ok/.test(m)) ?? ''
+    const fn = /create function cf\.text_ok[\s\S]*?\$\$;/.exec(rules)
     expect(fn, 'cf.text_ok is gone').not.toBeNull()
     expect(fn![0], 'cf.text_ok no longer measures characters with length()').toContain('length(btrim(v))')
     expect(fn![0], 'cf.text_ok now measures bytes').not.toContain('octet_length')

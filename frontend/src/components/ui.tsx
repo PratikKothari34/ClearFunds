@@ -7,10 +7,17 @@ import {
   ArrowDownLeft, ArrowUpRight, Briefcase, Car, Check, Copy, Droplets, FileSearch, Home, Loader2,
   MoveVertical, PartyPopper, Sprout, SprayCan, UserCheck, Wrench, X, Zap, Circle, Undo2, Receipt,
 } from 'lucide-react'
-import { parts } from '../lib/money'
+import { parts, typedAmount } from '../lib/money'
 import { countable } from '../lib/countable'
 import { initials } from '../lib/format'
 import type { Reversed } from '../lib/reversed'
+/*
+ * From `lib/reachable`, never from `lib/supabase`, which re-exports the same
+ * names. The bundler splits on the import graph, not the call graph, so
+ * reaching them through `supabase.ts` would pull the Supabase SDK into the
+ * shared UI chunk - every route imports this file.
+ */
+import { failureKind } from '../lib/failure'
 
 export const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(' ')
 
@@ -67,7 +74,7 @@ type AmountProps = {
   /* Nullable because the wire is: Amount discloses what it cannot read
    * rather than making every call site guard first. */
   minor: number | null
-  currency?: string
+  currency: string
   signed?: boolean
   size?: 'sm' | 'md' | 'lg' | 'hero'
   tone?: 'auto' | 'ink' | 'muted'
@@ -87,7 +94,7 @@ const uncoloured = (cls: string | undefined): string | undefined =>
     .join(' ') || undefined
 
 /** The most important pixels on every screen. Sign and colour together, never colour alone. */
-export function Amount({ minor, currency = 'INR', signed, size = 'md', tone = 'ink', struck, className }: AmountProps) {
+export function Amount({ minor, currency, signed, size = 'md', tone = 'ink', struck, className }: AmountProps) {
   /*
    * An amount that cannot be read is disclosed, never thrown. parts() raises
    * RangeError on anything that is not a safe integer, and there is no error
@@ -179,7 +186,7 @@ const toneClass: Record<Tone, string> = {
  * rendering nothing: silence here is indistinguishable from "no reversals",
  * which is the overstatement this component exists to prevent.
  */
-export function ReversedNote({ of, className }: { of: Reversed; className?: string }) {
+export function ReversedNote({ of, currency, className }: { of: Reversed; currency: string; className?: string }) {
   if (of.kind === 'none') return null
   if (of.kind === 'unknown') {
     return (
@@ -190,7 +197,7 @@ export function ReversedNote({ of, className }: { of: Reversed; className?: stri
   }
   return (
     <p className={cx('text-xs text-ink-2', className)}>
-      includes <Amount minor={of.minor} size="sm" tone="muted" /> of corrections
+      includes <Amount minor={of.minor} currency={currency} size="sm" tone="muted" /> of corrections
     </p>
   )
 }
@@ -272,11 +279,38 @@ export function Loading({ rows = 4 }: { rows?: number }) {
   )
 }
 
+/*
+ * A read that did not arrive.
+ *
+ * It used to print `error.message` for any Error, which on a dropped
+ * connection is whatever the browser wrote - "Failed to fetch", "Load
+ * failed", "NetworkError when attempting to fetch resource". A resident on
+ * the stated target device, a mid-range Android on working 4G, is the person
+ * most likely to see that and the least able to act on it.
+ *
+ * So only a `Refused` is quoted, because the server wrote that sentence for
+ * the person reading it. Anything else is summarised, and a connection
+ * failure says so plainly and offers the retry, since that is the one case
+ * where trying again is likely to work. An answer the parser refused says the
+ * server answered - it did - rather than sending the reader to check a
+ * connection that is fine. Which of the four it is, is decided in
+ * `lib/failure.ts`; this only renders it.
+ *
+ * The ledger is never shown stale-but-cheerful in place of this: a read that
+ * failed is disclosed, per the same rule that forbids a green tick over a
+ * figure that could not be read.
+ */
 export function Failed({ error, retry }: { error: unknown; retry?: () => void }) {
+  const kind = failureKind(error)
   return (
     <Card className="p-5">
-      <p className="font-medium text-break">Could not load this.</p>
-      <p className="mt-1 text-sm text-ink-2">{error instanceof Error ? error.message : 'The server did not answer.'}</p>
+      <p className="font-medium text-break">{kind === 'unreachable' ? 'No connection to the ledger.' : 'Could not load this.'}</p>
+      <p className="mt-1 text-sm text-ink-2">
+        {kind === 'unreachable' ? 'Nothing is missing from the record - this device could not reach it. Check your connection and try again.'
+          : kind === 'refused' && error instanceof Error ? error.message
+          : kind === 'shape' ? 'The server answered, but not in a form this screen can read, so nothing is shown rather than a guess. Your connection is fine.'
+          : 'Something went wrong on this screen.'}
+      </p>
       {retry && <Button className="mt-3" onClick={retry}>Try again</Button>}
     </Card>
   )
@@ -397,7 +431,15 @@ export function Textarea({ className, ...rest }: TextareaHTMLAttributes<HTMLText
   return <textarea {...rest} className={cx(inputBase, 'min-h-24 py-3 text-base leading-relaxed', className)} />
 }
 
-/** An amount field that only ever yields integer minor units. */
+/**
+ * An amount field that only ever yields integer minor units.
+ *
+ * The keystroke filter is `typedAmount` in `lib/money.ts`, NOT a regex here:
+ * this field used to strip a minus sign, which turned `-5` into `5` and
+ * proposed a real five-rupee amount a person never typed. `parse` is what
+ * decides whether an amount is acceptable, so the filter must not delete the
+ * characters it decides on.
+ */
 export function MoneyInput({ id, value, onChange, autoFocus }: { id?: string; value: string; onChange: (v: string) => void; autoFocus?: boolean }) {
   return (
     <div className="relative">
@@ -408,7 +450,7 @@ export function MoneyInput({ id, value, onChange, autoFocus }: { id?: string; va
         autoComplete="off"
         autoFocus={autoFocus}
         value={value}
-        onChange={(e) => onChange(e.target.value.replace(/[^\d.,]/g, ''))}
+        onChange={(e) => onChange(typedAmount(e.target.value))}
         placeholder="0"
         className={cx(inputBase, 'tnum h-16 pl-10 text-3xl font-semibold tracking-tight')}
       />

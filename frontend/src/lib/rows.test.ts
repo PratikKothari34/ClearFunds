@@ -12,7 +12,7 @@ import { describe, expect, it } from 'vitest'
 import { ShapeError } from './parse'
 import {
   chargePreview, disputeRow, duesRow, duesRows, ledgerRow, limitEntries, me, proposalRow,
-  resolvedHandle, seat, structuring, summary,
+  resolvedHandle, seat, signoffEntries, signoffEntry, structuring, summary,
 } from './rows'
 import { countable } from './countable'
 
@@ -552,6 +552,18 @@ const whoami = (over: Record<string, unknown> = {}) => ({
   person: 'p1', name: 'Asha Rao', email: 'asha@example.com',
   society: {
     id: 's1', name: 'Sunview CHS', city: 'Pune', currency: 'INR',
+    /*
+     * Both of these are what `api_me` actually sends, checked against the
+     * live response rather than written from the type: `society` is
+     * `to_jsonb()` of the whole societies row, so `committee_threshold` is
+     * present and `null` on a society that never raised it - the ordinary
+     * case - while `currency_exponent` is appended and always a number.
+     *
+     * The fixture carried neither, which is how `currency_exponent` stayed
+     * `optional` long enough to be noticed in review: a fixture that omits a
+     * field cannot tell a tolerant parser from a correct one.
+     */
+    currency_exponent: 2, committee_threshold: null,
     fy_start_month: 4, structuring_window_days: 30,
   },
   seat: { role: 'treasurer', derived: false },
@@ -623,6 +635,52 @@ describe('me', () => {
   })
 
   /*
+   * `currency_exponent` was `optional` while production ran a deployment
+   * older than the migration that added it. It is deployed now - verified
+   * against the live schema, not against the merge - so a response without
+   * the field is a broken server rather than an old one, and saying so is
+   * better than falling back silently.
+   *
+   * `money.ts` keeps its own ISO 4217 table regardless. That fallback is the
+   * defence against the two sources DISAGREEING, which the field becoming
+   * required does not retire.
+   */
+  it('rejects a society that omits currency_exponent, now the migration is live', () => {
+    const s = whoami().society as Record<string, unknown>
+    const { currency_exponent: _dropped, ...without } = s
+    expect(() => me(whoami({ society: without }), 'useMe')).toThrow(ShapeError)
+  })
+
+  it('rejects a null currency_exponent, which no correct server sends', () => {
+    const s = whoami().society as Record<string, unknown>
+    expect(() => me(whoami({ society: { ...s, currency_exponent: null } }), 'useMe')).toThrow(ShapeError)
+  })
+
+  /*
+   * `committee_threshold` is the opposite case: nullable on purpose, because
+   * NULL is the ordinary state and means "this committee never raised its
+   * threshold". Null parses; a MISSING field does not, because absence would
+   * be the server failing to say - and reading absence as "not raised" is
+   * exactly how the term went missing from `tier.ts` in the first place.
+   */
+  it('accepts a null committee_threshold, the state of most societies', () => {
+    const s = whoami().society as Record<string, unknown>
+    expect(() => me(whoami({ society: { ...s, committee_threshold: null } }), 'useMe')).not.toThrow()
+  })
+
+  it('carries a raised committee_threshold through instead of dropping it', () => {
+    const s = whoami().society as Record<string, unknown>
+    const parsed = me(whoami({ society: { ...s, committee_threshold: 9 } }), 'useMe')
+    expect(parsed?.society.committee_threshold).toBe(9)
+  })
+
+  it('rejects a society that omits committee_threshold entirely', () => {
+    const s = whoami().society as Record<string, unknown>
+    const { committee_threshold: _dropped, ...without } = s
+    expect(() => me(whoami({ society: without }), 'useMe')).toThrow(ShapeError)
+  })
+
+  /*
    * `auditor_for` opens the year-close screen. A scalar where a list belongs
    * would make `.length` undefined and the screen silently unreachable, so
    * the shape is checked rather than coerced.
@@ -648,5 +706,64 @@ describe('me', () => {
 
   it('rejects a response that is not an object at all', () => {
     expect(() => me('asha', 'useMe')).toThrow(ShapeError)
+  })
+})
+
+/*
+ * `signoffEntry` had no case here, and the omission is the redundancy trap:
+ * downgrading `through_seq` from `required` to `nullable` left every one of
+ * the 1163 library tests green. Nothing was then WRONG - `int64` refuses a
+ * null when the signed message is rebuilt, so the forgery surfaces one layer
+ * down - but the outer claim went unpinned, and a redundancy with only one
+ * end asserted is one edit from being a single point of failure.
+ *
+ * So these assert the CONTRACT claim: every field of a month sign-off is
+ * guaranteed, because the signed message is rebuilt from all of them and a
+ * missing one cannot be recovered. `types.ts` types `through_seq` as a plain
+ * number, so a `nullable` parser here would hand a null to code the compiler
+ * has already told not to expect one.
+ */
+const signoff = (body: Record<string, unknown> = {}) => ({
+  sequence: 41, recorded_at: 1_760_000_000, actor: 'person-1',
+  body: { month: '2026-10', through_seq: 41, ...body },
+})
+
+describe('signoffEntry', () => {
+  it('accepts the shape the contract promises', () => {
+    expect(signoffEntry(signoff(), 'useSignoffs').body.month).toBe('2026-10')
+  })
+
+  for (const field of ['month', 'through_seq']) {
+    it(`rejects a null ${field}, which the signed message is rebuilt from`, () => {
+      expect(() => signoffEntry(signoff({ [field]: null }), 'useSignoffs')).toThrow(ShapeError)
+    })
+
+    it(`rejects an absent ${field} as firmly as a null one`, () => {
+      const body = signoff().body as Record<string, unknown>
+      delete body[field]
+      expect(() => signoffEntry({ ...signoff(), body }, 'useSignoffs')).toThrow(ShapeError)
+    })
+  }
+
+  it('names the nested field that failed, so it can be acted on', () => {
+    expect(() => signoffEntry(signoff({ through_seq: null }), 'useSignoffs'))
+      .toThrow(/body\.through_seq/)
+  })
+
+  it('rejects a through_seq that arrives as a numeric string', () => {
+    // The field is fed to int64() as a 64-bit integer; '41' is not one.
+    expect(() => signoffEntry(signoff({ through_seq: '41' }), 'useSignoffs')).toThrow(ShapeError)
+  })
+})
+
+describe('signoffEntries', () => {
+  it('rejects the whole page when one sign-off is malformed', () => {
+    expect(() => signoffEntries([signoff(), signoff({ month: null })], 'useSignoffs'))
+      .toThrow(ShapeError)
+  })
+
+  it('accepts an empty list, which is a real answer', () => {
+    // A society in its first month has signed nothing off yet.
+    expect(signoffEntries([], 'useSignoffs')).toEqual([])
   })
 })

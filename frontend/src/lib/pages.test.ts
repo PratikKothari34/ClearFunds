@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { MAX_ROWS, PAGE, restPages, walkStep } from './api'
 
@@ -122,5 +124,48 @@ describe('walkStep', () => {
     // 150 flats appending for decades is tens of thousands of entries, so a
     // refusal must mean something is broken, never that a committee was busy.
     expect(MAX_ROWS).toBeGreaterThan(PAGE * 100)
+  })
+})
+
+/*
+ * Both walks in `api.ts` must ask `walkStep`, and must BRANCH on its answer.
+ *
+ * `fetchChain` had only a short-page exit, so it was the one walk with no
+ * ceiling. That matters most there because it feeds `runCheck`: a short
+ * download is a PREFIX of the chain, and a prefix verifies perfectly - the
+ * entries that would break it are the ones after the stop. A reachable anchor
+ * catches it, but the anchor is unpublished today.
+ *
+ * Asserting the CALL is not enough - that hole let a mutant survive in the
+ * settled-read sweep. Assert the refusal is acted on.
+ */
+describe('every paginated walk is bounded', () => {
+  const src = readFileSync(resolve(__dirname, 'api.ts'), 'utf8')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/\/\/[^\n]*/g, '')
+
+  it('found the walks at all', () => {
+    // A sweep whose pattern matches nothing reports success forever.
+    const loops = src.match(/for\s*\(\s*let\s+from\s*=/g) ?? []
+    expect(loops.length, 'no paginated walk found: this guard is not measuring').toBeGreaterThan(1)
+  })
+
+  it('has no walk whose only exit is a short page', () => {
+    /*
+     * The defect's shape: `if (rows.length < PAGE) return` as the sole exit,
+     * with no ceiling, so full pages that never run short loop forever or
+     * hand back a truncated history as complete.
+     */
+    const bare = src.match(/if\s*\(\s*\w+\.length\s*<\s*PAGE\s*\)\s*return/g) ?? []
+    expect(bare, 'a walk still exits only on a short page, so it has no ceiling').toEqual([])
+  })
+
+  it('acts on a refusal rather than only computing one', () => {
+    const asks = (src.match(/walkStep\s*\(/g) ?? []).length
+    const refuses = (src.match(/===\s*'refuse'/g) ?? []).length
+    expect(asks, 'both walks must ask walkStep').toBeGreaterThanOrEqual(2)
+    expect(refuses, 'a walkStep answer is computed but never branched on: not a check')
+      .toBeGreaterThanOrEqual(2)
+    expect(src, 'a refusal must throw, not return what was read so far').toMatch(/'refuse'[\s\S]{0,120}throw/)
   })
 })

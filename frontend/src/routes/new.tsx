@@ -4,9 +4,12 @@ import { useQuery } from '@tanstack/react-query'
 import { ArrowDownLeft, ArrowUpRight, Receipt, Users, Vote } from 'lucide-react'
 import { previewCharge, useCommittee, useLedger, useLimit, usePropose, useSociety } from '../lib/api'
 import { supabase, unwrap, Refused } from '../lib/supabase'
-import { useMeStrict } from '../lib/session'
+import { useMeStrict, useCurrency } from '../lib/session'
 import { isOfficer } from '../lib/pending'
-import { categories, month, monthOf, todayIST } from '../lib/format'
+import { hasEarlierToPayee } from '../lib/structuring'
+import { approvalsNeeded, seatedCount } from '../lib/tier'
+import { categories, defaultChargeNarration, month, monthOf, todayIST } from '../lib/format'
+import { checkBusinessDate } from '../lib/businessdate'
 import { format, parse } from '../lib/money'
 import { countable } from '../lib/countable'
 import { Button, Card, Field, Input, MoneyInput, PageTitle, Segmented, cx, useToast } from '../components/ui'
@@ -23,6 +26,7 @@ export const Route = createFileRoute('/new')({
 })
 
 function NewEntry() {
+  const ccy = useCurrency()
   const me = useMeStrict()
   const s = useSociety()
   const search = Route.useSearch()
@@ -45,7 +49,7 @@ function NewEntry() {
 
   useEffect(() => { setCategory(kind === 'expense' ? 'repairs' : kind === 'charge' ? 'maintenance' : 'maintenance') }, [kind])
 
-  const minor = parse(amount)
+  const minor = parse(amount, ccy)
   /*
    * An unreadable limit must never produce `pair`. `minor <= null` is true in
    * JavaScript, so the old shape would have claimed the treasurer+secretary
@@ -54,8 +58,8 @@ function NewEntry() {
    */
   const limRead = countable(limit.data?.current.limit_minor)
   const lim = limRead.readable ? limRead.minor : undefined
-  const seated = (committee.data?.seats ?? []).filter((x) => x.unseated_seq === null).length
-  const needed = Math.max(Math.ceil((2 * seated) / 3), 2)
+  const seated = seatedCount(committee.data?.seats)
+  const needed = approvalsNeeded(seated, me.society.committee_threshold)
   const pair = minor !== null && lim !== undefined && minor <= lim
 
   const flats = useQuery({
@@ -72,12 +76,17 @@ function NewEntry() {
     for (const r of ledger.data ?? []) if (r.effect === 'expense' && r.counterparty) seen.set(r.counterparty, (seen.get(r.counterparty) ?? 0) + 1)
     return [...seen.entries()].toSorted((a, b) => b[1] - a[1]).map(([n]) => n)
   }, [ledger.data])
-  const recentToPayee = useMemo(() => {
-    if (kind !== 'expense' || !payee || !s.structuring_window_days) return 0
-    const since = new Date(Date.now() - s.structuring_window_days * 86_400_000).toISOString().slice(0, 10)
-    return (ledger.data ?? []).filter((r) => r.effect === 'expense' && r.reversed_by_seq === null && r.tier === 'pair'
-      && r.counterparty?.toLowerCase() === payee.trim().toLowerCase() && r.business_date >= since).length
-  }, [ledger.data, payee, kind, s.structuring_window_days])
+  /*
+   * Deliberately WHETHER, not how many: only the server knows the society's
+   * date, so only the server can bound the window. The rule and the full
+   * reasoning are in `lib/structuring.ts`, where they can be tested; this
+   * used to be an inline count here and was wrong by two calendar days,
+   * untested, because logic in a route needs a router to reach.
+   */
+  const anyRecentToPayee = useMemo(
+    () => kind === 'expense' && hasEarlierToPayee(ledger.data, payee),
+    [ledger.data, payee, kind],
+  )
 
   /*
    * Below the limit only the two named officers sign as they submit, and this
@@ -88,7 +97,16 @@ function NewEntry() {
    * it does, and stops chasing the one it is actually waiting on.
    */
   const selfApproves = pair ? isOfficer(me) : true
-  const ready = !!minor && (kind === 'charge' || (kind === 'expense' ? !!payee.trim() : !!(flat || payee.trim()))) && (kind === 'charge' || !!note.trim())
+  /*
+   * The date input carries `max`, and nothing read it: the input is not in a
+   * `<form>`, so no implicit validation runs, and `ready` below tested the
+   * amount, payee and note only. A future date reached the server with the
+   * button fully enabled and came back as an error the screen already had
+   * enough to give. `max` alone is a claim that the control is bounded, not a
+   * bound.
+   */
+  const dateCheck = checkBusinessDate(date, todayIST())
+  const ready = !!minor && dateCheck.ok && (kind === 'charge' || (kind === 'expense' ? !!payee.trim() : !!(flat || payee.trim()))) && (kind === 'charge' || !!note.trim())
 
   const submit = async () => {
     setError(null)
@@ -97,7 +115,8 @@ function NewEntry() {
       const out = await propose.mutateAsync(
         kind === 'charge'
           ? { action: 'charge', amount_minor: minor, flat_set: flatSet, category, business_date: date,
-              narration: note.trim() || `${category === 'parking' ? 'Parking' : 'Maintenance'} ${month(monthOf(date))}` }
+              // Same function the hint beside the field reads, so the two cannot drift.
+              narration: note.trim() || defaultChargeNarration(category, monthOf(date)) }
           : { action: kind, amount_minor: minor, category, business_date: date, narration: note.trim(),
               counterparty: kind === 'receipt' && flat ? `Flat ${flatLabel}` : payee.trim(),
               ...(kind === 'receipt' && flat ? { flat_id: flat } : {}) },
@@ -125,7 +144,7 @@ function NewEntry() {
         </Field>
 
         {kind === 'expense' && (
-          <Field label="Paid to" htmlFor="payee" hint={recentToPayee ? `${recentToPayee} payment${recentToPayee > 1 ? 's' : ''} to this payee in the last ${s.structuring_window_days} days. Below-limit payments that add up past the limit are shown together.` : undefined}>
+          <Field label="Paid to" htmlFor="payee" hint={anyRecentToPayee ? `There are earlier below-limit payments to this payee. Payments to one payee that add up past the limit are shown together in the ledger and the AGM report, which count them over the society's own ${s.structuring_window_days}-day window.` : undefined}>
             <Input id="payee" list="payees" value={payee} onChange={(e) => setPayee(e.target.value)} placeholder="Vendor or person" autoComplete="off" />
             <datalist id="payees">{payees.map((p) => <option key={p} value={p} />)}</datalist>
           </Field>
@@ -166,8 +185,30 @@ function NewEntry() {
         )}
 
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Date" htmlFor="date"><Input id="date" type="date" max={todayIST()} value={date} onChange={(e) => setDate(e.target.value)} /></Field>
-          <Field label={kind === 'receipt' ? 'Reference' : kind === 'charge' ? 'Title' : 'What for'} htmlFor="note">
+          <Field label="Date" htmlFor="date">
+            <Input id="date" type="date" max={todayIST()} value={date} onChange={(e) => setDate(e.target.value)}
+              aria-invalid={!dateCheck.ok || undefined}
+              aria-describedby={dateCheck.ok ? undefined : 'date-error'} />
+            {/*
+              * Said out loud rather than only disabling Propose: a button that
+              * goes grey with no reason is a dead end, and the date is the one
+              * field whose problem is invisible once it is typed.
+              */}
+            {!dateCheck.ok && <p id="date-error" className="mt-1.5 text-sm text-break">{dateCheck.message}</p>}
+          </Field>
+          {/*
+            * The charge Title is the one note field `ready` does not require,
+            * because `submit` generates a narration for a charge when it is
+            * blank. That was visible only as a placeholder, which disappears
+            * on focus and reads as a suggestion of what to type rather than a
+            * statement that something will be written for you - so the field
+            * looked the same as the two that block the button, and a treasurer
+            * could not tell which.
+            */}
+          <Field label={kind === 'receipt' ? 'Reference' : kind === 'charge' ? 'Title' : 'What for'} htmlFor="note"
+            hint={kind === 'charge'
+              ? `Optional. Left blank, it records as "${defaultChargeNarration(category, monthOf(date))}".`
+              : undefined}>
             <Input id="note" value={note} onChange={(e) => setNote(e.target.value)} maxLength={280}
               placeholder={kind === 'receipt' ? 'UPI ref 6044…' : kind === 'charge' ? `Maintenance ${month(monthOf(date), { month: 'short', year: 'numeric' })}` : 'Pump repair, A wing'} />
           </Field>
@@ -175,7 +216,7 @@ function NewEntry() {
 
         {kind === 'charge' && preview.data && (
           <Card className="rise p-4">
-            <p className="text-sm font-medium">{preview.data.flats} flats, {format(preview.data.base_minor)} each</p>
+            <p className="text-sm font-medium">{preview.data.flats} flats, {format(preview.data.base_minor, ccy)} each</p>
             <p className="mt-1 text-[13px] text-ink-2">
               {preview.data.extra_flats
                 ? `${preview.data.extra_flats} flats pay 1 paisa more this time: the ones that have had it least often.`
@@ -191,7 +232,7 @@ function NewEntry() {
           <div className="min-w-0 text-sm">
             <p className="font-medium">{!minor ? 'Approval depends on the amount' : pair ? 'Needs the treasurer and the secretary' : `Needs ${needed} of ${seated} committee members`}</p>
             <p className="mt-0.5 text-[13px] text-ink-2">
-              {lim !== undefined && `The limit is ${format(lim, 'INR', { compact: true })}. `}
+              {lim !== undefined && `The limit is ${format(lim, ccy, { compact: true })}. `}
               {minor ? (selfApproves ? 'Your approval is signed as you submit.' : 'You propose; the treasurer and secretary approve.') : ''}
             </p>
           </div>

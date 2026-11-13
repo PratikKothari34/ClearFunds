@@ -95,6 +95,27 @@ export function nullable<T>(inner: Parser<T>): Parser<T | null> {
 }
 
 /*
+ * A field an OLDER deployment does not send at all.
+ *
+ * Deliberately distinct from `nullable`, which rejects an absent field on
+ * purpose - a response that dropped a column and one that reported no value
+ * are different claims, and folding them together is how a typo in a select
+ * list produces a screenful of honest-looking nulls. That reasoning is right
+ * and this does not weaken it: `optional` is for the narrow case where the
+ * contract has ADDED a field that production has not yet deployed, so absence
+ * is a known deployment state rather than a broken response.
+ *
+ * The cost is real and the call site must pay it: a consumer of an `optional`
+ * field has to have a correct answer for absence that is not a guess. Use it
+ * only where that answer exists, and `required` once the field is live
+ * everywhere - leaving it optional forever restores exactly the blind spot
+ * `nullable` was shaped to prevent.
+ */
+export function optional<T>(inner: Parser<T>): Parser<T | null> {
+  return (v, p) => (v === undefined || v === null ? null : inner(v, p))
+}
+
+/*
  * A column the view types nullable and the read model guarantees is present.
  * Distinct from `int` so the intent is readable at the call site: this one
  * says "the contract promises a number here", and a null is a contract

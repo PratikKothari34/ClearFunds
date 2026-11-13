@@ -2,10 +2,14 @@ import { useEffect, useState } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { AlertTriangle, Printer } from 'lucide-react'
 import { useReport, useYears } from '../lib/api'
+import { useCurrency } from '../lib/session'
 import { auditChip, categoryLabel, day, instant, longDay, month, opinionHint, opinionLabel, opinionTone } from '../lib/format'
 import { checkHeadline, governingSeq } from '../lib/opinion'
+import { authorisation, nameIsAmbiguous } from '../lib/appointment'
+import { gatedRead } from '../lib/listread'
 import { Amount, Button, Caption, Card, Chip, Failed, Fingerprint, Loading, PageTitle, Segmented, cx } from '../components/ui'
 import type { Report } from '../lib/types'
+import { direction } from '../lib/countable'
 
 export const Route = createFileRoute('/reports')({ component: Reports })
 
@@ -25,14 +29,51 @@ function Reports() {
         <Segmented<string> className="mb-5 print:hidden" label="Financial year" value={fy ?? ''} onChange={setFy}
           options={years.data.toReversed().map((y) => ({ value: y.fy, label: `FY ${y.fy}` }))} />
       )}
-      {report.isPending ? <Loading rows={5} /> : report.isError ? <Failed error={report.error} retry={() => report.refetch()} />
-        : <Body r={report.data} />}
+      {/*
+        * The years read GATES the report read (`useReport` is `enabled: !!fy`),
+        * so a disabled query sits at `isPending` forever. Gating the view on
+        * `report` alone drew a spinner that could never resolve whenever the
+        * years read failed. `gatedRead` reads both, failure first.
+        */}
+      {(() => {
+        const state = gatedRead(years, report)
+        if (state === 'failed') {
+          const failed = years.isError ? years : report
+          return <Failed error={failed.error} retry={() => void failed.refetch()} />
+        }
+        if (state === 'pending' || report.data === undefined) return <Loading rows={5} />
+        return <Body r={report.data} />
+      })()}
     </div>
   )
 }
 
 function Body({ r }: { r: Report }) {
+  const ccy = r.currency
   const ie = r.income_expenditure
+  /*
+   * WHETHER THE YEAR READS SURPLUS OR DEFICIT IS A DECISION, NOT A FORMAT.
+   *
+   * This was `ie.surplus_minor >= 0`, a raw comparison on a figure that
+   * arrives from the server. The field is typed `number`, so the compiler
+   * was satisfied - but a type is a declaration ABOUT server data, never a
+   * proof, and `null >= 0` is TRUE. An unreadable surplus therefore
+   * rendered the year as **Surplus**, in the AGM report, beside an amount
+   * that could not be shown. That is worse than the `/dues` case the same
+   * bug caused: there an unreadable row at worst gets chased, here the
+   * document states something about the society's finances that nothing
+   * computed.
+   *
+   * `direction()` compares only AFTER `countable()` has narrowed the value,
+   * and it separates `flat` from `in`, so a surplus of exactly zero is not
+   * announced as a surplus either. `unreadable` discloses - never a figure,
+   * never a cheerful label.
+   */
+  const surplus = direction(ie.surplus_minor)
+  const surplusWord =
+    surplus === 'unreadable' ? 'Surplus or deficit'
+    : surplus === 'out' ? 'Deficit'
+    : surplus === 'flat' ? 'Neither' : 'Surplus'
   const bs = r.balance_sheet
   const op = r.opinions
   /* The headline is the server's claim ABOUT the history rendered below it,
@@ -40,6 +81,19 @@ function Body({ r }: { r: Report }) {
    * serious than the headline cannot be right whatever the server knows. */
   const headline = checkHeadline(op.headline, op.history)
   const governs = governingSeq(op.headline, op.headline_seq, op.history)
+  /*
+   * The appointments are a SEPARATE read from the report, so this screen can
+   * hold a statement whose authorisation it has not got yet.
+   *
+   * `null` is passed deliberately whenever that read has not succeeded for
+   * this year - in flight, failed, or the year absent from the list - because
+   * `authorisation()` reads null as "not reported" and says so. Passing `[]`
+   * instead would turn every statement on a slow or failed read into one the
+   * society cannot authorise, which is an accusation made from no data.
+   */
+  const years = useYears()
+  const appointments = years.data?.find((y) => y.fy === op.fy)?.auditor ?? null
+  const ambiguous = nameIsAmbiguous(op.history)
   const audit = headline.state === 'understated'
     ? auditChip(op.closed, headline.worst)
     : auditChip(op.closed, op.headline)
@@ -69,7 +123,7 @@ function Body({ r }: { r: Report }) {
         <div className="mt-4 grid grid-cols-3 gap-2 text-center">
           <Mini label="Income" minor={ie.total_income_minor} className="text-credit" />
           <Mini label="Spent" minor={ie.total_expenditure_minor} className="text-debit" />
-          <Mini label={ie.surplus_minor >= 0 ? 'Surplus' : 'Deficit'} minor={ie.surplus_minor} />
+          <Mini label={surplusWord} minor={ie.surplus_minor} />
         </div>
       </Card>
 
@@ -80,8 +134,16 @@ function Body({ r }: { r: Report }) {
           <div className="my-5 h-px bg-line" />
           <Table title="Expenditure" rows={ie.expenditure} total={ie.total_expenditure_minor} />
           <div className="mt-5 flex items-center justify-between rounded-xl bg-sunken px-4 py-3 font-semibold">
-            <span>{ie.surplus_minor >= 0 ? 'Surplus for the year' : 'Deficit for the year'}</span>
-            <Amount minor={ie.surplus_minor} />
+            <span>
+              {surplus === 'unreadable'
+                ? 'Surplus or deficit for the year'
+                : surplus === 'out'
+                  ? 'Deficit for the year'
+                  : surplus === 'flat'
+                    ? 'Neither surplus nor deficit for the year'
+                    : 'Surplus for the year'}
+            </span>
+            <Amount currency={ccy} minor={ie.surplus_minor} />
           </div>
         </Card>
       </section>
@@ -94,7 +156,16 @@ function Body({ r }: { r: Report }) {
             <Line label="Opening fund" minor={bs.opening_fund_minor} />
             <Line label="Add surplus" minor={bs.surplus_minor} />
             <Line label="Closing fund" minor={bs.closing_fund_minor} strong />
-            {bs.advances_from_members_minor > 0 && <Line label="Advances from members" minor={bs.advances_from_members_minor} />}
+            {/*
+              * `> 0` hid this line when the figure could not be read, because
+              * `null > 0` is false - a balance-sheet row vanishing from the
+              * report rather than disclosing. Shown whenever the figure is
+              * anything other than a readable zero, so `Amount` discloses the
+              * unreadable one instead of the row going missing.
+              */}
+            {direction(bs.advances_from_members_minor) !== 'flat' && (
+              <Line label="Advances from members" minor={bs.advances_from_members_minor} />
+            )}
             <Line label="Total" minor={bs.total_funds_and_liabilities_minor} total />
           </div>
           <div>
@@ -118,7 +189,7 @@ function Body({ r }: { r: Report }) {
                   <li key={a.seq} className="py-3 text-sm">
                     <div className="flex items-center justify-between gap-3">
                       <Link to="/entry/$seq" params={{ seq: String(a.seq) }} className="font-medium text-accent">#{a.seq} corrects FY {a.corrects_fy}</Link>
-                      <Amount minor={a.amount_minor} signed />
+                      <Amount currency={ccy} minor={a.amount_minor} signed />
                     </div>
                     <p className="mt-1 text-ink-2">{a.counterparty}: {a.reason}</p>
                   </li>
@@ -139,7 +210,7 @@ function Body({ r }: { r: Report }) {
                 <li key={x.seq} className="py-3 text-sm">
                   <div className="flex items-center justify-between gap-3">
                     <Link to="/entry/$seq" params={{ seq: String(x.seq) }} className="font-medium">#{x.seq} reverses #{x.reverses_seq}, {x.counterparty}</Link>
-                    <Amount minor={x.amount_minor} signed />
+                    <Amount currency={ccy} minor={x.amount_minor} signed />
                   </div>
                   <p className="mt-1 text-ink-2">{day(x.business_date)}: {x.reason}</p>
                 </li>
@@ -157,10 +228,10 @@ function Body({ r }: { r: Report }) {
             <div key={g.counterparty + g.first_date} className="py-2 text-sm">
               <div className="flex items-center justify-between gap-3">
                 <Link to="/ledger" search={{ q: g.counterparty }} className="font-medium">{g.counterparty}</Link>
-                <Amount minor={g.total_minor} />
+                <Amount currency={ccy} minor={g.total_minor} />
               </div>
               <p className="mt-1 text-ink-2">
-                {g.constituents.length} below-limit payments, {day(g.first_date)} to {day(g.last_date)}, together above the <Amount minor={g.limit_minor} size="sm" /> limit.
+                {g.constituents.length} below-limit payments, {day(g.first_date)} to {day(g.last_date)}, together above the <Amount currency={ccy} minor={g.limit_minor} size="sm" /> limit.
               </p>
             </div>
           )) : <p className="text-sm text-ink-2">None this year.</p>}
@@ -171,16 +242,41 @@ function Body({ r }: { r: Report }) {
       <section>
         <Caption>Auditor’s opinion</Caption>
         <Card className="p-5">
-          {op.history.length ? op.history.map((h) => (
-            <div key={h.seq} className="py-2">
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-sm font-medium">{h.auditor}</span>
-                <Chip tone={opinionTone(h.opinion)}>{opinionLabel[h.opinion]}{h.seq === governs && op.history.length > 1 ? ', governs' : ''}</Chip>
+          {op.history.length ? op.history.map((h) => {
+            /*
+             * Which appointment authorised THIS statement, by seq. Decided in
+             * lib/appointment.ts: a name match proves nothing, because a
+             * society can appoint the same person twice for one year and a
+             * statement published under a revoked appointment must not read
+             * like one published under a live appointment.
+             */
+            const auth = authorisation(h, appointments)
+            return (
+              <div key={h.seq} className="py-2">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm font-medium">{auth.state === 'authorised' ? auth.name : h.auditor}</span>
+                  <Chip tone={opinionTone(h.opinion)}>{opinionLabel[h.opinion]}{h.seq === governs && op.history.length > 1 ? ', governs' : ''}</Chip>
+                </div>
+                <p className="mt-2 text-sm leading-relaxed text-ink-2">{h.statement}</p>
+                <p className="mt-1 text-xs text-ink-2">
+                  Signed {instant(h.recorded_at)} · #{h.seq}
+                  {/* The appointment is shown whenever the name alone cannot
+                      identify it, and always when it is not confirmed. */}
+                  {auth.state === 'authorised' && ambiguous && <> · appointed by #{auth.seq}</>}
+                </p>
+                {auth.state === 'unauthorised' && (
+                  <p className="mt-1 text-xs text-attention">
+                    The appointment this statement cites (#{auth.seq}) is not among this year’s appointments.
+                  </p>
+                )}
+                {auth.state === 'unconfirmable' && (
+                  <p className="mt-1 text-xs text-ink-2">
+                    This year’s appointments were not reported, so the authorisation for this statement (#{auth.seq}) could not be checked.
+                  </p>
+                )}
               </div>
-              <p className="mt-2 text-sm leading-relaxed text-ink-2">{h.statement}</p>
-              <p className="mt-1 text-xs text-ink-2">Signed {instant(h.recorded_at)} · #{h.seq}</p>
-            </div>
-          )) : <p className="text-sm text-ink-2">No opinion yet. Only the appointed auditor closes the year.</p>}
+            )
+          }) : <p className="text-sm text-ink-2">No opinion yet. Only the appointed auditor closes the year.</p>}
           <p className="mt-3 text-[13px] text-ink-2">An audit gives reasonable assurance, not a guarantee.</p>
         </Card>
       </section>
@@ -203,9 +299,10 @@ function Body({ r }: { r: Report }) {
 }
 
 function Mini({ label, minor, className }: { label: string; minor: number; className?: string }) {
+  const ccy = useCurrency()
   return (
     <div className="rounded-xl bg-sunken px-2 py-3">
-      <Amount minor={minor} size="sm" className={cx('font-semibold', className)} />
+      <Amount currency={ccy} minor={minor} size="sm" className={cx('font-semibold', className)} />
       <p className="text-xs text-ink-2">{label}</p>
     </div>
   )
@@ -223,10 +320,11 @@ function Table({ title, rows, total }: { title: string; rows: { category: string
 }
 
 function Line({ label, minor, strong, total }: { label: string; minor: number; strong?: boolean; total?: boolean }) {
+  const ccy = useCurrency()
   return (
     <div className={cx('flex items-baseline justify-between gap-3 py-1.5 text-sm', total && 'mt-1 border-t border-line pt-2.5 font-semibold', strong && 'font-medium')}>
       <span>{label}</span>
-      <Amount minor={minor} size="sm" className={cx((total || strong) && 'font-semibold')} />
+      <Amount currency={ccy} minor={minor} size="sm" className={cx((total || strong) && 'font-semibold')} />
     </div>
   )
 }

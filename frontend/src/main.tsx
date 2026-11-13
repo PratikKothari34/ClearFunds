@@ -6,6 +6,8 @@ import { routeTree } from './routeTree.gen'
 import { AuthProvider } from './lib/session'
 import { ToastProvider } from './components/ui'
 import { Refused } from './lib/supabase'
+import { environmentFault } from './lib/environment'
+import { Misconfigured } from './components/Misconfigured'
 import { Crashed } from './components/Crashed'
 import './styles/app.css'
 
@@ -21,13 +23,24 @@ import './styles/app.css'
  * rows still render first, so nothing flashed, but the screen was behind a
  * request it did not need.
  *
- * Freshness does not depend on this number. Three things invalidate, and
- * between them they cover every way the record changes:
+ * Freshness does not depend on this number. Three things invalidate it:
  *   - our own writes, which blanket-invalidate in useWrite's onSettled;
  *   - anyone else's, over the realtime channel in useLive;
  *   - refetchOnWindowFocus, for a tab left open.
  * An append-only ledger has no silent mutation for a poll to catch. Shortening
  * this back to 30s would not make the app more correct, only busier.
+ *
+ * What this comment used to say, and should not have: that between them those
+ * three "cover every way the record changes". Only the first is blanket. The
+ * second invalidates a HAND-WRITTEN LIST, `LIVE_KEYS` in `api.ts`, which had
+ * silently gone stale three times - and the claim of completeness here is part
+ * of why nobody checked it. 'me' was missing, so the viewer's own seat did not
+ * refresh when the committee changed. `live.test.ts` now derives the key set
+ * from the source and asserts that list against it, which is what makes any
+ * statement about coverage checkable rather than merely written down.
+ *
+ * So the number is still a navigation decision, and freshness still does not
+ * rest on it - but it rests on that list being right, not on this paragraph.
  *
  * gcTime is thirty minutes so a cached read survives a detour through a route
  * that does not use it - the default five would drop the ledger while someone
@@ -74,8 +87,30 @@ declare module '@tanstack/react-router' {
   }
 }
 
+/*
+ * Checked BEFORE AuthProvider mounts, because AuthProvider's effect calls
+ * supabase.auth.getSession() - a first property read on the lazy client - and
+ * that throw lands ABOVE both render boundaries. The router's
+ * defaultErrorComponent catches a route's throw, and __root's CatchBoundary is
+ * inside the router; a provider mounted above the router has neither, so React
+ * unmounted the tree and production served a BLANK PAGE with one console line.
+ *
+ * A boundary is not the fix here and could not be: it would have to wrap the
+ * provider that decides whether to show sign-in, leaving no tree to render a
+ * message into. The environment is knowable before anything is attempted - two
+ * strings inlined at build time - so it is asked first.
+ *
+ * It renders INSTEAD of the app, never beside it. Continuing with no session
+ * shows the sign-in screen, and a resident typing a code into a build that can
+ * never deliver one is worse off than one who is told the build is broken.
+ */
+const fault = environmentFault()
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
+    {fault ? (
+      <Misconfigured fault={fault} />
+    ) : (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <ToastProvider>
@@ -83,5 +118,6 @@ createRoot(document.getElementById('root')!).render(
         </ToastProvider>
       </AuthProvider>
     </QueryClientProvider>
+    )}
   </StrictMode>,
 )

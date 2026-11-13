@@ -32,8 +32,16 @@ export const supabase = new Proxy({} as SupabaseClient<Database>, {
   has: (_, prop) => Reflect.has(client(), prop),
 })
 
-/** A refusal the server wrote for the person reading it. */
-export class Refused extends Error {}
+/*
+ * `Refused` and `Unreachable` are declared in `lib/reachable.ts`, which
+ * imports nothing, and re-exported here so every existing
+ * `from '../lib/supabase'` keeps working. They must have exactly ONE
+ * declaration: two classes of the same name would make `instanceof` false
+ * across module boundaries, and every write surface in the app decides
+ * whether to quote the server by exactly that test.
+ */
+import { Refused, Unreachable } from './reachable'
+export { Refused, Unreachable, unreachable } from './reachable'
 
 /*
  * Calls the signing edge function as the signed-in admin.
@@ -48,13 +56,40 @@ export async function edge(path: string, body: unknown): Promise<unknown> {
   const { data } = await supabase.auth.getSession()
   const token = data.session?.access_token
   if (!token) throw new Refused('Sign in again.')
-  const res = await fetch(`${SUPABASE_URL}/functions/v1/api${path}`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, apikey: KEY, 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  })
-  const out = await res.json().catch(() => ({}))
-  if (!res.ok) throw new Refused(out.error ?? 'The server could not do that.')
+  let res: Response
+  try {
+    res = await fetch(`${SUPABASE_URL}/functions/v1/api${path}`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, apikey: KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+  } catch (e) {
+    /*
+     * The request never left, or no answer came back. Nothing was recorded,
+     * and that is the part the caller must be able to say truthfully - a
+     * write surface that cannot tell this from a refusal has to hedge, and
+     * "it may or may not have gone through" is the worst thing to tell
+     * someone about money.
+     */
+    throw new Unreachable('The request did not reach the server.', { cause: e })
+  }
+
+  /*
+   * A body that will not parse is NOT a refusal. It used to fall through to
+   * `?? 'The server could not do that.'`, which puts a server's voice on a
+   * dropped connection. Which of the two it is depends on the status: an
+   * error status with an unparseable body is still the server answering, so
+   * it keeps the refusal wording; a 2xx whose body arrived truncated is a
+   * transport failure.
+   */
+  let out: { error?: string } | null = null
+  try {
+    out = (await res.json()) as { error?: string }
+  } catch {
+    if (res.ok) throw new Unreachable('The answer did not arrive in full.')
+  }
+  if (!res.ok) throw new Refused(out?.error ?? 'The server could not do that.')
+  if (out === null) throw new Unreachable('The answer did not arrive in full.')
   return out
 }
 

@@ -101,8 +101,11 @@ authoritative over any summary here.
 
 **The reasoning behind every rule below is in `docs/GOALS.md` → "The hard
 decisions".** Read it when you need to know *why*; the rules here are what
-binds. One decision is still open, auditor identity, and it does not block a
-schema.
+binds. Two are still open, and neither blocks a schema: **auditor identity**
+(how an auditor proves who they are at sign-off), and **the structuring
+window's length** in rule 10 — the number of days. What the window keys on is
+*not* open: `contracts/api/v1.md` settles it as the payee, compared ignoring
+case and surrounding spaces, on `business_date`.
 
 Settled, and binding on backend work. **Each is a rule, not an argument** —
 the reasoning behind them is in `docs/GOALS.md` and the decision records, and
@@ -176,8 +179,12 @@ none of it needs re-deriving to follow the rule.
    payee crossing the limit in a rolling window render as **one aggregate
    marked as having crossed**, constituents listed, and appear in the AGM
    report. **Do not block the next entry** — it punishes a genuine run of small
-   repairs and teaches splitting across payees, which is harder to see. Window
-   length and whether it keys on payee, category or both is open.
+   repairs and teaches splitting across payees, which is harder to see. The
+   window keys on the **payee**, compared ignoring case and surrounding
+   spaces, and on **`business_date`, never `recorded_at`**, so a backdated
+   entry counts on the day it says it was spent. **The server is the only
+   place this is decided** — a client reads the hint and applies no predicate
+   of its own. Only the window's **length in calendar days** is still open.
 11. **Default the admin count to statutory committee strength.** Maharashtra
    model bye-law 113: **11 members up to 100 flats, 13 for 101–200** — the
    whole band this product targets. Do not build a UI recommending four or

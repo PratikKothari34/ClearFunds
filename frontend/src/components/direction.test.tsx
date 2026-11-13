@@ -73,12 +73,12 @@ describe('the direction chip a resident reads', () => {
 
   it('does not contradict the hero figure beside it', () => {
     /*
-     * The two were already in disagreement once. <Amount tone="auto"> is the
+     * The two were already in disagreement once. <Amount currency="INR" tone="auto"> is the
      * line that was correct, so it is the reference: whenever it declines to
      * signal a direction, the chip must decline too.
      */
     for (const m of [-999999, -1, 0, 1, 999999]) {
-      const hero = render(<Amount minor={m} tone="auto" signed />).container.firstElementChild
+      const hero = render(<Amount currency="INR" minor={m} tone="auto" signed />).container.firstElementChild
       if (!hero) throw new Error('the amount rendered nothing')
       const chip = chipFor(m)
       expect(/text-credit/.test(hero.className), `credit disagreed at ${m}`).toBe(/credit/.test(chip.cls))
@@ -89,7 +89,7 @@ describe('the direction chip a resident reads', () => {
   it('discloses an unreadable amount on both, rather than one of them', () => {
     // One bad row used to hide money on one surface and blank another. Both
     // must now say they could not read it.
-    const hero = render(<Amount minor={null} tone="auto" />).container.firstElementChild
+    const hero = render(<Amount currency="INR" minor={null} tone="auto" />).container.firstElementChild
     expect(hero?.textContent).toBe('not available')
     expect(chipFor(null).text).toBe('Direction could not be read')
   })

@@ -38,7 +38,7 @@
  */
 import { array, bool, int, nullable, object, oneOf, required, str } from './parse'
 import type { Parser } from './parse'
-import { PROPOSAL_STATES } from './types'
+import { PROPOSAL_STATES, ROLE_ORDER } from './types'
 import type {
   Approval, ChargePreview, DisputeRow, DuesRow, LedgerRow, Me, Note, Person, ProposalRow, Report,
   LimitEntry, ResolvedHandle, Seat, SignoffEntry, Society, Structuring, Summary, Year,
@@ -46,7 +46,10 @@ import type {
 
 /* Shared vocabularies, kept together so a backend addition is one edit here
  * rather than a hunt through the file. */
-const role = oneOf(['president', 'treasurer', 'secretary', 'member'] as const)
+// The set comes from ROLE_ORDER so the parser and the committee ordering
+// cannot disagree about which roles exist. `oneOf` cares about membership
+// only; the sequence matters to the committee screen.
+const role = oneOf(ROLE_ORDER)
 const effect = oneOf(['expense', 'receipt', 'charge', 'reversal', 'charge_reversal'] as const)
 const action = oneOf([
   'expense', 'receipt', 'charge', 'reversal', 'limit_change',
@@ -186,6 +189,15 @@ const opinionEntry = object<Year['history'][number]>({
   opinion: required(opinion),
   statement: required(str),
   auditor: required(str),
+  /*
+   * REQUIRED, not optional. The contract says never null, and this is the
+   * society's authorisation to publish the statement beside it. `object()`
+   * keeps unknown fields rather than stripping them, so leaving this
+   * undeclared did not drop the value at runtime - it left it untyped and
+   * unchecked, which is worse: no surface could read it without a cast, and
+   * an absent or null one would have parsed clean.
+   */
+  appointment_seq: required(int),
   recorded_at: required(int),
 })
 
@@ -494,8 +506,37 @@ const society = object<Society>({
   name: required(str),
   city: nullable(str),
   currency: required(str),
+  /*
+   * `required` since 2026-11-11: the migration that added it is deployed on
+   * production, verified by probe rather than by its merge - a function only
+   * that migration creates answers "permission denied" there, which is the
+   * live schema saying it exists, where an undeployed one answers "could not
+   * find the function".
+   *
+   * It was `optional` while production ran older code, because absence had a
+   * correct answer: `money.ts` keeps its own ISO 4217 table and throws on a
+   * currency neither source knows, so it degraded to a checked table rather
+   * than to a guess. That fallback stays - it is the defence against the two
+   * sources disagreeing, not just against a missing field. What changes is
+   * that a response WITHOUT the field is now a broken server rather than an
+   * old one, and should fail the parse and say so.
+   *
+   * `required`, not `nullable`: the server computes it from the currency and
+   * always sends a number. Null would mean it could not derive an exponent
+   * for a currency it accepted, which is not a state to render around.
+   */
+  currency_exponent: required(int),
   fy_start_month: required(int),
   structuring_window_days: required(int),
+  /*
+   * `nullable`, not `optional`: the column is nullable and NULL is the
+   * ordinary state, so null is a real answer meaning "no raised threshold"
+   * and `tier.ts` treats it as the zero term. A missing field would be a
+   * different claim - that the server did not say - and that should fail the
+   * parse rather than be read as "not raised", because reading absence as
+   * zero is how the term went missing in the first place.
+   */
+  committee_threshold: nullable(int),
 })
 
 export const me = nullable(object<Me>({
