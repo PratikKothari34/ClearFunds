@@ -85,8 +85,10 @@ describe('toInput', () => {
      * MEASURED, NOT ASSUMED: the pad width inside `parts` is an EQUIVALENT
      * mutation and this suite does not pretend to kill it. Both
      * `padStart(3, '0')` and `padStart(e, '0')` in place of
-     * `padStart(e + 1, '0')` survive all 1310 tests in the project, and the
-     * outputs are byte-identical for every input tried - verified by
+     * `padStart(e + 1, '0')` survived the whole suite when this was measured
+     * (1310 tests at that commit, a count that only grows, so do not read it
+     * as current), and the outputs are byte-identical for every input
+     * tried - verified by
      * printing them side by side, not by inference. The reason is real
      * rather than a gap in coverage: `padStart` only pads a string SHORTER
      * than its target, and the two places a leading zero could survive both
