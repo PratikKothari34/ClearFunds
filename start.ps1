@@ -31,7 +31,7 @@ Write-Host "`nClearFunds - local demo`n" -ForegroundColor Cyan
 # --- 1. Docker ---------------------------------------------------------------
 # Supabase runs in containers, so the daemon has to answer first. Without this
 # check the CLI fails with a connection error that reads like a Supabase fault.
-Write-Host "[1/4] Docker"
+Write-Host "[1/5] Docker"
 docker ps *> $null
 if ($LASTEXITCODE -ne 0) {
   Write-Host "  starting Docker Desktop (this takes a minute on a cold boot)"
@@ -47,7 +47,7 @@ if ($LASTEXITCODE -ne 0) {
 Write-Host "  Docker is up" -ForegroundColor Green
 
 # --- 2. Supabase -------------------------------------------------------------
-Write-Host "[2/4] Supabase"
+Write-Host "[2/5] Supabase"
 if (Up $api) {
   Write-Host "  already up" -ForegroundColor Green
 } else {
@@ -57,10 +57,77 @@ if (Up $api) {
   if (-not (WaitFor $api 90 'Supabase')) { exit 1 }
 }
 
-# --- 3. Seed -----------------------------------------------------------------
+# --- 3. Frontend environment -------------------------------------------------
+# A fresh clone has NO .env.local: the file is gitignored (`*.local`), so it
+# does not survive a clone while `.env.example` ships with the publishable key
+# and the demo-login flag both EMPTY. Without this step the script brings
+# Docker, Supabase and Vite up, opens the browser, and the app mounts unable
+# to reach Supabase and with no quick-login buttons - the blank-page symptom
+# again, in a new place, on the one machine a demo runs from.
+#
+# The values come from the running stack rather than being hardcoded, and they
+# are the Supabase CLI's fixed LOCAL dev values - identical on every machine
+# and not secrets. VITE_DEMO_LOGINS is what puts the per-role buttons on the
+# sign-in page; a production build never carries them.
+Write-Host "[3/5] Frontend environment"
+$envFile = "$root\frontend\.env.local"
+if (Test-Path $envFile) {
+  Write-Host "  .env.local already present" -ForegroundColor Green
+} else {
+  # Push-Location, not `npx --prefix`: --prefix sets where npx RESOLVES the
+  # package, not the working directory, and the Supabase CLI derives its
+  # project name (and so its container names) from the directory it runs in.
+  # From the repo root it looked for `supabase_db_ClearFunds` and failed, while
+  # the real containers are `supabase_db_clearfunds`, created from `backend`.
+  # The CLI prints deprecation WARNs to stderr before the JSON. In PowerShell
+  # 5.1 a native command's stderr becomes an ErrorRecord (NativeCommandError)
+  # that aborts the script even though the exit code is 0, so the stream is
+  # merged into stdout and the JSON picked out of the result rather than
+  # suppressed with `2>$null`, which does not stop the ErrorRecord.
+  Push-Location "$root\backend"
+  $raw = (& cmd.exe /c "npx supabase status -o json 2>&1") | Out-String
+  Pop-Location
+  # Everything from the first '{' to the last '}', NOT the first line that
+  # starts with '{': piped through cmd.exe the CLI pretty-prints the JSON over
+  # many lines, so a single-line match yields the bare opening brace and
+  # ConvertFrom-Json fails with "':' or '}' expected".
+  $open = $raw.IndexOf('{')
+  $close = $raw.LastIndexOf('}')
+  $status = if ($open -ge 0 -and $close -gt $open) { $raw.Substring($open, $close - $open + 1) } else { '' }
+  $key = $null
+  try { $key = ($status | ConvertFrom-Json).PUBLISHABLE_KEY } catch { }
+  if (-not $key) {
+    Write-Host "  could not read the publishable key from supabase status" -ForegroundColor Red
+    Write-Host "  copy frontend\.env.example to frontend\.env.local and fill it in by hand" -ForegroundColor Yellow
+    exit 1
+  }
+  # UTF8 WITHOUT a BOM: Vite reads .env as bytes, and a BOM becomes part of the
+  # FIRST key's name, so VITE_SUPABASE_URL silently arrives as undefined.
+  # The ORIGIN, not $api - $api carries the /rest/v1/ path used for health
+  # checks, and the client appends its own paths, so passing it through would
+  # produce /rest/v1/rest/v1/... on every call.
+  $origin = ($api -replace '/rest/v1/?$', '')
+  $lines = @(
+    "# Written by start.ps1 from the running local Supabase stack.",
+    "# Gitignored by frontend/.gitignore (*.local), so it does not survive a",
+    "# clone - delete it and re-run start.ps1 to regenerate, which is also the",
+    "# fix after `supabase stop` reissues the stack's keys.",
+    "# Every value here is PUBLIC: it compiles into the bundle a browser",
+    "# downloads. The signing keys are server-held; the frontend holds none.",
+    "",
+    "VITE_SUPABASE_URL=$origin",
+    "VITE_SUPABASE_PUBLISHABLE_KEY=$key",
+    "VITE_ANCHOR_URL=",
+    "VITE_DEMO_LOGINS=1"
+  )
+  [IO.File]::WriteAllLines($envFile, $lines, (New-Object Text.UTF8Encoding $false))
+  Write-Host "  wrote frontend\.env.local with the local stack's values" -ForegroundColor Green
+}
+
+# --- 4. Seed -----------------------------------------------------------------
 # Only when the chain is empty. Re-seeding a populated database would append a
 # second society, so the count is the guard, not a flag.
-Write-Host "[3/4] Demo data"
+Write-Host "[4/5] Demo data"
 # `postgres` is the Supabase CLI's fixed password for the LOCAL container - it
 # is not a secret and is the same on every machine. It is still scoped to this
 # one psql call and restored afterwards, rather than left in the shell: a
@@ -88,9 +155,9 @@ if ($rows -and [int]$rows -gt 0) {
   }
 }
 
-# --- 4. Vite -----------------------------------------------------------------
+# --- 5. Vite -----------------------------------------------------------------
 # Started detached in its own window, so closing this one leaves it serving.
-Write-Host "[4/4] Dev server"
+Write-Host "[5/5] Dev server"
 if (Up $app) {
   Write-Host "  already up" -ForegroundColor Green
 } else {
