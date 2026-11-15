@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { AlertTriangle, Printer } from 'lucide-react'
+import { AlertTriangle, Gavel, Printer } from 'lucide-react'
 import { useReport, useYears } from '../lib/api'
-import { useCurrency } from '../lib/session'
+import { useCurrency, useMeStrict } from '../lib/session'
+import { closable } from '../lib/closable'
 import { auditChip, categoryLabel, day, instant, longDay, month, opinionHint, opinionLabel, opinionTone } from '../lib/format'
 import { checkHeadline, governingSeq } from '../lib/opinion'
 import { authorisation, nameIsAmbiguous } from '../lib/appointment'
@@ -49,6 +50,7 @@ function Reports() {
 }
 
 function Body({ r }: { r: Report }) {
+  const me = useMeStrict()
   const ccy = r.currency
   const ie = r.income_expenditure
   /*
@@ -93,6 +95,15 @@ function Body({ r }: { r: Report }) {
    */
   const years = useYears()
   const appointments = years.data?.find((y) => y.fy === op.fy)?.auditor ?? null
+  /*
+   * Whether to offer the close. `undefined` while the years read is in
+   * flight or failed - NOT a refusal: an absent year must not render as
+   * "not yours", which would be a claim made from no data on the screen
+   * that gates an irreversible action. `closable` is only consulted once
+   * the year itself is in hand.
+   */
+  const thisYear = years.data?.find((y) => y.fy === op.fy)
+  const offer = thisYear ? closable(me, thisYear) : undefined
   const ambiguous = nameIsAmbiguous(op.history)
   const audit = headline.state === 'understated'
     ? auditChip(op.closed, headline.worst)
@@ -277,6 +288,37 @@ function Body({ r }: { r: Report }) {
               </div>
             )
           }) : <p className="text-sm text-ink-2">No opinion yet. Only the appointed auditor closes the year.</p>}
+          {/*
+            * THE SENTENCE ABOVE USED TO BE A DEAD END.
+            *
+            * "Only the appointed auditor closes the year" is correct, and it
+            * was printed to the appointed auditor with no way to go and do
+            * it: `/reports` is the screen he reads to form the opinion, and
+            * the only routes to `/year-end` were a dashboard task card and a
+            * nav item. The rule was stated to exactly the person it is
+            * addressed to, as a refusal.
+            *
+            * Decided by `closable()` in lib, not by a `me.auditor_for`
+            * comparison here, so the answer is testable without mounting a
+            * router - and so this screen and `/year-end` cannot drift into
+            * disagreeing about who may close a year. Only `closable` renders
+            * the control; `not_ended` says when instead, because an auditor
+            * whose year ends in March needs a date, not silence. `closed`
+            * and `not_mine` add nothing - the opinion is already above, and
+            * a resident is not told about a button that was never theirs.
+            */}
+          {offer === 'closable' && (
+            <p className="mt-3 print:hidden">
+              <Link to="/year-end">
+                <Button tone="primary" icon={<Gavel className="size-4" />}>Give your opinion and close FY {op.fy}</Button>
+              </Link>
+            </p>
+          )}
+          {offer === 'not_ended' && (
+            <p className="mt-3 text-[13px] text-ink-2">
+              You are the appointed auditor for FY {op.fy}. It can be closed once the year ends on {longDay(r.ends)}.
+            </p>
+          )}
           <p className="mt-3 text-[13px] text-ink-2">An audit gives reasonable assurance, not a guarantee.</p>
         </Card>
       </section>
