@@ -5,10 +5,11 @@ import { useCloseYear, useYears } from '../lib/api'
 import { Refused } from '../lib/supabase'
 import { checkStatement } from '../lib/statement'
 import { authorisation, nameIsAmbiguous } from '../lib/appointment'
+import { closable } from '../lib/closable'
 import { useMeStrict } from '../lib/session'
 import { instant, longDay, opinionChip, opinionHint, opinionLabel, opinionTone } from '../lib/format'
 import { Button, Card, Caption, Chip, Empty, Failed, Field, Loading, PageTitle, Sheet, Textarea, useToast, cx } from '../components/ui'
-import type { Opinion, Year } from '../lib/types'
+import type { Me, Opinion, Year } from '../lib/types'
 
 export const Route = createFileRoute('/year-end')({ component: YearEnd })
 
@@ -34,16 +35,24 @@ function YearEnd() {
         : years.isError ? <Failed error={years.error} retry={() => years.refetch()} />
         : !list.length ? <Empty icon={<Gavel className="size-5" />} title="No financial years yet" /> : (
         <div className="space-y-3">
-          {list.map((y) => <YearCard key={y.fy} y={y} mine={me.auditor_for.includes(y.fy)} />)}
+          {list.map((y) => <YearCard key={y.fy} y={y} me={me} />)}
         </div>
       )}
     </div>
   )
 }
 
-function YearCard({ y, mine }: { y: Year; mine: boolean }) {
+function YearCard({ y, me }: { y: Year; me: Me }) {
   const [open, setOpen] = useState(false)
-  const can = mine && y.ended && !y.closed
+  /*
+   * Was `mine && y.ended && !y.closed` inline here, which meant the rule
+   * deciding the product's one irreversible action could not be tested
+   * without mounting a router - and `/reports` could not read it at all, so
+   * it told the auditor the rule and offered him no way to act on it.
+   * `closable()` in lib is now the single answer both screens render from.
+   */
+  const state = closable(me, y)
+  const can = state === 'closable'
   /* One name covering two appointments: the seq must then be on screen. */
   const ambiguous = nameIsAmbiguous(y.history)
   return (
