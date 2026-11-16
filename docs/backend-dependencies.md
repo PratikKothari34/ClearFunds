@@ -8,8 +8,10 @@ built without reading the frontend source.
 schema, RLS, function bodies and deployment are the backend lane's calls.
 
 **Status as of 2026-11-07, and most of this list is now met.** The migrations
-define every RPC, table and function named below, and the four edge functions
-exist. What remains is noted per section rather than at the top, because the
+define every RPC, table and function named below, and the edge function exists —
+**one** function, `api`, routing `/head`, `/open-society`, `/publish-notice`,
+`/ballot`, `/statements`, `/propose`, `/cast`, `/signoff` and `/close-year`
+rather than a deployed function per endpoint. What remains is noted per section rather than at the top, because the
 sections are no longer in the same state as each other:
 
 - **§1 environment variables** - the two Supabase values are supplied. The
