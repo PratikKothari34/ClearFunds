@@ -38,8 +38,10 @@ Both exist and run. Each lane documents its own setup:
 The wire format between them is not either lane's to decide. It lives in
 [`contracts/`](contracts/), with test vectors both sides check against.
 
-On Windows, `.\start.ps1` from the project root brings up both lanes, seeds the
-demo society and opens the app. By hand:
+**To just run it:** [`demo.md`](demo.md) is the whole path on a machine that has
+never run ClearFunds — `.\check-requirements.ps1` tells you what is missing and
+installs nothing, then `.\start.ps1` brings up both lanes, seeds the demo
+society and opens the app. By hand:
 
 ```sh
 # frontend
@@ -66,6 +68,9 @@ and sign in to the demo society, and what the common failures actually mean.
 | `backend/` | Migrations, the edge function, the seed script, the pgTAP suite |
 | `contracts/` | The wire format: chain entry preimage, kind layouts, the API shape, test vectors |
 | `docs/` | Goals, the design, decision records |
+| `demo.md` | How to run the demo from scratch, and what to show |
+| `check-requirements.ps1` | Reads the machine and reports what the demo needs; installs nothing |
+| `start.ps1` | Brings up both lanes, seeds, opens the app |
 | `AGENTS.md` | Orientation for an agent working in this repository |
 | `CONTRIBUTING.md` | Who owns which directory, and how a change lands |
 

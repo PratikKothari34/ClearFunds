@@ -20,6 +20,29 @@ domain vocabulary is specific: monthly maintenance dues per flat, UPI and bank
 transfers, an annual general meeting (AGM), and a financial audit the society
 is legally required to undergo each year.
 
+## If you were sent here to launch the demo
+
+Read **[`demo.md`](demo.md)** and follow it. On Windows, from the project root:
+
+```powershell
+.\check-requirements.ps1   # reads the machine, installs nothing, exit 0 = ready
+.\start.ps1                # Docker, Supabase, env file, seed, dev server
+```
+
+`check-requirements.ps1` names every missing prerequisite and its install
+command, so run it first and act on its verdict rather than starting the stack
+and reading the failure backwards. **Deno is the one worth checking twice:**
+without it the seed is skipped silently and the app loads empty while every
+step still reports green.
+
+One ordering matters and does not self-correct: the auditor sign-off needs a
+revision that seeds a closeable year, and the seed runs **only when the ledger
+is empty**. Switch revision before the first `start.ps1`, not after — `demo.md`
+step 3 has the detail and the recovery.
+
+Nothing in this section authorizes changing code. It is how to run what is
+already here.
+
 ## Read this to understand the project
 
 **[`docs/GOALS.md`](docs/GOALS.md) — start here. Read it in full before
