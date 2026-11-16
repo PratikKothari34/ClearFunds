@@ -71,6 +71,17 @@ is valid: its two lists are empty, not absent.
 
 ---
 
+## Order of rollout
+
+The frontend's proposal row parser holds `action` as a closed set, and parses
+the `proposals` view a page at a time, so one `budget` row it does not know
+fails the whole approvals list. The `ledger` view is safe without a change: it
+selects five money effects by name and never sends a `budget` posting.
+
+So **the parser learns `budget` first**, and no `budget` proposal is created
+(on any server, demo seed included) until that is deployed. The migration
+itself can go first: it creates no rows.
+
 ## Rules
 
 - **A year can be re-budgeted, and every revision stays.** A later `budget`
