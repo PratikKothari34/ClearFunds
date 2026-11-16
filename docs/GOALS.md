@@ -403,6 +403,17 @@ year, posted in the current one — **must be disclosed at the AGM**, in a
 generated section naming the entry, the year it corrects, the amount and the
 reason, so it cannot be left out.
 
+**Where a year's budget is recorded is settled 2026-11-16 (#76).** In the
+chain, set by the committee through the same N-of-M approval as a change to
+the approval limit, never in a settings table. A budget that one admin can edit
+lets an overspend vanish from the AGM report: lower the budget after the fact
+and the overrun reads as on budget, the same bug class as reading the approval
+limit live. Every revision stays in the chain and in the report, which shows
+the first budget, the final one and any revision made after the year ended.
+A budget is not money: its posting carries no amount and no balance sees it.
+Variance is computed by the server. The layout is
+[`contracts/chain/kinds/budget.v1.md`](../contracts/chain/kinds/budget.v1.md).
+
 **Money representation is settled 2026-10-22.** Every amount is an **integer
 count of the currency's minor units** (₹1,250.75 is `125075`) stored alongside
 an explicit **ISO 4217 currency code**. Floating-point currency is ruled out at
