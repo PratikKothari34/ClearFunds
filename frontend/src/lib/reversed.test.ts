@@ -47,6 +47,19 @@ describe('reversedPart', () => {
     expect(reversedPart(side, side + 1).kind).toBe('unknown')
   })
 
+  /*
+   * A month whose every rupee in is a reversal is the live case on the
+   * dashboard, not a contrived one: a society that posted one correction and
+   * nothing else reads "In X, includes X of corrections". It sits on the
+   * boundary the refusal above guards, so an off-by-one in that comparison -
+   * `>=` where `>` belongs - would refuse the whole truthful month and report
+   * the figure as unreadable. Disclosing all of it IS the disclosure working.
+   */
+  it('discloses a side that is ENTIRELY reversals, which is not an impossible figure', () => {
+    const side = 23_100_00
+    expect(reversedPart(side, side)).toEqual({ kind: 'some', minor: side })
+  })
+
   it('refuses a negative part, which the server reports positive', () => {
     expect(reversedPart(9_000, -1).kind).toBe('unknown')
   })

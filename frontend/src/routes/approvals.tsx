@@ -3,10 +3,11 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import { Check, CheckCheck, Inbox, Plus, Undo2, X } from 'lucide-react'
 import { useCast, useLimit, useNames, useProposals, useWithdraw } from '../lib/api'
 import { Refused } from '../lib/supabase'
-import { useMeStrict } from '../lib/session'
-import { actionLabel, ago, categoryLabel, day, flatSetLabel, plural, proposalTitle, roleLabel, tierLabel, writeOutcome } from '../lib/format'
+import { useMeStrict, useCurrency } from '../lib/session'
+import { actionLabel, ago, approvalDiscloses, categoryLabel, day, flatSetLabel, plural, proposalTitle, roleLabel, tierLabel, writeOutcome } from '../lib/format'
 import { format } from '../lib/money'
 import { countable } from '../lib/countable'
+import { withdrawStake } from '../lib/withdraw'
 import { Amount, Avatar, Button, Card, Chip, Empty, Facts, Failed, Loading, Meter, PageTitle, Segmented, Sheet, useToast, cx } from '../components/ui'
 import { waitsOn } from '../components/Shell'
 import type { ProposalRow } from '../lib/types'
@@ -56,6 +57,8 @@ function Approvals() {
 }
 
 function ProposalCard({ p, canAct }: { p: ProposalRow; canAct: boolean }) {
+  const society = useCurrency()
+  const ccy = p.currency ?? society
   const me = useMeStrict()
   const names = useNames()
   const cast = useCast()
@@ -64,6 +67,11 @@ function ProposalCard({ p, canAct }: { p: ProposalRow; canAct: boolean }) {
   const limit = useLimit()
   const [confirm, setConfirm] = useState(false)
   const [declineOpen, setDeclineOpen] = useState(false)
+  const [withdrawOpen, setWithdrawOpen] = useState(false)
+  // The stake is read from the server's count, which may be missing or
+  // unreadable - in which case it says so rather than claiming nothing is
+  // at risk. See lib/withdraw.ts.
+  const stake = withdrawStake(p.approve_count)
   const mineToWithdraw = p.state === 'open' && p.proposed_by === me.person
   /* The narrowed amount, not the raw field re-asserted: a guard that
    * checks one expression and passes another stops guarding the moment
@@ -101,16 +109,25 @@ function ProposalCard({ p, canAct }: { p: ProposalRow; canAct: boolean }) {
       <div className="p-4 sm:p-5">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-xs text-ink-2"><Facts items={[actionLabel[p.action], ago(p.recorded_at), `#${p.seq}`]} /></p>
+            {/*
+              * The bare `#4241` reads as "number 4241" with nothing saying
+              * what the number is, and this is the identifier a resident
+              * quotes to the committee - `disputes.tsx` already writes
+              * "Entry #N" in full. Kept short on screen, said in full to a
+              * screen reader, rather than widening the fact line.
+              */}
+            <p className="text-xs text-ink-2"><Facts items={[actionLabel[p.action], ago(p.recorded_at),
+              <span key="seq"><span className="sr-only">Entry </span>#{p.seq}</span>]} /></p>
             <h3 className="mt-1 truncate text-[17px] font-semibold tracking-tight">{proposalTitle(p, names)}</h3>
           </div>
           {p.amount_minor !== null && (
-            <Amount minor={p.action === 'expense' ? -p.amount_minor : p.amount_minor} signed={p.action !== 'limit_change'} size="lg"
+            <Amount currency={ccy} minor={p.action === 'expense' ? -p.amount_minor : p.amount_minor} signed={p.action !== 'limit_change'} size="lg"
               tone={p.action === 'expense' || p.action === 'receipt' ? 'auto' : 'ink'} className="shrink-0 text-xl" />
           )}
         </div>
 
         <Body p={p} limitNow={limitNow} />
+        <Disclosure p={p} />
 
         <div className="mt-4 space-y-2">
           <Meter have={p.approve_count} need={p.required} declined={p.decline_count} />
@@ -142,8 +159,14 @@ function ProposalCard({ p, canAct }: { p: ProposalRow; canAct: boolean }) {
             </>
           ))}
           {!canAct && mineToWithdraw && (
-            <Button tone="ghost" busy={withdraw.isPending} icon={<Undo2 className="size-4" />}
-              onClick={async () => { try { await withdraw.mutateAsync(p.seq); toast('Withdrawn. It stays on the record as withdrawn.') } catch (e) { toast(e instanceof Refused ? e.message : 'Could not withdraw.', 'error') } }}>
+            /*
+             * Opens a confirmation rather than withdrawing on the click.
+             * Approve has a two-step confirm and Decline has a sheet, and
+             * withdrawing is the only one of the three that cannot be undone:
+             * it closes the proposal for good and every approval already cast
+             * has to be collected again on a new entry.
+             */
+            <Button tone="ghost" icon={<Undo2 className="size-4" />} onClick={() => setWithdrawOpen(true)}>
               Withdraw my proposal
             </Button>
           )}
@@ -159,11 +182,45 @@ function ProposalCard({ p, canAct }: { p: ProposalRow; canAct: boolean }) {
             : `It closes once too few members remain to reach ${p.required}.`} Your decline is signed and stays on the record.
         </p>
       </Sheet>
+
+      <Sheet open={withdrawOpen} onClose={() => setWithdrawOpen(false)} title="Withdraw this proposal?"
+        footer={<Button tone="danger" className="w-full" busy={withdraw.isPending}
+          onClick={async () => {
+            try { await withdraw.mutateAsync(p.seq); toast('Withdrawn. It stays on the record as withdrawn.') }
+            catch (e) { toast(e instanceof Refused ? e.message : 'Could not withdraw.', 'error') }
+            finally { setWithdrawOpen(false) }
+          }}>Withdraw it</Button>}>
+        <p className="text-[15px]">{proposalTitle(p, names)}</p>
+        <p className="mt-2 text-sm text-ink-2">{stake.message}</p>
+        <p className="mt-2 text-sm text-ink-2">The withdrawal is itself recorded: the proposal stays visible, marked withdrawn.</p>
+      </Sheet>
     </Card>
   )
 }
 
+/*
+ * What approving consents to beyond the proposal itself, when it consents to
+ * anything. `approvalDiscloses` decides; this only renders.
+ *
+ * It sits in the card body, ABOVE the buttons and outside the confirm step on
+ * purpose: a consequence shown only after someone has already pressed Approve
+ * is not a disclosure, and a member who declines should see what they were
+ * being asked to authorise too.
+ */
+function Disclosure({ p }: { p: ProposalRow }) {
+  const names = useNames()
+  const say = approvalDiscloses[p.action]
+  if (!say) return null
+  return (
+    <p className="mt-3 border-l-2 border-attention/40 pl-3 text-[13px] leading-relaxed text-ink-2">
+      {say(names.get(p.person ?? '') ?? 'the auditor', p.fy ?? '—')}
+    </p>
+  )
+}
+
 function Body({ p, limitNow }: { p: ProposalRow; limitNow: number | undefined }) {
+  const society = useCurrency()
+  const ccy = p.currency ?? society
   const names = useNames()
   const line = (() => {
     switch (p.action) {
@@ -173,9 +230,9 @@ function Body({ p, limitNow }: { p: ProposalRow; limitNow: number | undefined })
       case 'charge':
         return <Facts items={[plural(p.flat_count, 'flat'), flatSetLabel(p.flat_set), day(p.business_date)]} />
       case 'reversal':
-        return <>Reverses <Link to="/entry/$seq" params={{ seq: String(p.target_seq) }} className="font-medium text-accent">#{p.target_seq}</Link>{p.replacement_amount_minor ? <>, replaced by {format(p.replacement_amount_minor)}</> : null}. {p.reason}</>
+        return <>Reverses <Link to="/entry/$seq" params={{ seq: String(p.target_seq) }} className="font-medium text-accent">#{p.target_seq}</Link>{p.replacement_amount_minor ? <>, replaced by {format(p.replacement_amount_minor, ccy)}</> : null}. {p.reason}</>
       case 'limit_change':
-        return <>From {format(limitNow ?? p.limit_minor, 'INR', { compact: true })} to {format(p.amount_minor ?? 0, 'INR', { compact: true })}. {p.narration}</>
+        return <>From {format(limitNow ?? p.limit_minor, ccy, { compact: true })} to {format(p.amount_minor ?? 0, ccy, { compact: true })}. {p.narration}</>
       case 'seat_admin':
         return <>{names.get(p.person ?? '')} as {roleLabel[p.role ?? 'member']}. {p.narration}</>
       case 'appoint_auditor':
@@ -189,6 +246,7 @@ function Body({ p, limitNow }: { p: ProposalRow; limitNow: number | undefined })
 
 /** A month of maintenance receipts is routine; one sheet signs them all, each separately. */
 function BulkReceipts({ items }: { items: ProposalRow[] }) {
+  const ccy = useCurrency()
   const cast = useCast()
   const toast = useToast()
   const [open, setOpen] = useState(false)
@@ -218,7 +276,7 @@ function BulkReceipts({ items }: { items: ProposalRow[] }) {
           {items.map((p) => (
             <li key={p.seq} className="flex items-center justify-between gap-3 py-2.5 text-sm">
               <span className="min-w-0"><span className="block truncate font-medium">{p.counterparty}</span><span className="text-xs text-ink-2">{day(p.business_date)} · {p.narration}</span></span>
-              <Amount minor={p.amount_minor ?? 0} signed tone="auto" />
+              <Amount currency={ccy} minor={p.amount_minor ?? 0} signed tone="auto" />
             </li>
           ))}
         </ul>

@@ -39,7 +39,7 @@ const colours = (c: string) => (c.match(/text-(debit|credit)\b/g) ?? []).length
 describe('an unreadable amount never borrows a direction from its caller', () => {
   it('says not available, whatever the call site asked for', () => {
     for (const [, c] of callSites) {
-      const el = render(<Amount minor={null} className={c} />).container.firstElementChild
+      const el = render(<Amount currency="INR" minor={null} className={c} />).container.firstElementChild
       expect(el?.textContent).toBe('not available')
     }
   })
@@ -48,7 +48,7 @@ describe('an unreadable amount never borrows a direction from its caller', () =>
     // The defect. Not "text-ink-2 also present" - absent, so no stylesheet
     // ordering can bring it back.
     for (const [where, c] of callSites) {
-      const out = cls(<Amount minor={null} className={c} />)
+      const out = cls(<Amount currency="INR" minor={null} className={c} />)
       expect(out, `${where} painted the disclosure debit`).not.toMatch(/text-debit/)
       expect(out, `${where} painted the disclosure credit`).not.toMatch(/text-credit/)
     }
@@ -58,14 +58,14 @@ describe('an unreadable amount never borrows a direction from its caller', () =>
     // Dropping the caller's colour must not drop ALL colour: an unstyled
     // "not available" inherits whatever surrounds it, which on a coloured
     // tile is the same problem again.
-    expect(cls(<Amount minor={null} className="text-debit" />)).toMatch(/text-ink-2/)
-    expect(cls(<Amount minor={null} />)).toMatch(/text-ink-2/)
+    expect(cls(<Amount currency="INR" minor={null} className="text-debit" />)).toMatch(/text-ink-2/)
+    expect(cls(<Amount currency="INR" minor={null} />)).toMatch(/text-ink-2/)
   })
 
   it('keeps the caller classes that are not colours', () => {
     // Weight, size and layout are still wanted - a disclosure that loses its
     // font-semibold reflows the tile it sits in.
-    const out = cls(<Amount minor={null} className="font-semibold text-debit text-xs" />)
+    const out = cls(<Amount currency="INR" minor={null} className="font-semibold text-debit text-xs" />)
     expect(out).toMatch(/font-semibold/)
     expect(out).toMatch(/text-xs/)
   })
@@ -75,9 +75,9 @@ describe('an unreadable amount never borrows a direction from its caller', () =>
     // figures: the column asserts the direction and the magnitude is
     // unsigned. Stripping their colour there would silently de-colour every
     // In/Out figure in the product.
-    expect(cls(<Amount minor={250000} className="text-debit" />)).toMatch(/text-debit/)
-    expect(cls(<Amount minor={250000} className="text-credit" />)).toMatch(/text-credit/)
-    expect(cls(<Amount minor={0} className="text-debit" />)).toMatch(/text-debit/)
+    expect(cls(<Amount currency="INR" minor={250000} className="text-debit" />)).toMatch(/text-debit/)
+    expect(cls(<Amount currency="INR" minor={250000} className="text-credit" />)).toMatch(/text-credit/)
+    expect(cls(<Amount currency="INR" minor={0} className="text-debit" />)).toMatch(/text-debit/)
   })
 
   it('never renders two money colours on one element', () => {
@@ -92,7 +92,7 @@ describe('an unreadable amount never borrows a direction from its caller', () =>
      * contradict, and the deciding tone must win outright rather than tie.
      */
     for (const [minor, passed] of [[-1, 'text-credit'], [1, 'text-debit'], [0, 'text-debit'], [-1, 'text-debit']] as const) {
-      const out = cls(<Amount minor={minor} tone="auto" className={passed} />)
+      const out = cls(<Amount currency="INR" minor={minor} tone="auto" className={passed} />)
       expect(colours(out), `${minor} with ${passed} rendered: ${out}`).toBeLessThanOrEqual(1)
     }
   })
@@ -100,9 +100,9 @@ describe('an unreadable amount never borrows a direction from its caller', () =>
   it('lets the deciding tone win, not the stylesheet', () => {
     // tone="auto" partitions three ways (ui.tsx), so a negative figure is
     // debit whatever the call site passed, and zero claims no direction.
-    expect(cls(<Amount minor={-1} tone="auto" className="text-credit" />)).toMatch(/text-debit/)
-    expect(cls(<Amount minor={1} tone="auto" className="text-debit" />)).toMatch(/text-credit/)
-    const zero = cls(<Amount minor={0} tone="auto" className="text-debit" />)
+    expect(cls(<Amount currency="INR" minor={-1} tone="auto" className="text-credit" />)).toMatch(/text-debit/)
+    expect(cls(<Amount currency="INR" minor={1} tone="auto" className="text-debit" />)).toMatch(/text-credit/)
+    const zero = cls(<Amount currency="INR" minor={0} tone="auto" className="text-debit" />)
     expect(zero).not.toMatch(/text-debit/)
     expect(zero).not.toMatch(/text-credit/)
   })
@@ -110,7 +110,7 @@ describe('an unreadable amount never borrows a direction from its caller', () =>
   it('keeps a muted figure muted, whatever the caller passed', () => {
     // tone="muted" is the non-cash case on the entry screen: billed to
     // flats, not cash. A debit colour there claims cash left the society.
-    const out = cls(<Amount minor={-250000} tone="muted" className="text-debit" />)
+    const out = cls(<Amount currency="INR" minor={-250000} tone="muted" className="text-debit" />)
     expect(out).toMatch(/text-ink-2/)
     expect(out).not.toMatch(/text-debit/)
   })

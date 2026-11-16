@@ -255,10 +255,17 @@ otp_expiry = 600
 # subject = "Your password has been changed"
 # content_path = "./supabase/templates/password_changed_notification.html"
 
-# The sign-in code. Supabase sends it with the magic-link template.
+# The sign-in code. Supabase sends it with the magic-link template, except to
+# an address it has never confirmed, which gets the confirmation template
+# instead whenever "Confirm email" is on (the hosted default). Both therefore
+# carry the same code and no link: there is no sign-up in this product (#129).
 [auth.email.template.magic_link]
 subject = "Your ClearFunds sign-in code"
 content_path = "./supabase/templates/magic_link.html"
+
+[auth.email.template.confirmation]
+subject = "Your ClearFunds sign-in code"
+content_path = "./supabase/templates/confirmation.html"
 
 [auth.sms]
 # Allow/disallow new user signups via SMS to your project.

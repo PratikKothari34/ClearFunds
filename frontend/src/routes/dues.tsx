@@ -2,17 +2,20 @@ import { useMemo, useState } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { Check, Receipt } from 'lucide-react'
 import { useDues, useLedger, useSummary } from '../lib/api'
-import { useMeStrict, isCommittee } from '../lib/session'
+import { useMeStrict, isCommittee, useCurrency } from '../lib/session'
 import { day, plural } from '../lib/format'
-import { parts, toInput } from '../lib/money'
+import { toInput } from '../lib/money'
 import { countable, owing, partition } from '../lib/countable'
+import { duesTile } from '../lib/duestile'
 import { scopeOf } from '../lib/scope'
+import { listReadMap } from '../lib/listread'
 import { Amount, Button, Card, Failed, Loading, PageTitle, Segmented, Sheet, cx } from '../components/ui'
 import type { DuesRow } from '../lib/types'
 
 export const Route = createFileRoute('/dues')({ component: Dues })
 
 function Dues() {
+  const ccy = useCurrency()
   const me = useMeStrict()
   const dues = useDues()
   const summary = useSummary()
@@ -55,7 +58,7 @@ function Dues() {
         <div className="mb-6 grid grid-cols-2 gap-3">
           <Card className="p-4">
             <p className="text-[13px] text-ink-2">Outstanding</p>
-            <Amount minor={summary.data.outstanding_minor} size="lg" className="mt-1 block" />
+            <Amount currency={ccy} minor={summary.data.outstanding_minor} size="lg" className="mt-1 block" />
           </Card>
           <Card className="p-4">
             <p className="text-[13px] text-ink-2">Flats owing</p>
@@ -79,26 +82,21 @@ function Dues() {
           {wings.map(([w, flats]) => (
             <section key={w}>
               <h2 className="mb-2 px-1 text-[13px] font-medium text-ink-2">Wing {w}</h2>
-              <div className="grid grid-cols-4 gap-2 sm:grid-cols-6 md:grid-cols-8">
+              {/* Three columns below 380px: the figure is held to the 16px
+                  floor, and a lakh-sized arrears figure does not fit a quarter
+                  of a 320px screen at that size. */}
+              <div className="grid grid-cols-3 gap-2 min-[380px]:grid-cols-4 sm:grid-cols-6 md:grid-cols-8">
                 {flats.map((d) => {
-                  /*
-                   * Three states. A green check is a claim that the flat has
-                   * settled, so a figure that could not be read must not get
-                   * one - it reads as "paid" to every resident and treasurer
-                   * who sees it. "?" plus the muted tile says unknown, and
-                   * the accessible name says it in words.
-                   */
-                  const c = countable(d.outstanding_minor)
-                  const owes = c.readable && c.owing
-                  const unknown = !c.readable
+                  /* lib/duestile.ts decides the state and the accessible
+                   * name, which carries the exact figure. */
+                  const t = duesTile(d.label, d.outstanding_minor, me.society.currency)
                   return (
-                    <button key={d.flat_id} onClick={() => setOpen(d)}
-                      aria-label={`${d.label}, ${unknown ? 'amount could not be read' : owes ? 'owes' : 'settled'}`}
+                    <button key={d.flat_id} onClick={() => setOpen(d)} aria-label={t.label}
                       className={cx('flex aspect-square cursor-pointer flex-col items-center justify-center rounded-2xl border text-center transition-transform active:scale-95',
-                        unknown ? 'border-line bg-sunken text-ink-2' : owes ? 'border-debit/25 bg-debit-soft text-debit' : 'border-line bg-surface text-ink')}>
+                        t.state === 'unknown' ? 'border-line bg-sunken text-ink-2' : t.state === 'owes' ? 'border-debit/25 bg-debit-soft text-debit' : 'border-line bg-surface text-ink')}>
                       <span className="tnum text-[13px] font-semibold">{d.label.split('-')[1]}</span>
-                      {unknown ? <span className="mt-0.5 text-[10.5px] font-medium" aria-hidden="true">?</span>
-                        : owes ? <span className="tnum mt-0.5 text-[10.5px] font-medium">{parts(c.minor, 'INR').whole}</span>
+                      {t.state === 'unknown' ? <span className="mt-0.5 text-base font-medium" aria-hidden="true">?</span>
+                        : t.state === 'owes' ? <span className="tnum mt-0.5 text-base font-semibold leading-tight">{t.figure}</span>
                         : <Check className="mt-0.5 size-3.5 text-credit" strokeWidth={3} />}
                     </button>
                   )
@@ -106,7 +104,7 @@ function Dues() {
               </div>
             </section>
           ))}
-          <p className="px-1 text-xs text-ink-2">Tiles show whole rupees owed. Tap a flat for the exact figure.</p>
+          <p className="px-1 text-xs text-ink-2">Tiles show the amount owed without its decimals. Tap a flat for the exact figure.</p>
         </div>
       )}
       {open && <FlatSheet d={open} onClose={() => setOpen(null)} />}
@@ -115,14 +113,24 @@ function Dues() {
 }
 
 export function FlatSheet({ d, onClose }: { d: DuesRow; onClose: () => void }) {
+  const ccy = useCurrency()
   const me = useMeStrict()
   const ledger = useLedger()
-  const paid = (ledger.data ?? []).filter((r) => r.flat_id === d.flat_id && r.origin_effect === 'receipt').slice(-6).toReversed()
+  /* Three outcomes, because "No payments recorded." is a claim about this
+   * flat. It was rendered from `(ledger.data ?? [])`, which is empty while
+   * the read is in flight AND after it has failed - so a flat that HAS paid
+   * read as one that had not, on the sheet a treasurer opens to decide
+   * whether to chase someone. Same family as `null <= 0` on the arrears
+   * figure two lines below. */
+  const paidRead = listReadMap(ledger, (rows) =>
+    rows.filter((r) => r.flat_id === d.flat_id && r.origin_effect === 'receipt').slice(-6).toReversed(),
+  )
+  const paid = paidRead.kind === 'ready' ? paidRead.rows : []
   const owed = countable(d.outstanding_minor)
   return (
     <Sheet open onClose={onClose} title={`Flat ${d.label}`}
       footer={isCommittee(me) && owed.readable && owed.owing ? (
-        <Link to="/new" search={{ kind: 'receipt', flat: d.flat_id, amount: toInput(owed.minor) }}>
+        <Link to="/new" search={{ kind: 'receipt', flat: d.flat_id, amount: toInput(owed.minor, ccy) }}>
           <Button tone="primary" className="w-full">Record a payment</Button>
         </Link>
       ) : undefined}>
@@ -132,7 +140,7 @@ export function FlatSheet({ d, onClose }: { d: DuesRow; onClose: () => void }) {
             {/* Amount discloses an unreadable figure itself; the debit colour
                 must not be applied to one, because `null > 0` is false and it
                 would read as a settled amount in plain ink. */}
-            <Amount minor={v} size="sm" className={cx('font-semibold', l === 'Owes' && owing(v) && 'text-debit')} />
+            <Amount currency={ccy} minor={v} size="sm" className={cx('font-semibold', l === 'Owes' && owing(v) && 'text-debit')} />
             <p className="text-xs text-ink-2">{l}</p>
           </div>
         ))}
@@ -144,13 +152,20 @@ export function FlatSheet({ d, onClose }: { d: DuesRow; onClose: () => void }) {
             <li key={r.seq}>
               <Link to="/entry/$seq" params={{ seq: String(r.seq) }} className="flex items-center justify-between py-2.5 text-sm">
                 <span className={cx(r.reversed_by_seq !== null && 'line-through text-ink-2')}>{day(r.business_date, { day: 'numeric', month: 'short', year: 'numeric' })}</span>
-                <Amount minor={r.amount_minor} signed tone="auto" struck={!!r.reversed_by_seq} />
+                <Amount currency={r.currency} minor={r.amount_minor} signed tone="auto" struck={!!r.reversed_by_seq} />
               </Link>
             </li>
           ))}
         </ul>
-      ) : <p className="text-sm text-ink-2">No payments recorded.</p>}
-      <p className="mt-4 text-xs text-ink-2">{plural(paid.length, 'payment')} shown. Charges follow each bill’s stored split.</p>
+      ) : paidRead.kind === 'pending' ? <p className="text-sm text-ink-2">Loading payments…</p>
+        : paidRead.kind === 'unknown' ? <p className="text-sm text-ink-2">The payment history could not be loaded, so this is not saying there are none.</p>
+        : <p className="text-sm text-ink-2">No payments recorded.</p>}
+      {/* The count is the same claim in figures: "0 payments shown" over an
+        * unreadable history is as wrong as the sentence above it. */}
+      <p className="mt-4 text-xs text-ink-2">
+        {paidRead.kind === 'ready' ? `${plural(paid.length, 'payment')} shown. ` : ''}
+        Charges follow each bill’s stored split.
+      </p>
     </Sheet>
   )
 }

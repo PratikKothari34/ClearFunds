@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { ChevronRight, Fingerprint as FpIcon } from 'lucide-react'
 import { lastCheck, runCheck, verdict, type Check } from '../lib/verify'
+import { anchorFact } from '../lib/anchorfact'
 import { instant } from '../lib/format'
 import { Facts, cx } from './ui'
 
@@ -15,6 +16,22 @@ export function Provenance({ society, auto = true }: { society: string; auto?: b
   const [check, setCheck] = useState<Check | null>(() => lastCheck(society))
   const [running, setRunning] = useState(false)
 
+  /*
+   * `check` is READ here and deliberately not a dependency, and the direction
+   * of that choice matters.
+   *
+   * Including it would re-run the effect when `setCheck` lands. Normally the
+   * guard below then returns early, because the check it just stored is
+   * minutes old - a wasted pass, no worse. But a check that arrives ALREADY
+   * older than a day (a device clock behind the one that wrote it, a restored
+   * backup, a profile copied between phones) fails that guard forever, and
+   * each failure stores a new check and re-runs the effect: an endless loop
+   * re-walking the whole chain, on the dashboard, on a volunteer's phone.
+   *
+   * Omitting it is the safe direction. The cost is that a check written by
+   * ANOTHER tab is not noticed until this component remounts, which is a
+   * stale timestamp on one line - not a loop.
+   */
   useEffect(() => {
     // A day-old check is re-run quietly in the background.
     if (!auto || (check && Date.now() - check.at < 86_400_000)) return
@@ -41,9 +58,14 @@ export function Provenance({ society, auto = true }: { society: string; auto?: b
         <span className="block text-[13px] text-ink-2">
           <Facts items={[
             check ? `Checked here ${instant(check.at)}` : 'First time on this device',
-            check?.anchor === 'matches' && check.anchorHead ? `Published ${instant(check.anchorHead.as_of)}`
-              : check?.anchor === 'unreachable' ? 'Published record unreachable'
-              : 'Not published outside the committee',
+            /*
+             * anchorFact, never a ternary here: this line had three branches
+             * for five anchor states, so 'behind' and { mismatch } - the two
+             * that mean the published record CONTRADICTS this screen - fell
+             * through to "Not published outside the committee", the line for
+             * a society that has not published anything yet.
+             */
+            check ? anchorFact(check.anchor, check.anchorHead, instant).text : 'Not published outside the committee',
           ]} />
         </span>
       </span>

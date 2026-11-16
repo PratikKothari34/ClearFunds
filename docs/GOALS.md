@@ -190,8 +190,17 @@ entries are chained and real money is recorded. **Nearly all of them are
 settled** — this section is the reasoning, and `AGENTS.md` states the resulting
 rules in the form that binds code.
 
-**One thing is genuinely still open**, called out in place below: **how an
-auditor proves who they are** when they come to sign off.
+**Two things are genuinely still open.** **How an auditor proves who they are**
+when they come to sign off, called out in place below. And **how long the
+structuring window is** — the number of calendar days in the rolling period.
+
+What that window keys on is settled, and `contracts/api/v1.md` is where it is
+decided: the **payee**, compared ignoring case and surrounding spaces, on
+**`business_date` rather than `recorded_at`**, so an entry backdated to a
+genuine spend date counts on that date. One rule serves the report, the list
+and the hint, and the server is the only place it is applied — a client that
+filtered on its own could show a resident a different set of crossings than
+the AGM report does.
 
 **Tamper-evident is not tamper-proof.** Hash-chaining makes tampering
 *detectable* by anyone who verifies the chain. It does not make tampering

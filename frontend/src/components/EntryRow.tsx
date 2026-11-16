@@ -8,7 +8,7 @@ import { Amount, Chip, EntryIcon, Facts, cx } from './ui'
  * One posting. A reversed entry stays, struck through and marked, beside
  * the reversal that cancels it: the ledger shows history, not current truth.
  */
-export function EntryRow({ r, flagged, flatLabel }: { r: LedgerRow; flagged?: boolean; flatLabel?: string | undefined }) {
+export function EntryRow({ r, flagged, flatLabel }: { r: LedgerRow; flagged?: boolean | 'unknown'; flatLabel?: string | undefined }) {
   const reversed = r.reversed_by_seq !== null
   const isReversal = r.reverses_seq !== null
   const nonCash = r.effect === 'charge' || r.effect === 'charge_reversal'
@@ -22,7 +22,20 @@ export function EntryRow({ r, flagged, flatLabel }: { r: LedgerRow; flagged?: bo
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <p className={cx('truncate font-medium', reversed && 'text-ink-2 line-through decoration-ink-2/60')}>{rowTitle(r)}</p>
-          {flagged && <Flag className="size-3.5 shrink-0 fill-break text-break" aria-label="Disputed" />}
+          {/*
+            * Three states, because an absent flag is a claim. `false` says
+            * this entry is not disputed; `'unknown'` says the dispute list
+            * did not load, so nobody can say either way - and rendering
+            * nothing for the second would state the first. The outline
+            * (unfilled, muted) is never mistaken for the solid flag, and the
+            * distinction is in the accessible NAME, not in the colour, so it
+            * survives for a reader who cannot see either.
+            */}
+          {flagged === 'unknown'
+            ? <Flag className="size-3.5 shrink-0 text-ink-2" aria-label="Disputed status unknown - the dispute list did not load" />
+            : flagged
+              ? <Flag className="size-3.5 shrink-0 fill-break text-break" aria-label="Disputed" />
+              : null}
         </div>
         <p className="mt-0.5 truncate text-[13px] text-ink-2">
           <Facts items={[

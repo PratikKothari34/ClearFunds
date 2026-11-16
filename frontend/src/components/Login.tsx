@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { ArrowRight, Mail } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { checkCode, checkEmail } from '../lib/credentials'
 import { Button, Field, Input, cx } from './ui'
 import { Logo } from './Logo'
 import { ThemeSwitch } from './Shell'
@@ -50,11 +51,44 @@ export function Login() {
 
   async function send(e: FormEvent) {
     e.preventDefault()
+    /*
+     * Checked HERE, not left to `type="email" required`. Constraint validation
+     * does not run on a programmatic submit and varies between engines, so the
+     * attribute holds on most paths and not all - which for the authentication
+     * boundary is the same as not holding. The decision itself is in lib/.
+     *
+     * It is a SHAPE check and nothing more. Whether the address belongs to a
+     * registered resident is deliberately NOT asked before sign-in: an
+     * endpoint that answered it would tell any stranger which emails live in
+     * this society. An unregistered address gets a code, signs in, and is
+     * refused by the server afterwards, when there is someone to refuse.
+     */
+    const checked = checkEmail(email)
+    if (!checked.ok) {
+      setError(checked.reason)
+      return
+    }
     setBusy(true)
     setError(null)
-    // shouldCreateUser stays true so a resident the committee added can sign
-    // in the first time; an email with no account here sees nothing.
-    const { error: sendError } = await supabase.auth.signInWithOtp({ email: email.trim().toLowerCase(), options: { emailRedirectTo: location.origin } })
+    /*
+     * NO emailRedirectTo, deliberately: the option aims a link at the project's
+     * Site URL, and this screen asks for a six-digit code instead.
+     *
+     * It does NOT select the template, though an earlier version of this
+     * comment said so. Supabase picks that by whether the ADDRESS is
+     * confirmed - an unconfirmed one gets *Confirm signup* while *Confirm
+     * email* is on - so the link-and-no-code mail is fixed by the templates
+     * and the hosted Auth settings, not from here. Omitting this is still
+     * right; it is just not the fix.
+     *
+     * The failure is invisible from here: the send SUCCEEDS, this screen
+     * advances to "Check your email", and only the mail itself is wrong -
+     * which is why a test that stops at `sent === true` would stay green.
+     *
+     * shouldCreateUser stays true so a resident the committee added can sign
+     * in the first time; an email with no account here sees nothing.
+     */
+    const { error: sendError } = await supabase.auth.signInWithOtp({ email: checked.value })
     setBusy(false)
     if (sendError) setError(sendError.message)
     else setSent(true)
@@ -62,9 +96,29 @@ export function Login() {
 
   async function verify(e: FormEvent) {
     e.preventDefault()
+    /*
+     * A wrong-length or non-numeric code cannot verify, and sending it anyway
+     * SPENDS AN ATTEMPT: the provider rate-limits verification, so a few
+     * stray submissions can lock out the person who is typing carefully.
+     * `maxLength` and `inputMode="numeric"` are hints - `inputMode` restricts
+     * nothing at all - so the check belongs here.
+     *
+     * The address is re-checked rather than assumed: `sent` only records that
+     * a send succeeded, and the field stays editable behind this step.
+     */
+    const checkedEmail = checkEmail(email)
+    if (!checkedEmail.ok) {
+      setError(checkedEmail.reason)
+      return
+    }
+    const checkedCode = checkCode(code)
+    if (!checkedCode.ok) {
+      setError(checkedCode.reason)
+      return
+    }
     setBusy(true)
     setError(null)
-    const { error: verifyError } = await supabase.auth.verifyOtp({ email: email.trim().toLowerCase(), token: code.trim(), type: 'email' })
+    const { error: verifyError } = await supabase.auth.verifyOtp({ email: checkedEmail.value, token: checkedCode.value, type: 'email' })
     setBusy(false)
     if (verifyError) setError('That code did not work. Check the latest email, or send a new one.')
   }

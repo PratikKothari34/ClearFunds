@@ -1,7 +1,7 @@
 -- Generated from contracts/chain/vectors/entry-preimage.v1.json. The SQL
 -- encoder must reproduce every hash in it byte for byte.
 begin;
-select plan(26);
+select plan(27);
 select is(encode(cf.encode('absent', 'null'::jsonb),'hex'), '0000000000', 'primitive: absent');
 select is(encode(cf.encode('int', '0'::jsonb),'hex'), '01000000080000000000000000', 'primitive: int zero');
 select is(encode(cf.encode('int', '1'::jsonb),'hex'), '01000000080000000000000001', 'primitive: int one');
@@ -23,6 +23,9 @@ select is(encode(cf.preimage('soc_7f3k9q',1,1,decode('00000000000000000000000000
 select is(encode(extensions.digest(cf.preimage('soc_7f3k9q',1,1,decode('0000000000000000000000000000000000000000000000000000000000000000','hex'),'test_vector',1793520000000,'adm_4b1c','{"amount_minor": 125075, "currency": "INR", "delta": -125075, "note": "रखरखाव शुल्क — अक्टूबर 2026", "empty_note": "", "optional": null, "flag": true, "ref_hash": "b081d5a69ee868dd0285cf25f877a1217a5eef422dd6c1ef52f68a72761399ba", "ids": [3, 1, 2], "none": []}'::jsonb),'sha256'),'hex'), 'f9548f3eac3a2a0219414f9dfb94776f6cafe446caa913389fcfe95aacb8bbcb', 'hash: single entry, every type populated');
 select is(encode(cf.preimage('soc_7f3k9q',1,2,decode('f9548f3eac3a2a0219414f9dfb94776f6cafe446caa913389fcfe95aacb8bbcb','hex'),'test_vector',1793520060000,null,'{"amount_minor": 9007199254740991, "currency": "INR", "delta": -1, "note": "Lift AMC – Q3", "empty_note": "", "optional": null, "flag": false, "ref_hash": "0000000000000000000000000000000000000000000000000000000000000000", "ids": [], "none": []}'::jsonb),'hex'), '0200000016636c65617266756e64732f636861696e2d656e74727901000000080000000000000001020000000a736f635f3766336b3971010000000800000000000000020300000020f9548f3eac3a2a0219414f9dfb94776f6cafe446caa913389fcfe95aacb8bbcb020000000b746573745f766563746f720100000008000001a196204660000000000005000000750100000008001fffffffffffff0200000003494e520100000008ffffffffffffffff020000000f4c69667420414d4320e28093205133020000000000000000000400000001000300000020000000000000000000000000000000000000000000000000000000000000000005000000000500000000', 'preimage: second entry, linked to the first; actor absent; int at the upper bound');
 select is(encode(extensions.digest(cf.preimage('soc_7f3k9q',1,2,decode('f9548f3eac3a2a0219414f9dfb94776f6cafe446caa913389fcfe95aacb8bbcb','hex'),'test_vector',1793520060000,null,'{"amount_minor": 9007199254740991, "currency": "INR", "delta": -1, "note": "Lift AMC – Q3", "empty_note": "", "optional": null, "flag": false, "ref_hash": "0000000000000000000000000000000000000000000000000000000000000000", "ids": [], "none": []}'::jsonb),'sha256'),'hex'), 'a415634efbabe6a5ff08504e19dca78bd7759ab322670924c84de38c84e771fd', 'hash: second entry, linked to the first; actor absent; int at the upper bound');
+-- must_reject 'text with a lone surrogate': Postgres refuses U+D800 in jsonb input, so it never reaches
+-- the encoder, and a hash is never produced for it.
+select throws_ok($$select '"\ud800"'::jsonb$$, '22P02', null, 'a lone surrogate is refused before it can be encoded');
 select throws_ok($$select cf.encode('int','9007199254740992'::jsonb)$$, '22023', null, 'int above 2^53-1 is rejected');
 select throws_ok($$select cf.encode('bytes','"ABAB"'::jsonb)$$, '22023', null, 'uppercase hex is rejected');
 select throws_ok($$select cf.encode('int','1.5'::jsonb)$$, '22023', null, 'a fractional int is rejected');

@@ -1,27 +1,38 @@
 import { useMemo } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { ArrowRight, CheckCheck, Flag, Gavel, PenLine, Plus, Wallet, Sparkles } from 'lucide-react'
+import { ArrowRight, CheckCheck, Flag, Gavel, Hourglass, PenLine, Plus, Wallet, Sparkles } from 'lucide-react'
 import { useDisputes, useDues, useLedger, useNames, useProposals, useSignoffs, useSummary, useTenantFlags, useYears } from '../lib/api'
-import { useMeStrict, isCommittee } from '../lib/session'
+import { useMeStrict, isCommittee, useCurrency } from '../lib/session'
 import { owing } from '../lib/countable'
 import { reversedIn, reversedOut } from '../lib/reversed'
+import { derivedRead, listReadMap } from '../lib/listread'
+import { barPercent, spendView } from '../lib/spend'
 import { categoryLabel, instant, month, monthOf, plural, proposalTitle, todayIST } from '../lib/format'
 import { Amount, Button, Caption, Card, Facts, ReversedNote, Skeleton, cx } from '../components/ui'
 import { EntryRow } from '../components/EntryRow'
 import { Provenance } from '../components/Provenance'
 import { recentMonths, waitsOn } from '../components/Shell'
+import { signoffDue } from '../lib/signoff'
 import type { Me, Summary } from '../lib/types'
 
 export const Route = createFileRoute('/')({ component: Home })
 
 function Home() {
+  const ccy = useCurrency()
   const me = useMeStrict()
   const summary = useSummary()
   const ledger = useLedger()
   const s = summary.data
   const cur = monthOf(todayIST())
   const thisMonth = s?.months.find((m) => m.month === cur)
-  const recent = useMemo(() => (ledger.data ?? []).slice(-5).toReversed(), [ledger.data])
+  /* "No entries yet." claims this society has never recorded anything. It was
+   * rendered from `(ledger.data ?? [])` behind a pending-only arm, so a
+   * failed read said it on the first screen anyone sees. */
+  const recentRead = useMemo(
+    () => listReadMap(ledger, (rows) => rows.slice(-5).toReversed()),
+    [ledger.data, ledger.isPending, ledger.isError],
+  )
+  const recent = recentRead.kind === 'ready' ? recentRead.rows : []
 
   return (
     <div className="space-y-6">
@@ -30,10 +41,25 @@ function Home() {
         <div className="px-5 pt-5 pb-6">
           <p className="text-[13px] font-medium text-ink-2">Society balance</p>
           <div className="mt-3 min-h-14">
-            {s ? <Amount minor={s.balance_minor} size="hero" /> : <Skeleton className="h-14 w-64" />}
+            {s ? <Amount currency={ccy} minor={s.balance_minor} size="hero" /> : <Skeleton className="h-14 w-64" />}
           </div>
           <p className="mt-3 text-[13px] text-ink-2">
-            {s ? <Facts items={[`as of ${instant(s.as_of)}`, plural(s.entries, 'entry', 'entries')]} /> : <>&nbsp;</>}
+            {/*
+              * "entries" ALONE IS AMBIGUOUS ACROSS TWO SCREENS.
+              *
+              * This figure is `public.ledger`: money postings only, 989 on the
+              * seeded society. `/verify` counts every chain record - approvals,
+              * appointments, flags, resolutions, opinions - and reported
+              * "4,254 entries checked". Both were right and both said
+              * "entries", so a resident comparing them reads the chain as
+              * covering 3,265 records the ledger is hiding. That is the
+              * opposite of what verification is for, and the reader who does
+              * the most work to check is the one most misled.
+              *
+              * The noun is the fix: this card sits under the society balance,
+              * so what it counts is the postings that produced it.
+              */}
+            {s ? <Facts items={[`as of ${instant(s.as_of)}`, plural(s.entries, 'money entry', 'money entries')]} /> : <>&nbsp;</>}
           </p>
         </div>
         <div className="border-t border-line">
@@ -47,13 +73,21 @@ function Home() {
         <section>
           <Caption>{month(cur, { month: 'long' })} so far</Caption>
           <Card className="p-5">
-            {thisMonth ? <InOut month={thisMonth} /> : s ? <p className="text-sm text-ink-2">No money moved yet this month.</p> : <Skeleton className="h-20" />}
+            {/* `s ? claim : <Skeleton>` was both defects at once: a failed
+              * summary read said no money had moved this month, and a failed
+              * read with no month row shimmered forever. */}
+            {thisMonth ? <InOut month={thisMonth} />
+              : summary.isError ? <p className="text-sm text-ink-2">This month’s figures could not be loaded.</p>
+              : s ? <p className="text-sm text-ink-2">No money moved yet this month.</p>
+              : <Skeleton className="h-20" />}
           </Card>
         </section>
         <section>
           <Caption>Spent this year, {s?.fy}</Caption>
           <Card className="p-5">
-            {s ? <Spend items={s.fy_spend} total={s.fy_spend_total_minor} /> : <Skeleton className="h-20" />}
+            {s ? <Spend items={s.fy_spend} total={s.fy_spend_total_minor} />
+              : summary.isError ? <p className="text-sm text-ink-2">This year’s figures could not be loaded.</p>
+              : <Skeleton className="h-20" />}
           </Card>
         </section>
       </div>
@@ -63,7 +97,8 @@ function Home() {
           Latest
         </Caption>
         <Card className="p-1.5">
-          {ledger.isPending ? <div className="space-y-2 p-2">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-14" />)}</div>
+          {recentRead.kind === 'pending' ? <div className="space-y-2 p-2">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-14" />)}</div>
+            : recentRead.kind === 'unknown' ? <p className="p-5 text-sm text-ink-2">The entries could not be loaded, so this is not saying there are none.</p>
             : recent.length ? recent.map((r) => <EntryRow key={r.seq} r={r} />)
             : <p className="p-5 text-sm text-ink-2">No entries yet.</p>}
         </Card>
@@ -88,19 +123,20 @@ function Home() {
  * `aria-hidden` decoration; the disclosure below carries the meaning.
  */
 function InOut({ month }: { month: Summary['months'][number] }) {
+  const ccy = useCurrency()
   const total = month.in_minor + month.out_minor || 1
   return (
     <div>
       <div className="grid grid-cols-2 gap-4">
         <div>
           <p className="text-[13px] text-ink-2">In</p>
-          <Amount minor={month.in_minor} size="lg" className="text-credit" />
-          <ReversedNote of={reversedIn(month)} className="mt-1" />
+          <Amount currency={ccy} minor={month.in_minor} size="lg" className="text-credit" />
+          <ReversedNote currency={ccy} of={reversedIn(month)} className="mt-1" />
         </div>
         <div>
           <p className="text-[13px] text-ink-2">Out</p>
-          <Amount minor={month.out_minor} size="lg" className="text-debit" />
-          <ReversedNote of={reversedOut(month)} className="mt-1" />
+          <Amount currency={ccy} minor={month.out_minor} size="lg" className="text-debit" />
+          <ReversedNote currency={ccy} of={reversedOut(month)} className="mt-1" />
         </div>
       </div>
       <div className="mt-4 flex h-2 overflow-hidden rounded-full bg-sunken" aria-hidden>
@@ -111,24 +147,49 @@ function InOut({ month }: { month: Summary['months'][number] }) {
   )
 }
 
+/*
+ * The rows and the figure under them have to agree, and `spendView` decides
+ * whether they do - see `lib/spend.ts`. The card has room for four categories,
+ * so on a society with more it prints a figure covering rows it is not
+ * showing; it says so instead of calling that figure a plain "Total".
+ */
+const SPEND_ROWS = 4
+
 function Spend({ items, total }: { items: { category: string; amount_minor: number }[]; total: number }) {
+  const ccy = useCurrency()
   if (!items.length) return <p className="text-sm text-ink-2">Nothing spent yet this year.</p>
-  const top = items.slice(0, 4)
-  const max = top[0]!.amount_minor || 1
+  const v = spendView(items, total, SPEND_ROWS)
   return (
     <div className="space-y-2.5">
-      {top.map((c) => (
-        <div key={c.category}>
-          <div className="flex items-baseline justify-between gap-3 text-sm">
-            <span>{categoryLabel(c.category)}</span>
-            <Amount minor={c.amount_minor} size="sm" className="text-ink-2" />
+      {v.shown.map((c) => {
+        const width = barPercent(c.amount_minor, v.scale)
+        return (
+          <div key={c.category}>
+            <div className="flex items-baseline justify-between gap-3 text-sm">
+              <span>{categoryLabel(c.category)}</span>
+              <Amount currency={ccy} minor={c.amount_minor} size="sm" className="text-ink-2" />
+            </div>
+            <div className="mt-1 h-1.5 rounded-full bg-sunken" aria-hidden>
+              {width === null ? null : <div className="h-full rounded-full bg-ink/70" style={{ width: `${width}%` }} />}
+            </div>
           </div>
-          <div className="mt-1 h-1.5 rounded-full bg-sunken" aria-hidden>
-            <div className="h-full rounded-full bg-ink/70" style={{ width: `${(c.amount_minor / max) * 100}%` }} />
-          </div>
+        )
+      })}
+      {v.covers === 'all' ? (
+        <p className="pt-1 text-right text-[13px] text-ink-2">Total <Amount currency={ccy} minor={v.allTotal} size="sm" /></p>
+      ) : (
+        <div className="pt-1 text-right text-[13px] text-ink-2">
+          <p>
+            {v.hidden > 0 ? `Total, all ${v.shown.length + v.hidden} categories ` : 'Total, whole year '}
+            <Amount currency={ccy} minor={v.allTotal} size="sm" />
+          </p>
+          {v.hidden > 0 ? (
+            <p className="text-ink-2">
+              {v.hidden === 1 ? '1 smaller category is' : `${v.hidden} smaller categories are`} not shown above.
+            </p>
+          ) : null}
         </div>
-      ))}
-      <p className="pt-1 text-right text-[13px] text-ink-2">Total <Amount minor={total} size="sm" /></p>
+      )}
     </div>
   )
 }
@@ -142,14 +203,33 @@ type Item = { key: string; icon: typeof Flag; title: string; sub: string; to: st
 function NeedsYou({ me }: { me: Me }) {
   const proposals = useProposals()
   const signoffs = useSignoffs()
+  /* The months the ledger has activity in, which is where an unsigned month
+   * older than any rolling window comes from. Same query as the block above;
+   * the cache serves both. */
+  const summary = useSummary()
   const years = useYears()
   const disputes = useDisputes()
   const tenantFlags = useTenantFlags()
   const dues = useDues()
   const names = useNames()
 
+  /*
+   * Every read this VIEWER's obligations actually depend on, collected in the
+   * same role branches that consume them - so a resident is not held back by
+   * a proposals read they have no stake in, and a treasurer is not told the
+   * set is complete when the proposals read failed.
+   *
+   * "Nothing needs you right now." was rendered from `items.length` alone,
+   * over six reads all coalesced with `?? []` or `?.`. A treasurer with
+   * approvals waiting, on a dropped connection, was told there was nothing to
+   * do - the same defect as the nav badge, still live on the card the badge
+   * points at.
+   */
+  const relied: Array<{ isPending: boolean; isError: boolean }> = []
+
   const items: Item[] = []
   if (isCommittee(me)) {
+    relied.push(proposals)
     const mine = (proposals.data ?? []).filter((p) => waitsOn(p, me))
     for (const p of mine.slice(0, 3)) {
       items.push({ key: `p${p.seq}`, icon: CheckCheck, title: `Approve: ${proposalTitle(p, names)}`,
@@ -157,19 +237,43 @@ function NeedsYou({ me }: { me: Me }) {
     }
     if (mine.length > 3) items.push({ key: 'pmore', icon: CheckCheck, title: `${mine.length - 3} more waiting for your approval`, sub: 'Approvals', to: '/approvals' })
   }
+  if (me.seat?.role === 'president') relied.push(signoffs)
   if (me.seat?.role === 'president' && signoffs.data) {
-    const done = new Set(signoffs.data.map((s) => s.body.month))
+    /*
+     * The month set is lib/signoff.ts's decision, not this card's. It was
+     * `recentMonths(cur, 3)` filtered inline here, which dropped a sheet left
+     * unsigned for longer than that window - and this card is the PROMPT, so
+     * the month vanished from the one place a president would have seen it
+     * while the dashboard said nothing needed them. The sign-off screen was
+     * fixed for this; the card was not brought along.
+     *
+     * The summary is also relied on now: the activity months come from it, so
+     * a failed summary read must not let this card imply nothing is waiting.
+     */
+    relied.push(summary)
     const cur = monthOf(todayIST())
-    for (const m of recentMonths(cur, 3).filter((r) => r < cur && !done.has(r))) {
+    const due = signoffDue(
+      (summary.data?.months ?? []).map((m) => m.month),
+      signoffs.data.map((s) => s.body.month),
+      recentMonths(cur, 3),
+      cur,
+    )
+    /* The cap is on what this card RENDERS; `due` above is the whole answer,
+     * and the overflow is disclosed rather than dropped - the same shape as
+     * the approvals block. */
+    for (const m of due.slice(0, 3)) {
       items.push({ key: `s${m}`, icon: PenLine, title: `Sign off ${month(m)}`, sub: 'The month’s expense sheet', to: '/sign-off' })
     }
+    if (due.length > 3) items.push({ key: 'smore', icon: PenLine, title: `${due.length - 3} more months waiting for your sign-off`, sub: 'Sign off', to: '/sign-off' })
   }
+  if (me.auditor_for.length) relied.push(years)
   for (const y of years.data ?? []) {
     if (me.auditor_for.includes(y.fy) && y.ended && !y.closed) {
       items.push({ key: `y${y.fy}`, icon: Gavel, title: `Close FY ${y.fy}`, sub: 'Give your opinion and seal the year', to: '/year-end' })
     }
   }
   if (me.tenure) {
+    relied.push(dues, disputes, tenantFlags)
     const own = (dues.data ?? []).find((d) => d.flat_id === me.tenure!.flat_id)
     /*
      * `owing()` is false for an unreadable amount, so a resident is not told
@@ -189,6 +293,8 @@ function NeedsYou({ me }: { me: Me }) {
       }
     }
   }
+
+  const waiting = derivedRead(items, relied)
 
   return (
     <section aria-label="What needs you">
@@ -215,9 +321,21 @@ function NeedsYou({ me }: { me: Me }) {
           </ul>
         </Card>
       ) : (
+        /*
+         * The quiet sentence is a CLAIM, so it is earned only by reads that
+         * all arrived. Pending and failed get the same reserved slot - the
+         * layout below must not move - with wording that does not discharge
+         * the viewer of an obligation nobody could count.
+         */
         <Card className={cx('flex items-center gap-3 px-4 py-4 text-ink-2')}>
-          <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-sunken"><Sparkles className="size-[18px]" /></span>
-          <span className="text-sm">Nothing needs you right now.</span>
+          <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-sunken">
+            {waiting.kind === 'ready' ? <Sparkles className="size-[18px]" /> : <Hourglass className="size-[18px]" />}
+          </span>
+          <span className="text-sm">
+            {waiting.kind === 'pending' ? 'Checking what needs you…'
+              : waiting.kind === 'unknown' ? 'What needs you could not be loaded, so this is not saying there is nothing.'
+              : 'Nothing needs you right now.'}
+          </span>
         </Card>
       )}
     </section>

@@ -3,12 +3,12 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import { useWindowVirtualizer } from '@tanstack/react-virtual'
 import { Plus, Search, SearchX } from 'lucide-react'
 import { useDisputes, useLedger, useSummary } from '../lib/api'
-import { useMeStrict, isCommittee } from '../lib/session'
+import { useMeStrict, isCommittee, useCurrency } from '../lib/session'
 import { month, monthOf } from '../lib/format'
 import { countable, owing } from '../lib/countable'
 import { monthHasReversal as monthReversal } from '../lib/reversed'
 import { match } from '../lib/search'
-import { disputedBy } from '../lib/disputed'
+import { disputeState, type DisputeState } from '../lib/disputed'
 import { Amount, Button, Empty, Facts, Failed, Input, Loading, PageTitle, Segmented } from '../components/ui'
 import { EntryRow } from '../components/EntryRow'
 import type { LedgerRow } from '../lib/types'
@@ -35,17 +35,24 @@ export const Route = createFileRoute('/ledger')({
 })
 
 /**
- * Rows flagged by an open dispute, by entry or by payee.
+ * Rows flagged by an open dispute, by entry or by payee - and whether that
+ * question could be answered at all.
  *
- * The rule itself is `disputedBy` in lib/, where it is tested without a
- * router. This hook is only the subscription and the memo.
+ * Both rules live in lib/, where they are tested without a router: the match
+ * itself is `disputedBy`, and `disputeState` is what decides whether a
+ * missing flag means "not disputed" or "we could not check". This hook is
+ * only the subscription and the memo.
  */
-export function useDisputed() {
+export function useDisputed(): DisputeState {
   const disputes = useDisputes()
-  return useMemo(() => disputedBy(disputes.data), [disputes.data])
+  return useMemo(
+    () => disputeState({ data: disputes.data, isPending: disputes.isPending, isError: disputes.isError }),
+    [disputes.data, disputes.isPending, disputes.isError],
+  )
 }
 
 function Ledger() {
+  const ccy = useCurrency()
   const me = useMeStrict()
   const search = Route.useSearch()
   const nav = Route.useNavigate()
@@ -70,7 +77,7 @@ function Ledger() {
         case 'in': return r.is_cash && owing(r.amount_minor)
         case 'out': { const a = countable(r.amount_minor); return r.is_cash && a.readable && a.minor < 0 }
         case 'reversed': return r.reversed_by_seq !== null || r.reverses_seq !== null
-        case 'disputed': return disputed(r)
+        case 'disputed': return disputed.is(r)
         case 'charges': return !r.is_cash
         default: return true
       }
@@ -124,8 +131,53 @@ function Ledger() {
         />
       </div>
 
+      {/*
+        * How many entries the filter left, for someone who cannot see the
+        * list change. Filtering from forty rows to none, or back, is silent
+        * otherwise: a screen-reader user cannot tell "nothing matches" from
+        * "still loading" from "the filter did not apply". The visible
+        * answer is the rows themselves, so this is `sr-only`.
+        *
+        * Rendered ALWAYS, with the TEXT conditional - the same rule the
+        * statement counter needed. A region created at the moment it first
+        * has something to say may never announce that first message, and
+        * here the first message is the one that matters most: the search
+        * that found nothing.
+        *
+        * Silent while pending, because "0 entries" during a load is a wrong
+        * answer, not a slow one. `Loading` already carries its own
+        * role="status".
+        */}
+      <p className="sr-only" aria-live="polite">
+        {ledger.isPending || ledger.isError
+          ? ''
+          : rows.length === 1
+            ? '1 entry'
+            : `${rows.length.toLocaleString('en-IN')} entries`}
+      </p>
+
       {ledger.isPending ? <Loading rows={6} />
         : ledger.isError ? <Failed error={ledger.error} retry={() => ledger.refetch()} />
+        /*
+         * The DISPUTES read gets its own arms, before the empty one, and only
+         * under the filter that depends on it. An empty state is a claim:
+         * "No entries match - try another word" tells a resident that nothing
+         * in the society is contested, which is a statement about money this
+         * screen cannot make when the dispute list did not arrive. Same
+         * ordering rule as the ledger's own arms above - error before empty.
+         *
+         * Scoped to `filter === 'disputed'` deliberately: under every other
+         * filter the rows themselves are readable and correct, so blocking
+         * the whole ledger on a failed dispute read would hide the history to
+         * avoid overstating the flags. The flag's own disclosure is on the
+         * row, below.
+         */
+        : filter === 'disputed' && disputed.kind === 'pending' ? <Loading rows={6} />
+        : filter === 'disputed' && disputed.kind === 'unknown' ? (
+          <Empty icon={<SearchX className="size-5" />} title="Disputes could not be loaded">
+            This list is not saying there are none - the dispute list did not load, so it cannot be shown. The entries themselves are unaffected.
+          </Empty>
+        )
         : !rows.length ? <Empty icon={<SearchX className="size-5" />} title="No entries match">Try another word, or clear the filter.</Empty>
         : (
           <div className="relative" style={{ height: v.getTotalSize() }}>
@@ -140,8 +192,8 @@ function Ledger() {
                       {months.get(it.month) && (
                         <span className="text-xs text-ink-2">
                           <Facts items={[
-                            <span key="i">In <Amount minor={months.get(it.month)!.in_minor} size="sm" className="text-xs text-credit" /></span>,
-                            <span key="o">Out <Amount minor={months.get(it.month)!.out_minor} size="sm" className="text-xs text-debit" /></span>,
+                            <span key="i">In <Amount currency={ccy} minor={months.get(it.month)!.in_minor} size="sm" className="text-xs text-credit" /></span>,
+                            <span key="o">Out <Amount currency={ccy} minor={months.get(it.month)!.out_minor} size="sm" className="text-xs text-debit" /></span>,
                             /*
                              * Both figures above carry reversals gross, so
                              * this says when part of them is a correction
@@ -166,7 +218,7 @@ function Ledger() {
                         </span>
                       )}
                     </div>
-                  ) : <EntryRow r={it.r} flagged={disputed(it.r)} />}
+                  ) : <EntryRow r={it.r} flagged={disputed.kind === 'ready' ? disputed.is(it.r) : 'unknown'} />}
                 </div>
               )
             })}

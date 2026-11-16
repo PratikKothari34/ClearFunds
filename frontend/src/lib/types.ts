@@ -15,6 +15,23 @@ export const PROPOSAL_STATES = [
 export type ProposalState = (typeof PROPOSAL_STATES)[number]
 
 export type Role = 'president' | 'treasurer' | 'secretary' | 'member'
+
+/**
+ * Committee roles in the order the contract states them, which is the order
+ * a committee is read out in: `Same order: president treasurer secretary
+ * member`.
+ *
+ * THE ORDER IS CONTRACT, NOT PRESENTATION. It was a bare array in
+ * `routes/committee.tsx`, used as `order.indexOf(a.role)` in a sort
+ * comparator - and `indexOf` returns **-1** for anything absent, which sorts
+ * that member ABOVE the president rather than failing. A fifth role in the
+ * contract would be accepted by the compiler (`Role[]` is satisfied by four
+ * entries) and reordered the committee silently.
+ *
+ * `enums.test.ts` asserts this against the contract row that states it, so
+ * the sequence cannot drift from the document in either direction.
+ */
+export const ROLE_ORDER: readonly Role[] = ['president', 'treasurer', 'secretary', 'member']
 export type Effect = 'expense' | 'receipt' | 'charge' | 'reversal' | 'charge_reversal'
 export type Action =
   | 'expense' | 'receipt' | 'charge' | 'reversal' | 'limit_change'
@@ -26,8 +43,32 @@ export type Society = {
   name: string
   city: string | null
   currency: string
+  /*
+   * The currency's minor-unit digits, from the server's ISO 4217 table.
+   * Always sent: the migration that added it is deployed on production,
+   * verified 2026-11-11 against the live schema, so it is no longer optional.
+   *
+   * `money.ts` keeps its own ISO table regardless and refuses an unknown
+   * currency rather than guessing - that is the defence against the two
+   * sources disagreeing, which does not go away because the field is now
+   * always present. Never derived from `Intl`: it disagrees with ISO 4217 on
+   * real currencies, IQD among them, where the error is thousandfold.
+   */
+  currency_exponent: number
   fy_start_month: number
   structuring_window_days: number
+  /*
+   * The approvals an above-limit entry needs, where the committee has raised
+   * it above `ceil(2M/3)`. Null is the ordinary case, not a missing field: the
+   * column is nullable and most societies never set it.
+   *
+   * It is the third term of the server's count and the one the frontend used
+   * to drop. See `tier.ts` - a screen that computes two of three terms reports
+   * fewer signatures than the server will demand, and a member who counts the
+   * signatures on the card concludes the entry is waiting on the server rather
+   * than on a person who has not signed.
+   */
+  committee_threshold: number | null
 }
 
 export type Me = {
@@ -161,7 +202,13 @@ export type Year = {
   closed: boolean
   headline: Opinion | null
   headline_seq: number | null
-  history: { seq: number; opinion: Opinion; statement: string; auditor: string; recorded_at: number }[]
+  /*
+   * `appointment_seq` is the `posting` of the `appoint_auditor` proposal that
+   * appointed this auditor: the society's authorisation to publish THIS
+   * statement. Never null. It is read from the `year_close` itself and never
+   * matched by name, so two appointments of the same person stay distinct.
+   */
+  history: { seq: number; opinion: Opinion; statement: string; auditor: string; appointment_seq: number; recorded_at: number }[]
   auditor: { name: string; appointment_seq: number }[] | null
 }
 

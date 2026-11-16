@@ -8,10 +8,17 @@ const css = readFileSync(resolve(__dirname, 'app.css'), 'utf8')
 
 function block(selector: string): Record<string, string> {
   const start = css.indexOf(selector)
+  // A miss returns -1, and slicing from it yields a block that parses to {}.
+  // Every ratio case below would then throw on undefined, but the palette
+  // comparison would pass `{} toEqual {}` - the one assertion here that can
+  // succeed on nothing. A Prettier reflow or a Tailwind reordering is enough
+  // to change this string, so the selector not being found is the failure.
+  if (start < 0) throw new Error(`app.css has no ${selector} block: this guard has stopped measuring`)
   const open = css.indexOf('{', start)
   const close = css.indexOf('}', open)
   const out: Record<string, string> = {}
   for (const m of css.slice(open + 1, close).matchAll(/--([\w-]+):\s*(#[0-9a-f]{6})/gi)) out[m[1]!] = m[2]!
+  if (Object.keys(out).length === 0) throw new Error(`${selector} parsed to zero tokens: the declaration shape changed`)
   return out
 }
 
