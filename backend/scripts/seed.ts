@@ -256,6 +256,9 @@ for (const m of months) {
     // Close the books on FY 2025-26: appoint the auditor first.
     await run("president", { action: "appoint_auditor", person: auditor, fy: "2025-26",
       narration: "Appoint Kulkarni & Associates as statutory auditor, FY 2025-26" });
+    // And FY 2024-25, which stays OPEN on purpose - see below.
+    await run("president", { action: "appoint_auditor", person: auditor, fy: "2024-25",
+      narration: "Appoint Kulkarni & Associates for the unaudited year, FY 2024-25" });
   }
 }
 
@@ -268,6 +271,25 @@ for (const m of months.slice(0, -1)) {
     p_through_seq: intent.through_seq, p_note: null, p_key_seq: keySeq, p_signature: signature });
 }
 
+// FY 2024-25 IS LEFT OPEN DELIBERATELY. Do not add a close for it.
+//
+// `closable()` offers the control only for a year that is ended, not closed,
+// and appointed to the viewer. `ended` is `fy_bounds(fy).ends < cf.today()` -
+// real wall-clock time, not injectable - so the current year can never be
+// made closeable by seed data: FY 2026-27 ends 31 Mar 2027.
+//
+// With 2025-26 closed below and 2026-27 unfinished, every year was in one of
+// the two states that render no control, so the auditor's sign-off - the one
+// irreversible action in the product - could not be shown or exercised at
+// all. An already-ended year with no opinion yet is the honest way to have
+// one: a society adopting ClearFunds mid-life has exactly this, a prior year
+// whose audit was never recorded here.
+//
+// It carries no entries, and nothing requires it to: `cf.check_close` guards
+// the appointment, the year having ended, the opinion value and the statement
+// bytes, and never the presence of postings. Closing it is therefore a real
+// close against a real appointment, not a fixture.
+//
 // The auditor closes FY 2025-26 with a qualified opinion.
 {
   const statement = "In my opinion, subject to the matter below, the statements give a true and fair view of the " +
