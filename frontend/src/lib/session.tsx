@@ -64,7 +64,7 @@ export function hats(me: Me): Set<Hat> {
 export const isCommittee = (me: Me) => !!me.seat
 
 /*
- * isOfficer is 0004's `pair` tier and now lives in lib/pending.ts, beside
+ * isOfficer is the `pair` tier and now lives in lib/pending.ts, beside
  * waitsOn, which spelled the same rule out inline while this copy went
  * unused. Re-exported so an import from here still resolves, and because a
  * pure authorisation predicate should not require this module's React,

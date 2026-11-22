@@ -124,8 +124,10 @@ renders blank until it exists. `start.ps1` writes it; by hand, copy
 | `VITE_ANCHOR_URL` | empty locally |
 | `VITE_DEMO_LOGINS` | `1` — with the **dev server**, this is what puts the per-role buttons on the sign-in page |
 
-Neither value is a secret: the publishable key is the browser's key and the
-rules live in the database, not in the client.
+None of these is a secret: the publishable key is the browser's own key, and
+the rules live in the database, not in the client. Every `VITE_` value is
+compiled into the bundle a browser downloads, so nothing secret ever belongs
+in this file.
 
 **Vite reads this file once, at startup.** Writing it while the dev server is
 running changes nothing until the server is restarted.

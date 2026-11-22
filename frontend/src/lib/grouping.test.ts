@@ -14,9 +14,9 @@
  * and the honest answer ("those are the same figure") is one they have to
  * take on trust, which is the thing the ledger exists to avoid.
  *
- * WHY THIS IS TESTED NOW, with no society using a foreign currency. `0002`
- * carries `currency` from the first schema so that adding one later touches
- * no hash-chained row. A formatter that assumes INR would make that
+ * WHY THIS IS TESTED NOW, with no society using a foreign currency. Every
+ * amount carries an explicit `currency` from the first schema onward, so that
+ * adding one later touches no hash-chained row. A formatter that assumes INR would make that
  * preparation worthless on the day it is used, and the failure would be
  * cosmetic enough to ship and confusing enough to matter.
  *

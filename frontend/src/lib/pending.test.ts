@@ -50,7 +50,7 @@ describe('waitsOn', () => {
   })
 
   it('waits only on the treasurer and the secretary below the limit', () => {
-    /* 0004's tier: at or below the committee-set limit it is those two and
+    /* The pair tier: at or below the committee-set limit it is those two and
      * both of them - never one of them, and never a third officer instead. */
     const pair = p({ tier: 'pair' })
     expect(waitsOn(pair, me('treasurer'))).toBe(true)
@@ -177,7 +177,7 @@ const contractRoles = (): string[] => {
   return vals
 }
 
-describe('isOfficer is the pair tier from 0004', () => {
+describe('isOfficer is the pair tier', () => {
   it('still finds the contract roles, and ROLES covers them', () => {
     // Vacuity guard both ways: a renamed row throws rather than letting the
     // cases below assert over nothing, and a role in the contract that this

@@ -219,6 +219,30 @@ export default defineConfig({
     // Reported per chunk by `npm run budget`, which holds the real ceilings.
     chunkSizeWarningLimit: 200,
   },
+  /*
+   * THE DEFAULT POOL STAYS, AND THE SUITE'S OWN ADVICE IS WRONG HERE.
+   *
+   * Vitest reports that jsdom is constructed once per file - 86 times, ~76%
+   * of tracked time against 3% actually running tests - and suggests
+   * `pool: 'vmThreads'` or `isolate: false`. Both were measured. Neither is
+   * takeable:
+   *
+   *   - `vmThreads` runs each file in a VM context where `crypto.subtle` is
+   *     undefined, so `sha256()` in `lib/chain.ts` throws
+   *     "Cannot read properties of undefined (reading 'digest')".
+   *     96 tests across 8 files fail - every suite that recomputes an entry
+   *     hash, which is the one thing this product's claim rests on. It is
+   *     4x faster (21s -> 5s) and 96 assertions less true.
+   *   - `isolate: false` shares one jsdom across files, and three suites
+   *     deliberately mutate globals - a `Storage.prototype.getItem` spy for
+   *     the theme-key guard, `vi.resetModules()` for the two-error-class
+   *     case, `documentElement` for the theme ramps. A leaked spy does not
+   *     fail loudly; it makes a guard pass while reading the wrong object,
+   *     which is the failure mode those guards exist to catch.
+   *
+   * 21 seconds is the price of per-file isolation plus real WebCrypto. Both
+   * are load-bearing. Do not "fix" this warning.
+   */
   test: {
     environment: 'jsdom',
     globals: true,

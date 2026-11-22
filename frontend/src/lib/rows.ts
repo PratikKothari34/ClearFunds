@@ -393,7 +393,7 @@ export const chargePreview = nullable(object<ChargePreview>({
  * them. Two kinds carry a limit under different field names, so each is
  * parsed on its own and the reader picks by kind.
  *
- * The limit is `required` in both. 0006 puts the limit in force in the chain
+ * The limit is `required` in both. The limit in force lives in the chain
  * precisely so an approval can be checked against the limit that applied
  * then; a missing one cannot be defaulted, because every default is a claim
  * about which tier was required. It fails instead.
@@ -417,7 +417,7 @@ export const chargePreview = nullable(object<ChargePreview>({
  * never sends. That is the whole bug: the test built the input, so it could
  * only prove the parser agreed with the test.
  *
- * The limit is `required` within each kind. 0006 puts the limit in force in
+ * The limit is `required` within each kind. The limit in force lives in
  * the chain precisely so an approval can be checked against the limit that
  * applied then; a missing one cannot be defaulted, because every default is
  * a claim about which tier was required. It fails instead.

@@ -81,9 +81,10 @@ Work is split by person, not by ticket:
   implementation, signing and chain verification on the server side.
 - **Frontend is `PratikKothari34`'s.**
 
-Directory ownership follows the split: `frontend/` is Pratik's, `backend/` is
-Prem's, and `contracts/`, `docs/` and the root files are shared. The full
-table is in [`CONTRIBUTING.md`](CONTRIBUTING.md) §1.1.
+Directory ownership follows the split: `frontend/` is `PratikKothari34`'s,
+`backend/` is `tadiPro250`'s, and `contracts/`, `docs/` and the root files are
+shared. The full table, with both maintainers' names, is in
+[`CONTRIBUTING.md`](CONTRIBUTING.md) §1.1.
 
 Stay in your lane. If your side needs something from the other, **state the
 contract you need** — endpoint, payload shape, error cases — and raise it,
@@ -124,11 +125,14 @@ authoritative over any summary here.
 
 **The reasoning behind every rule below is in `docs/GOALS.md` → "The hard
 decisions".** Read it when you need to know *why*; the rules here are what
-binds. Two are still open, and neither blocks a schema: **auditor identity**
-(how an auditor proves who they are at sign-off), and **the structuring
-window's length** in rule 10 — the number of days. What the window keys on is
-*not* open: `contracts/api/v1.md` settles it as the payee, compared ignoring
-case and surrounding spaces, on `business_date`.
+binds. **One is still open, and it does not block a schema: auditor identity**
+— how an auditor proves who they are at sign-off.
+
+The structuring window in rule 10 is **no longer open**: it is a per-society
+setting, `societies.structuring_window_days`, defaulting to 30 calendar days
+and constrained positive. What the window keys on is settled too —
+`contracts/api/v1.md` makes it the payee, compared ignoring case and
+surrounding spaces, on `business_date`.
 
 Settled, and binding on backend work. **Each is a rule, not an argument** —
 the reasoning behind them is in `docs/GOALS.md` and the decision records, and
@@ -207,7 +211,9 @@ none of it needs re-deriving to follow the rule.
    spaces, and on **`business_date`, never `recorded_at`**, so a backdated
    entry counts on the day it says it was spent. **The server is the only
    place this is decided** — a client reads the hint and applies no predicate
-   of its own. Only the window's **length in calendar days** is still open.
+   of its own. The window's **length in calendar days** is per-society
+   configuration (`societies.structuring_window_days`, default 30), not a
+   constant to hardcode.
 11. **Default the admin count to statutory committee strength.** Maharashtra
    model bye-law 113: **11 members up to 100 flats, 13 for 101–200** — the
    whole band this product targets. Do not build a UI recommending four or

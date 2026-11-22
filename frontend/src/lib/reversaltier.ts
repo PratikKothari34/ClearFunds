@@ -1,7 +1,7 @@
 import { countable } from './countable'
 
 /*
- * WHICH TIER A REVERSAL NEEDS - `0004`.
+ * WHICH TIER A REVERSAL NEEDS.
  *
  * "A reversal needs at least the tier of the entry it reverses." A reversal
  * that is EASIER to approve than its original makes the tier a laundering

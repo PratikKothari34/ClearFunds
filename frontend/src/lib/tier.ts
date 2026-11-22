@@ -2,9 +2,9 @@
  * HOW MANY APPROVALS AN ABOVE-LIMIT ENTRY NEEDS - AND WHY THE FLOOR IS IN
  * CODE RATHER THAN IN SETTINGS.
  *
- * `0006` settles the rule: above the committee's rupee limit, at least
- * two-thirds of seated admins, rounded up - `ceil(2M/3)`, so 4 of 5 and 5 of
- * 7, never 3 of 5. Configurable HIGHER, never lower.
+ * THE RULE: above the committee's rupee limit, at least two-thirds of seated
+ * admins, rounded up - `ceil(2M/3)`, so 4 of 5 and 5 of 7, never 3 of 5.
+ * Configurable HIGHER, never lower.
  *
  * The invariant underneath it is the product's whole claim: no single admin
  * moves the ledger alone. The tier trades 9-of-13 for 2-of-2, never for 1. So
@@ -29,8 +29,10 @@
  * states a committee passes through while being set up or after resignations.
  *
  * THIS IS A SECOND OPINION, NEVER THE AUTHORITY. The server decides whether
- * an entry has enough approvals, and `0004` puts the limit and M in force in
- * the chain so every approval is checkable against what applied THEN. This
+ * an entry has enough approvals, and the limit and M in force are snapshotted
+ * into the chain so every approval is checkable against what applied THEN -
+ * reading them from live config would let a committee lower the limit
+ * afterwards and retroactively legitimise an approval. This
  * module only tells a screen what to say. Where the two disagree the server
  * is right and the screen is stale - so nothing here may ever be used to
  * permit an action, only to describe one.
@@ -57,7 +59,7 @@ export function seatedCount(seats: readonly unknown[] | undefined): number {
 }
 
 /**
- * The hard floor from `0006`. No committee size ever yields fewer.
+ * The hard floor: no committee size ever yields fewer than two approvals.
  *
  * Configurable HIGHER, never lower - so `tier.test.ts` pins this to the
  * literal 2 rather than comparing against the constant. Every other test in
@@ -76,9 +78,9 @@ export const TIER_FLOOR = 2
  * function carried only the first and the last. The missing term is invisible
  * on every society that never raised its threshold - the column is nullable
  * and usually NULL, so both sides compute the same number and no fixture built
- * from real data disagrees. It separates the moment a committee uses the
- * column `0006` promised them: with M = 11 and a configured 9, the server
- * requires 9 and both screens said 8.
+ * from real data disagrees. It separates the moment a committee actually uses
+ * that column: with M = 11 and a configured 9, the server requires 9 and both
+ * screens said 8.
  *
  * Nothing is permitted by the wrong number - the server refuses the eighth
  * signature regardless. The cost is that a member reads "8 of 11", counts

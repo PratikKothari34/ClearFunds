@@ -20,12 +20,12 @@ describe('approvalsNeeded: two-thirds of M, rounded up', () => {
      * single admin can move the ledger alone. Caught by mutation - the mutant
      * that matters most was the one survivor.
      *
-     * 0006 fixes this number at two, in code, and permits configuring it
+     * The rule fixes this number at two, in code, and permits configuring it
      * HIGHER but never lower. So the literal 2 is the rule, not a sample
      * number, and this is the one place the ban on asserting sample numbers
      * does not apply.
      */
-    expect(TIER_FLOOR, '0006: the tier never reduces to one person').toBeGreaterThanOrEqual(2)
+    expect(TIER_FLOOR, 'the tier never reduces to one person').toBeGreaterThanOrEqual(2)
     expect(approvalsNeeded(1), 'a committee of one must not be able to approve alone')
       .toBeGreaterThanOrEqual(2)
     expect(approvalsNeeded(0), 'an empty committee must not yield a threshold of one or zero')
@@ -34,7 +34,7 @@ describe('approvalsNeeded: two-thirds of M, rounded up', () => {
 
   it('never returns fewer than two, at any committee size', () => {
     /*
-     * The invariant `0006` exists to protect: the tier trades 9-of-13 for
+     * The invariant the tier exists to protect: it trades 9-of-13 for
      * 2-of-2, never for 1. A threshold of one is a ledger a single admin
      * moves alone, which is the one thing the product claims cannot happen.
      *
@@ -59,7 +59,7 @@ describe('approvalsNeeded: two-thirds of M, rounded up', () => {
 
   it('rounds UP rather than to the nearest, so an odd committee cannot sign at half plus one', () => {
     /*
-     * The case `0006` calls out by name: 4 of 5, never 3 of 5. Stated as a
+     * The case the rule calls out by name: 4 of 5, never 3 of 5. Stated as a
      * property - the result must exceed the exact two-thirds whenever 2M is
      * not divisible by 3 - so it holds for every size, not just five.
      */
@@ -151,7 +151,7 @@ describe('approvalsNeeded: a committee that raised its threshold', () => {
 
   it('ignores a threshold that is lower than the rule, never lowering the count', () => {
     /*
-     * `0006`: configurable HIGHER, never lower. A society that somehow holds a
+     * Configurable HIGHER, never lower. A society that somehow holds a
      * threshold of 2 against M = 11 still needs 8 - the configured value may
      * only raise. This is the direction that would break the product's claim,
      * so it is asserted rather than left to `greatest`.

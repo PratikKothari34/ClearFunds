@@ -223,7 +223,7 @@ describe('limitEntries', () => {
   })
 
   /*
-   * The rule 0006 exists for. Every approval must be checkable against the
+   * The reason the snapshot exists. Every approval must be checkable against the
    * limit that applied THEN, so an entry whose limit cannot be read makes the
    * tier unknowable. There is no safe default: zero would claim the strictest
    * tier was in force, any other number a laxer one. It has to fail.
