@@ -8,8 +8,11 @@ built without reading the frontend source.
 schema, RLS, function bodies and deployment are the backend lane's calls.
 
 **Status as of 2026-11-07, and most of this list is now met.** The migrations
-define every RPC, table and function named below, and the four edge functions
-exist. What remains is noted per section rather than at the top, because the
+define every RPC, table and function named below, and the edge function exists —
+**one** function, `api`, routing `/head`, `/open-society`, `/publish-notice`,
+`/ballot`, `/statements`, `/propose`, `/cast`, `/signoff` and `/close-year`
+rather than a deployed function per endpoint. What remains is noted per section
+rather than at the top, because the
 sections are no longer in the same state as each other:
 
 - **§1 environment variables** - the two Supabase values are supplied. The
@@ -87,9 +90,10 @@ chain_entries    committee_seats    flat_dues    flats    people
 `postgres_changes` for `INSERT` filtered by `society_id`, so **realtime must be
 enabled on that table** or the ledger will not update without a reload.
 
-## 5. Four edge functions
+## 5. Four edge routes
 
-Each is called with `{ society, ... }` and its response is parsed, not cast -
+All four are paths on the single `api` edge function, not four deployed
+functions. Each is called with `{ society, ... }` and its response is parsed, not cast -
 a missing field is a visible error, not `undefined`.
 
 | Function | Returns |
@@ -101,7 +105,7 @@ a missing field is a visible error, not `undefined`.
 
 `status` is a `cf.proposal_status`. The frontend handles all six values
 (`posted`, `open`, `declined`, `withdrawn`, `superseded`, `year_closed`); the
-API contract lists three. Filed as issue #90.
+API contract once listed only three; it now carries all six (#90).
 
 ## 6. Chain kinds the frontend can verify — now all of them
 
