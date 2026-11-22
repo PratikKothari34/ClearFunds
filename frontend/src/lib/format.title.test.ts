@@ -209,8 +209,8 @@ describe('proposalTitle names what is being approved', () => {
 
   it('does not state an amount, which is shown as a formatted figure beside it', () => {
     /*
-     * CLAUDE.md: the frontend never computes money, and `money.ts` is the
-     * only formatter. A title interpolating `amount_minor` would print
+     * The frontend never computes money, and `money.ts` is the only
+     * formatter. A title interpolating `amount_minor` would print
      * "125075" - the missing-x100 bug made visible, and unreadable besides.
      */
     for (const action of declared) {

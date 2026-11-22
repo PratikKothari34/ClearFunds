@@ -1,7 +1,35 @@
 # Contributing to ClearFunds
 
-Two people and one repository. This file is the working agreement: who touches
-what, how work is tracked, and how a change reaches `main`.
+## If you do not work on this project
+
+Most of this file is a working agreement between the two maintainers, and it
+will read that way. What it means for you:
+
+- **Issues and bug reports are welcome**, in either lane. Use a template —
+  blank issues are disabled — and §5.2 says which one. Reading the repository
+  is not an assignment, so if you want to work on something, say so on the
+  issue first and wait for a reply; it may already be someone's.
+- **Pull requests are read**, but the rules below still govern how one lands:
+  one lane per PR, no edit-or-delete path on a ledger entry, no floating-point
+  money, and `tamper-evident` never `tamper-proof` (§4.2, §7). A PR that
+  breaks one of those is a conversation, not a merge.
+- **A merge needs an approval from the other maintainer**, including for our
+  own work and including the repository admin's. That is deliberate — the
+  product exists so no single admin can move the ledger alone, and the
+  repository holds itself to the same test (rule 2 below). It also means an
+  outside PR waits on a human, not on CI.
+- **The licence is GPL-3.0.** Contributions are accepted under it, and
+  contributors are recorded in [`COPYRIGHT`](COPYRIGHT).
+
+To see the product running, follow [`demo.md`](demo.md) — it seeds a demo
+society locally with sign-in buttons for every role. The deployed build is not
+a public demo: it authenticates against a real project, so there is nothing to
+explore without an account.
+
+---
+
+Two people and one repository. The rest of this file is the working agreement:
+who touches what, how work is tracked, and how a change reaches `main`.
 
 | Person | GitHub | Lane |
 |---|---|---|
@@ -29,7 +57,7 @@ This file does not repeat them. Read them before your first PR.
 
 ```
 ClearFunds/
-├── .github/            CODEOWNERS, PR + issue templates, rulesets of record, CI (when it exists)
+├── .github/            CODEOWNERS, PR + issue templates, rulesets of record, CI workflow
 ├── frontend/           React + TypeScript on Vite, TanStack Router + Query      → Pratik
 ├── backend/            Supabase: migrations, the edge function, the pgTAP suite  → Prem
 ├── contracts/          the boundary: API spec, chain preimage spec, test vectors → both
@@ -183,7 +211,7 @@ Live on `main`, ruleset "main protection":
 | Allowed merge method | **squash or rebase** |
 | Linear history | **enforced**, so a merge commit cannot land |
 | Force push / deletion | blocked |
-| Required status check | `ci-ok`, once CI exists |
+| Required status check | none yet. CI runs on every PR; making `ci-ok` *required* is still pending (§9) |
 | Bypass list | the Admin repository role |
 
 - **Push before asking for review, not after.** A new push dismisses existing
@@ -398,8 +426,9 @@ against it, so changing it moves the ground under the other person.
 A PR is done when **all** of these hold. Working code alone does not count.
 
 - [ ] It changes one lane you own plus shared docs, or §2.3 was followed.
-- [ ] `ci-ok` is green, once CI exists. Until then, the PR states the
-      commands you ran and their output.
+- [ ] `ci-ok` is green. It is not a *required* check on `main` yet (§3.4), so
+      read it rather than trusting the merge button — and a job skipped by
+      path filter has reported nothing about the files it did not see.
 - [ ] There is a test that **fails if the logic is removed**. For money,
       chain or approval logic it includes the negative case, such as a
       rejected second reversal or a mismatched hash.

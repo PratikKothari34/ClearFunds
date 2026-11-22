@@ -76,13 +76,25 @@ year, the one irreversible action in the product — needs a year that has ended
 and is still open. On `main` the only audited year is already closed, so the
 screen correctly offers no action and that part of the story cannot be shown.
 
+`check-requirements.ps1` reports which side of this you are on, under
+`Checkout`. It reads the seed script rather than the branch name, so its
+verdict is about the revision you actually have:
+
+- **`[ok] ... seeds a year the auditor can close`** — nothing to do here. Run
+  `.\start.ps1` as in step 2.
+- **`[warn] ... has NO closeable year`** — switch revision first:
+
 ```powershell
+git fetch origin
 git checkout demo/142-closeable-year
 .\start.ps1
 ```
 
-`check-requirements.ps1` reports which side of this you are on, under
-`Checkout`.
+That branch is the open pull request *Seed a year the auditor can actually
+close*. Once it has merged, `main` seeds the closeable year itself and the
+check reports `[ok]` with no switch needed — so if `git checkout` above says
+the branch does not exist, run `git checkout main && git pull` and re-run the
+check rather than hunting for it.
 
 **Why the order matters.** `start.ps1` seeds only when the ledger is empty,
 because re-seeding would append a second society. So a machine already seeded

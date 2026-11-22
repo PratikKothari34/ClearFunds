@@ -1,11 +1,25 @@
 # ClearFunds
 
+[![ci](https://github.com/PratikKothari34/ClearFunds/actions/workflows/ci.yml/badge.svg)](https://github.com/PratikKothari34/ClearFunds/actions/workflows/ci.yml)
+[![licence: GPL-3.0](https://img.shields.io/badge/licence-GPL--3.0-blue.svg)](LICENSE)
+
 **A tamper-evident expense ledger for Indian housing societies.** Residents
 read the full history with a running balance; admins approve entries and no
 single admin can alter one alone.
 
 Built for societies of roughly 80–150 flats, replacing the Excel sheet, the
 paper register, the signature book and the WhatsApp update.
+
+**Status: both stacks are built and run.** A seeded demo society of ~4,250
+ledger entries comes up locally with one command and sign-in buttons for every
+role — see [`demo.md`](demo.md). There is no public demo URL: the deployed
+build authenticates against a real project, so the demo accounts exist only
+under a local dev server.
+
+Built by two people, one lane each — [`@PratikKothari34`](https://github.com/PratikKothari34)
+on the frontend and [`@tadiPro250`](https://github.com/tadiPro250) on the
+backend. Neither can merge their own work; see
+[Contributing](#contributing).
 
 ## What makes it different from a spreadsheet
 
@@ -73,17 +87,34 @@ and sign in to the demo society, and what the common failures actually mean.
 | `start.ps1` | Brings up both lanes, seeds, opens the app |
 | `AGENTS.md` | Orientation for an agent working in this repository |
 | `CONTRIBUTING.md` | Who owns which directory, and how a change lands |
+| `.github/` | CI, issue and PR templates, CODEOWNERS, the branch ruleset of record |
+| `.claude/hooks/` | A commit-and-push guard for coding agents. The script is committed; the config that runs it is per-machine and is not (`CONTRIBUTING.md` §10.1) |
+| `vercel.json` | The deployed build's headers, including the Content-Security-Policy a test asserts against `frontend/.env.example` |
 
 ## Contributing
 
+Issues and bug reports are welcome. Pull requests are read, but the repository
+rules still govern how one lands — [`CONTRIBUTING.md`](CONTRIBUTING.md) opens
+with a section for people who do not work on the project, then sets out
+directory ownership and the PR rules. Read [`AGENTS.md`](AGENTS.md) if you are
+an agent.
+
 Work is split by person, not by ticket, and backend work starts from an
-assigned issue rather than from reading the repository. Read
-[`CONTRIBUTING.md`](CONTRIBUTING.md) for directory ownership and the PR rules,
-and [`AGENTS.md`](AGENTS.md) if you are an agent.
+assigned issue rather than from reading the repository.
 
 Every change goes up as a pull request. `main` is protected: linear history,
-one approval, no direct pushes.
+one approval, no direct pushes — and that approval has to come from the other
+maintainer, so neither of us merges our own work. The repository admin has a
+bypass and does not use it. A product built so that no single admin can move
+the ledger alone should not be run from a repository where one person can.
+
+CI runs on every pull request: the frontend gate (typecheck, lint, 1,351 tests
+in 86 files, build, and the repository's own bundle-budget, inline-script and
+asset checks), the backend's pgTAP suite against a database built from the
+migrations alone, and both implementations against the shared test vectors in
+[`contracts/`](contracts/).
 
 ## Licence
 
-GPL-3.0. See [`LICENSE`](LICENSE).
+GPL-3.0 — see [`LICENSE`](LICENSE), kept verbatim. Copyright holders are
+recorded in [`COPYRIGHT`](COPYRIGHT).
