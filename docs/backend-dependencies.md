@@ -76,8 +76,14 @@ api_resolve_handle    api_summary          api_withdraw
 api_years
 ```
 
-`api_mark_seen` was called by the frontend and specified in no contract. That
-gap is now closed (#92): it is in `contracts/api/v1.md` with the rest.
+`api_mark_seen` was specified in no contract. That gap is now closed (#92): it
+is in `contracts/api/v1.md` with the rest.
+
+**Nothing in the frontend calls it yet.** `api_me` returns `last_seen_seq`, the
+frontend parses and reads it, and the value only ever changes when something
+calls `api_mark_seen` — so the read side is wired and the write side is not.
+That is a frontend gap, not a backend one: the function exists and is
+contracted.
 
 ## 4. Five tables or views, readable under RLS
 
