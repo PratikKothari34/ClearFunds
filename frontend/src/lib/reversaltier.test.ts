@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { needsCommittee, type ReversalInputs } from './reversaltier'
 
 /*
- * `0004`: a reversal needs AT LEAST the tier of the entry it reverses, and no
- * unreadable figure may ever buy the lower tier.
+ * THE RULE: a reversal needs AT LEAST the tier of the entry it reverses, and
+ * no unreadable figure may ever buy the lower tier.
  *
  * These assert the RULE, never a sample total - an assertion on `=== 3` gets
  * "fixed" by editing the expected number, which deletes the test's meaning
@@ -25,7 +25,7 @@ const UNREADABLE = [null, undefined, NaN, Infinity, -Infinity, '5000', {}, [], t
 describe('which tier a reversal needs', () => {
   it('never drops below the tier the original was approved at', () => {
     /*
-     * The whole point of `0004`. A reversal easier than its original makes
+     * The whole point of the rule. A reversal easier than its original makes
      * the tier a laundering path, so a committee-tier original can never be
      * reversed by the pair - at ANY amount, including one far below the
      * limit, and including a zero limit.
@@ -34,7 +34,7 @@ describe('which tier a reversal needs', () => {
       for (const limitMinor of [0, 1, 100_000, Number.MAX_SAFE_INTEGER]) {
         expect(
           at({ originalTier: 'committee', amountMinor, limitMinor }),
-          'a committee-tier entry reversed by two people is the laundering path 0004 closed',
+          'a committee-tier entry reversed by two people is the laundering path the tier rule closes',
         ).toBe(true)
       }
     }

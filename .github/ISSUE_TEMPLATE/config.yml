@@ -1,1 +1,18 @@
 blank_issues_enabled: false
+contact_links:
+  - name: Not sure which template? Start here
+    url: https://github.com/PratikKothari34/ClearFunds/blob/main/CONTRIBUTING.md
+    about: >-
+      Reporting something wrong, from outside the project? Use Bug report. The
+      other three templates are how the two maintainers track their own work -
+      Work item plans one lane, Contract request asks across the
+      frontend/backend boundary, Decision records a question the docs leave
+      open. CONTRIBUTING.md opens with a section for people who do not work on
+      the project.
+  - name: Run it first
+    url: https://github.com/PratikKothari34/ClearFunds/blob/main/demo.md
+    about: >-
+      A seeded demo society comes up locally with one command, with sign-in
+      buttons for every role. There is no public demo URL - the deployed build
+      authenticates against a real project, so the demo accounts exist only
+      under a local dev server.

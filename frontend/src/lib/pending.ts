@@ -16,7 +16,7 @@ import type { Me, ProposalRow } from './types'
 /**
  * Is this person one of the two named officers?
  *
- * This is 0004's `pair` tier, and the tier NEVER reduces to one person: at or
+ * This is the `pair` tier, and the tier NEVER reduces to one person: at or
  * below the committee's limit it is the treasurer AND the secretary, both. So
  * the predicate names exactly those two roles and must never grow to include
  * `president` or `member` - a president who could approve a below-limit entry
@@ -44,7 +44,7 @@ export function waitsOn(p: ProposalRow, me: Me): boolean {
   if (p.state !== 'open' || !me.seat) return false
   if (p.approvals.some((a) => a.person === me.person)) return false
   // Above the limit everyone votes; at or below it, only the two named
-  // officers - 0004's tier, which never reduces to one person.
+  // officers - the pair tier, which never reduces to one person.
   return p.tier === 'committee' || isOfficer(me)
 }
 

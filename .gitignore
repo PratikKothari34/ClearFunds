@@ -43,6 +43,13 @@ __pycache__/
 .eggs/
 
 # --- Build output ---
+# The router plugin writes a candidate route tree here under a random name
+# before moving it into place, so a crashed or interrupted build leaves one
+# behind. One was committed in October carrying routes that no longer exist
+# (`audit`, `chain`, `login`), which reads to a visitor as a real generated
+# file that disagrees with the route directory. The real artefact is
+# `frontend/src/routeTree.gen.ts`, which IS committed.
+.tanstack/
 dist/
 build/
 out/

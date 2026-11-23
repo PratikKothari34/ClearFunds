@@ -54,7 +54,7 @@ function NewEntry() {
    * An unreadable limit must never produce `pair`. `minor <= null` is true in
    * JavaScript, so the old shape would have claimed the treasurer+secretary
    * tier for any amount the moment the limit could not be read - the exact
-   * inversion 0004 forbids, and the display the proposer acts on.
+   * inversion the tier rule forbids, and the display the proposer acts on.
    */
   const limRead = countable(limit.data?.current.limit_minor)
   const lim = limRead.readable ? limRead.minor : undefined
@@ -90,7 +90,7 @@ function NewEntry() {
 
   /*
    * Below the limit only the two named officers sign as they submit, and this
-   * is 0004's pair tier - the SAME rule waitsOn applies on the approvals
+   * is the pair tier - the SAME rule waitsOn applies on the approvals
    * screen, so it comes from isOfficer rather than being spelled out a third
    * time. A committee member who is told "your approval is signed as you
    * submit" when it is not believes the entry needs one more signature than

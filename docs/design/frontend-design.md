@@ -68,8 +68,8 @@ best of the three and the ledger is the product.
 - Tabular figures, Indian digit grouping. **Inter throughout**, for the amount
   and the narration both, with tabular figures set globally rather than per
   element (`app.css:149`). No serif renders anywhere; see §2g for the two
-  families that actually ship and for the Source Sans / Source Serif pair that
-  `0007` chose and the build never adopted.
+  families that actually ship and for the Source Sans / Source Serif pair an
+  earlier revision of this design chose and the build never adopted.
 - Credit and debit as the only colour accents on the screen. **The activity
   band's amber does not appear on the ledger**, so the palette rule holds where
   it matters.
@@ -333,7 +333,8 @@ balance figure a resident checks first, `text-3xl` for a money input,
 `--ink-quiet`.
 
 **Dropped along the way, and why it is not coming back:** Source Sans 3 and
-Source Serif 4 were the pair in `0007`, and a hex-subset mono was to be built
+Source Serif 4 were the pair an earlier revision of this design chose, and a
+hex-subset mono was to be built
 for fingerprints. A high-contrast display serif on a warm ground is the most
 recognisable signature of a generated page, so the serif went and a band
 heading became a quiet caption. The subset mono went too, but the need it
@@ -451,7 +452,7 @@ and no test asserting on substrings catches a stray space.
 ### Separators between facts
 
 **A meta line joins two facts with a vertical rule, never a middle dot**
-(2026-10-25, `0007`). `A · B · C` is template chrome: it appears on
+(2026-10-25). `A · B · C` is template chrome: it appears on
 generated pages whatever the subject, and it reads as one run-on string
 rather than as separate facts. The rule is the register's own device - the
 line between two columns - and it is already in the palette as `--line`, with
@@ -585,8 +586,8 @@ the two JetBrains files are part of the payload wherever a hash is shown.
 
 **Font bytes are not a live design argument at this throughput.** At ~10 Mbps
 on a working 4G connection the whole set is ~0.11 s, once, then cached. The
-serif was dropped on the grounds in `0007` — that it read as generated — not
-on bytes.
+serif was dropped on the grounds given in §2g — that it read as generated —
+not on bytes.
 
 **JavaScript and CSS, gzipped, as `npm run budget` reports them:** the
 framework entry chunk 76.2 KB against a 130 KB ceiling, all CSS 8.4 against

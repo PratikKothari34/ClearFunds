@@ -9,8 +9,8 @@
  * categories, three hidden, and the Rs 1,07,200 difference is exactly those
  * three.
  *
- * This is the shape CLAUDE.md calls a count contradicting its own evidence: a
- * figure sitting directly below rows the reader has already added up. A
+ * This is a count contradicting its own evidence: a total that disagrees with
+ * the rows printed directly above it, which the reader has already added up. A
  * resident checking the arithmetic finds it wrong and has no way to tell that
  * the list was truncated, because nothing on the card says so. Nothing throws,
  * no test fails, and the reader who does the most work to verify the figure is
@@ -91,11 +91,13 @@ export function spendView(items: readonly SpendItem[], allTotal: number, limit: 
    * disagreement with every row on screen and the reader's subtraction still
    * failing. Caught by its own test rather than in review.
    *
-   * `?? 0` here is the coercion CLAUDE.md warns about - absent treated as zero
-   * - and it is deliberate in this one place: `shownTotal` is null only when
-   * there are no rows at all, and no rows genuinely do sum to nothing, so the
-   * equality against a zero total is true rather than assumed. It decides a
-   * LABEL, never an amount; no figure is computed from it.
+   * `?? 0` here is the coercion this codebase otherwise forbids - an absent
+   * figure silently treated as zero, which is how an unreadable amount takes
+   * the same branch as a real one - and it is deliberate in this one place:
+   * `shownTotal` is null only when there are no rows at all, and no rows
+   * genuinely do sum to nothing, so the equality against a zero total is true
+   * rather than assumed. It decides a LABEL, never an amount; no figure is
+   * computed from it.
    */
   const covers = (shownTotal ?? 0) === allTotal ? 'all' : 'partial'
 

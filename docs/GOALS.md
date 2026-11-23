@@ -190,12 +190,17 @@ entries are chained and real money is recorded. **Nearly all of them are
 settled** — this section is the reasoning, and `AGENTS.md` states the resulting
 rules in the form that binds code.
 
-**Two things are genuinely still open.** **How an auditor proves who they are**
-when they come to sign off, called out in place below. And **how long the
-structuring window is** — the number of calendar days in the rolling period.
+**One thing is genuinely still open: how an auditor proves who they are**
+when they come to sign off, called out in place below.
 
-What that window keys on is settled, and `contracts/api/v1.md` is where it is
-decided: the **payee**, compared ignoring case and surrounding spaces, on
+The structuring window's length is **no longer among them.** It is not a
+constant anyone has to choose for every society — it is per-society
+configuration, `societies.structuring_window_days`, defaulting to 30 calendar
+days and constrained positive, so a committee that wants a tighter or looser
+period sets its own.
+
+What that window keys on is settled too, and `contracts/api/v1.md` is where it
+is decided: the **payee**, compared ignoring case and surrounding spaces, on
 **`business_date` rather than `recorded_at`**, so an entry backdated to a
 genuine spend date counts on that date. One rule serves the report, the list
 and the hint, and the server is the only place it is applied — a client that

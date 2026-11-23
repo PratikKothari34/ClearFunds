@@ -5,8 +5,8 @@
  * GROSS. A reversed Rs 9,000 expense adds 9,000 to `in_minor`, though nobody
  * paid the society anything - it is the correction of a payment, not a
  * receipt. That is deliberate and must stay: in less out has to equal the
- * balance, and `0004` says balances net reversed pairs to zero by
- * construction rather than by special-casing.
+ * balance, and balances net reversed pairs to zero by construction rather
+ * than by special-casing them anywhere.
  *
  * So a month with one reversed expense reads "In Rs 9,000" on the dashboard
  * and the resident concludes the society received Rs 9,000. Nothing is wrong
@@ -17,14 +17,15 @@
  * surface may SAY about that pair. It does not compute a net figure, and no
  * caller may either:
  *
- *   - Netting is money arithmetic in the client, which `0002` forbids
+ *   - Netting is money arithmetic in the client, which this codebase forbids
  *     outright. `in_minor - reversed_in_minor` is a figure no server
  *     computed and nothing reconciles against the chain.
  *   - The disclosure is the point. A resident who is told "Rs 9,000 of this
  *     is a correction" can read the gross figure correctly. A resident shown
  *     a quietly netted Rs 0 has been told the month was empty, and the
  *     reversal - the thing the chain exists to prove happened - has been
- *     concealed. `0004`: reversed entries always appear in reports.
+ *     concealed. Reversed entries always appear in reports; omitting them
+ *     conceals what the chain exists to prove.
  *
  * THREE STATES, NEVER TWO, for the reason countable.ts has three. The server
  * chooses these numbers, and `undefined > 0` is false, so a missing or
@@ -32,8 +33,9 @@
  * disclosure would silently never render and the screen would go back to
  * quietly overstating the month. rows.ts marks both keys `required(int)` so
  * absent fails loudly at the parser; this is the second guard, and it is
- * deliberately redundant with that one. See commit-checks.md on why a
- * redundant guard is not deleted because a single mutant cannot kill it.
+ * deliberately redundant with that one. A redundant guard is not deleted just
+ * because no single mutation can kill it on its own - mutate both at once to
+ * demonstrate the redundancy, and say so in the pull request.
  */
 
 import { countable } from './countable'

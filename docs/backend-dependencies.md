@@ -7,12 +7,13 @@ built without reading the frontend source.
 **This document states dependencies. It does not specify how to build them** -
 schema, RLS, function bodies and deployment are the backend lane's calls.
 
-**Status as of 2026-11-07, and most of this list is now met.** The migrations
+**Status as of 2026-11-22, and most of this list is now met.** The migrations
 define every RPC, table and function named below, and the edge function exists —
 **one** function, `api`, routing `/head`, `/open-society`, `/publish-notice`,
 `/ballot`, `/statements`, `/propose`, `/cast`, `/signoff` and `/close-year`
-rather than a deployed function per endpoint. What remains is noted per section rather than at the top, because the
-sections are no longer in the same state as each other:
+rather than a deployed function per endpoint. What remains is noted per section
+rather than at the top, because the sections are no longer in the same state as
+each other:
 
 - **§1 environment variables** - the two Supabase values are supplied. The
   anchor template is still empty, deliberately: nothing publishes a head yet,
@@ -24,8 +25,8 @@ sections are no longer in the same state as each other:
   "Defined in a migration" is not "reachable in the deployed project" and
   this document cannot tell the difference, so what each section now records
   is the **contract gaps**, not the absence of the thing.
-- **§6 chain kinds** - met, and the ledger vectors are now in flight.
-- **§7 response headers** - met and verified live.
+- **§6 chain kinds** - met, and all five vector files are on `main`.
+- **§7 response headers** - met and verified live, CSP included.
 
 ## 1. Three environment variables
 
@@ -64,9 +65,8 @@ Sign-in is a six-digit emailed code (`signInWithOtp` then `verifyOtp`).
 
 ## 3. Fourteen RPCs
 
-All called through PostgREST, and all fourteen are now defined in the
-migrations. **Thirteen are specified in `contracts/api/v1.md`**; the
-outstanding item is the fourteenth, below.
+All called through PostgREST, all fourteen defined in the migrations, and
+**all fourteen now specified in `contracts/api/v1.md`.**
 
 ```
 api_add_person        api_add_tenure       api_flag_note
@@ -76,8 +76,14 @@ api_resolve_handle    api_summary          api_withdraw
 api_years
 ```
 
-**`api_mark_seen` is in no contract** - it is called by the frontend and
-specified nowhere. Filed as issue #92.
+`api_mark_seen` was specified in no contract. That gap is now closed (#92): it
+is in `contracts/api/v1.md` with the rest.
+
+**Nothing in the frontend calls it yet.** `api_me` returns `last_seen_seq`, the
+frontend parses and reads it, and the value only ever changes when something
+calls `api_mark_seen` — so the read side is wired and the write side is not.
+That is a frontend gap, not a backend one: the function exists and is
+contracted.
 
 ## 4. Five tables or views, readable under RLS
 
@@ -89,9 +95,10 @@ chain_entries    committee_seats    flat_dues    flats    people
 `postgres_changes` for `INSERT` filtered by `society_id`, so **realtime must be
 enabled on that table** or the ledger will not update without a reload.
 
-## 5. Four edge functions
+## 5. Four edge routes
 
-Each is called with `{ society, ... }` and its response is parsed, not cast -
+All four are paths on the single `api` edge function, not four deployed
+functions. Each is called with `{ society, ... }` and its response is parsed, not cast -
 a missing field is a visible error, not `undefined`.
 
 | Function | Returns |
@@ -102,8 +109,8 @@ a missing field is a visible error, not `undefined`.
 | `/close-year` | `{ seq }` |
 
 `status` is a `cf.proposal_status`. The frontend handles all six values
-(`posted`, `open`, `declined`, `withdrawn`, `superseded`, `year_closed`); the
-API contract lists three. Filed as issue #90.
+(`posted`, `open`, `declined`, `withdrawn`, `superseded`, `year_closed`). The
+API contract once listed only three; it now carries all six (#90).
 
 ## 6. Chain kinds the frontend can verify — now all of them
 
@@ -135,11 +142,10 @@ of what it means for a kind added later.
   `entry_hash`, and `must_differ` pairs. Reading the table proves the two
   sides agree about the *layout*; only a vector proves they agree about the
   *bytes*. The encoders are independent implementations and share no code,
-  and `ledger.v1.md` - which defines every kind that moves money - still has
-  no vector file **on `main`** - the vectors for it are now in review, and
-  the frontend suite discovers vector files from the directory rather than
-  from a hand-written list, so they are picked up on merge with no frontend
-  change needed.
+  and `ledger.v1.md` - which defines every kind that moves money - now has
+  `ledger-kinds.v1.json` beside the other four on `main`. The frontend suite
+  discovers vector files from the directory rather than from a hand-written
+  list, so a new one is picked up on merge with no frontend change needed.
 - **One thing a layout cannot express**, asserted over the vectors instead: a
   `ballot` carries exactly one of `flat_id` and `flat_token`. Both present
   would place a flat beside its own anonymous token and unmask the ballot.
@@ -161,8 +167,10 @@ Already set on the Vercel deployment and **verified live**: `nosniff`,
 `Referrer-Policy: no-referrer`, `X-Frame-Options: DENY`, `Permissions-Policy`,
 HSTS, plus the SPA rewrite and immutable asset caching.
 
-**CSP is not among them.** The production policy is `script-src 'self'` with
-**no** `sha256-` entry - `index.html` carries zero inline scripts, which is
-strictly stronger than allowing a hash. Issue #5 tracks it. Any future inline
-script would be blocked silently in production, so `npm run verify` asserts
-zero and prints the hash one would need.
+**CSP is now among them too** (#5, closed). It is served as a real header from
+`vercel.json`, and the policy is `script-src 'self'` with **no** `sha256-`
+entry - `index.html` carries zero inline scripts, which is strictly stronger
+than allowing a hash. Any future inline script would be blocked silently in
+production, so `npm run verify` asserts zero and prints the hash one would
+need. `csp.parity.test.ts` holds the policy and `.env.example` to each other,
+so an origin added to one without the other fails a test.
