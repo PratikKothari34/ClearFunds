@@ -115,12 +115,17 @@ itself can go first: it creates no rows.
 
 | Change | Shape |
 |---|---|
-| `/propose` with `proposal.action = "budget"` | `{ action, fy, narration, lines: [{ category, amount_minor }], income_lines: [{ category, amount_minor }] }`. The server trims and sorts each list, and refuses an empty or duplicate category, a category over 80 characters, an amount that is not a whole number from 0 to 2^53 − 1, more than 200 lines in a list, and a budget with no lines at all. It appends `budget_lines` then `proposal` |
+| `/propose` with `proposal.action = "budget"` | `{ action, fy, narration, lines: [{ category, amount_minor }], income_lines: [{ category, amount_minor }] }`. The server NFC-normalises, trims and sorts each list, in that order, so the duplicate check, the length and the order all apply to the text that is chained. It refuses an empty or duplicate category, a category over 80 characters, an amount that is not a whole number from 0 to 2^53 − 1, more than 200 lines in a list, and a budget with no lines at all. It appends `budget_lines` then `proposal` |
 | `proposals` view | Two new columns, `lines` and `income_lines`: `[{ category, amount_minor }]` in the chained order for a `budget` proposal, `null` for every other action |
 | `api_report(p_society, p_fy)` | Adds `budget`, `null` for a year with no budget posted. Otherwise `{ first_seq, final_seq, revisions, expenditure, income, unbudgeted_expenditure, unbudgeted_income }` |
 
-- `first_seq`, `final_seq`: the posting sequences of the first and the last
-  `budget` posting for the year (equal when it was never revised).
+- `first_seq`: the posting sequence of the first `budget` posting for the year.
+- `final_seq`: the budget in force at the year's end, which is the last `budget`
+  posting chained on or before the year's last day (Asia/Kolkata). A revision
+  chained after that is in `revisions` with `after_year_end: true` and never
+  becomes the final one, so it cannot move a variance. If every posting came
+  after the year ended, none was in force, and `final_seq` is `first_seq`.
+  The two are equal when the budget was never revised.
 - `revisions`: every `budget` posting for the year, oldest first, as
   `{ posting_seq, proposal_seq, recorded_at, after_year_end }`. `after_year_end`
   is true when it was chained after the year's last day (Asia/Kolkata).

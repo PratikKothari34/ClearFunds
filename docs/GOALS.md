@@ -411,7 +411,13 @@ and the overrun reads as on budget, the same bug class as reading the approval
 limit live. Every revision stays in the chain and in the report, which shows
 the first budget, the final one and any revision made after the year ended.
 A budget is not money: its posting carries no amount and no balance sees it.
-Variance is computed by the server. The layout is
+Variance is computed by the server, against the budget in force at the year's
+end: a revision chained after the year ended is listed and marked, and never
+becomes the figure the year is measured against. **Income is budgeted too**,
+in the same layout from the start, which supersedes the earlier note on #76
+that this version would carry no income budget. The kind is hashed, so adding
+income lines later would mean a second layout for chained entries of the same
+kind; an empty income list costs nothing. The layout is
 [`contracts/chain/kinds/budget.v1.md`](../contracts/chain/kinds/budget.v1.md).
 
 **Money representation is settled 2026-10-22.** Every amount is an **integer
