@@ -217,7 +217,8 @@ $$;
 -- Below-limit expenses to the same payee whose total within the rolling
 -- window crosses the limit are shown as ONE aggregate, constituents listed.
 -- Not blocked (AGENTS.md item 6). Keyed on payee; the window is the
--- society's structuring_window_days. Both are open questions in GOALS.md.
+-- society's structuring_window_days, set per society (default 30), so it is
+-- not an open question. Auditor identity still is, in GOALS.md.
 create function public.api_structuring(p_society text) returns jsonb
 language plpgsql stable security definer set search_path = '' as $$
 declare
