@@ -178,9 +178,9 @@ const toneClass: Record<Tone, string> = {
  * reversed expense reads "In Rs 9,000" though nobody paid the society
  * anything. The figure is correct and the screen is wrong about what it
  * means. This is the sentence that fixes the meaning rather than the figure -
- * no arithmetic here, and none at any call site: `0002` keeps money
- * arithmetic out of this lane entirely, and netting would also conceal the
- * reversal, which `0004` says must always appear.
+ * no arithmetic here, and none at any call site: money arithmetic stays out
+ * of this lane entirely, and netting would also conceal the reversal, which
+ * must always appear.
  *
  * Three states because reversed.ts has three. `unknown` says so rather than
  * rendering nothing: silence here is indistinguishable from "no reversals",

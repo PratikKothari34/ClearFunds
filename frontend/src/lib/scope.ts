@@ -13,8 +13,8 @@
  * their own scope and the page is a lie about the society.
  *
  * That shape - two sources of truth for one fact, differing silently - is
- * the failure `0002` names for money and the one `countable.ts` fixed for a
- * null amount. The fix is the same in kind: do not let a surface state a
+ * the same failure the money rules exist to prevent, and the one
+ * `countable.ts` fixed for a null amount. The fix is the same in kind: do not let a surface state a
  * scope it cannot support.
  *
  * Deliberately derived from the DATA, not from the viewer's role:

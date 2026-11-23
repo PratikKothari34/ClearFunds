@@ -267,7 +267,7 @@ export function useReport(fy: string | undefined) {
 /*
  * There is no useStructuring. `api_report` already returns the structuring
  * aggregates and the AGM report renders them (routes/reports.tsx), which is
- * where 0004 says they belong - in the report, marked crossed. A second hook
+ * where they belong - in the report, marked crossed. A second hook
  * on api_structuring fetched the same aggregate by a different path for a
  * standalone screen that was never built, so the two could disagree about
  * which below-limit payments crossed the limit with nothing to say which was
@@ -308,7 +308,7 @@ export function useLimit() {
       )
       /*
        * The limit each entry was approved against. `?? 0` is NOT a default
-       * here - a zero limit makes everything N-of-M by 0006, so falling back
+       * here - a zero limit makes everything N-of-M, so falling back
        * to it on a missing field would silently claim the strictest tier was
        * in force when nobody knows what was. Parsing the body means a limit
        * entry without a limit fails the query instead.

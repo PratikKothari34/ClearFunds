@@ -4,8 +4,9 @@ import { scopeOf } from './scope'
 /*
  * One row stands for one flat. Nothing here asserts a flat count, a label or
  * an amount: the rule is about how many rows arrived against how many the
- * society has, so a sample number in an assertion would be the thing
- * CLAUDE.md forbids - an expectation that gets "fixed" by editing the number.
+ * society has, so a sample number in an assertion would be the trap this
+ * suite exists to avoid: an expectation that gets "fixed" by editing the
+ * number, which deletes the test's meaning while leaving it green.
  */
 const rows = (n: number) => Array.from({ length: n }, (_, i) => ({ flat_id: `f${i}` }))
 

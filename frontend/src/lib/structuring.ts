@@ -3,8 +3,8 @@
  * COUNT.
  *
  * Structuring is below-limit payments to one payee that add up past the
- * committee's limit. `0004` settles that it is made VISIBLE rather than
- * blocked: blocking teaches splitting across payees, which is harder to see.
+ * committee's limit. It is made VISIBLE rather than blocked: blocking
+ * teaches splitting across payees, which is harder to see.
  * So the entry form warns the treasurer while they are typing, and the ledger
  * and the AGM report carry the aggregate.
  *
