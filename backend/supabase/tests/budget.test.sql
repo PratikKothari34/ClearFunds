@@ -2,7 +2,7 @@
 -- committee, chained so approvals sign the amounts, invisible to every
 -- balance, and reported beside actual figures as it moved.
 begin;
-select plan(33);
+select plan(38);
 
 create temp table u (k text primary key, id uuid);
 insert into u select k, gen_random_uuid() from unnest(array['pres', 'tre', 'sec', 'm1', 'm2', 'aud']) k;
@@ -78,6 +78,16 @@ select throws_like($$select pg_temp.prop('m1', jsonb_build_object('action', 'bud
 select throws_like($$select pg_temp.prop('m1', '{"action":"budget","fy":"2026-28","narration":"x",
   "lines":[{"category":"a","amount_minor":1}]}')$$, '%look like 2025-26%', 'the year is a real financial year');
 
+select throws_like($$select pg_temp.prop('m1', jsonb_build_object('action', 'budget', 'fy', pg_temp.fy(), 'narration', 'x',
+  'lines', jsonb_build_array(jsonb_build_object('category', U&'caf\00e9', 'amount_minor', 1),
+                             jsonb_build_object('category', U&'cafe\0301', 'amount_minor', 2))))$$,
+  '%appears twice%', 'two spellings of one category are one category: NFC before the duplicate check');
+select is(cf.budget_list(jsonb_build_array(jsonb_build_object('category', U&'e\0301x', 'amount_minor', 1),
+                                           jsonb_build_object('category', U&'\00e9a', 'amount_minor', 2))),
+  jsonb_build_array(jsonb_build_object('category', U&'\00e9a', 'amount_minor', 2),
+                    jsonb_build_object('category', U&'\00e9x', 'amount_minor', 1)),
+  'stored NFC, and sorted after normalising, so the chained list is strictly ascending');
+
 -- ---- approval, and no balance sees it
 select is(pg_temp.cast_('m1', pg_temp.seq('b1')) || pg_temp.cast_('m2', pg_temp.seq('b1')) || pg_temp.cast_('tre', pg_temp.seq('b1')),
   'openopenopen', 'three approvals do not set it');
@@ -124,6 +134,24 @@ select is(pg_temp.line('expenditure', 'Lift') - 'category' - 'actual_minor',
   'a line the revision dropped keeps its first figure and has no final, not a zero');
 select is(pg_temp.line('expenditure', 'gardening')->'first_minor', 'null'::jsonb, 'a line the revision added had no first');
 select is(pg_temp.line('income', 'hall')->'final_minor', 'null'::jsonb, 'the revision budgeted no income, so hall has no final');
+
+-- ---- revisions after the year ended
+-- Every posting for last year lands after its last day. The second one lowers
+-- security after the fact; it is disclosed, and the year is still measured
+-- against the first.
+create function pg_temp.late() returns jsonb language sql as $$
+  select api_report('soc_b', pg_temp.last_fy())->'budget' $$;
+insert into s select 'l1', pg_temp.prop('m1', jsonb_build_object('action', 'budget', 'fy', pg_temp.last_fy(),
+  'narration', 'Recorded late', 'lines', '[{"category":"security","amount_minor":800000}]'::jsonb));
+select pg_temp.cast_(k, pg_temp.seq('l1')) from unnest(array['m1', 'm2', 'tre', 'sec']) k;
+insert into s select 'l2', pg_temp.prop('m1', jsonb_build_object('action', 'budget', 'fy', pg_temp.last_fy(),
+  'narration', 'Lowered after the spend', 'lines', '[{"category":"security","amount_minor":1}]'::jsonb));
+select pg_temp.cast_(k, pg_temp.seq('l2')) from unnest(array['m1', 'm2', 'tre', 'sec']) k;
+select is((select bool_and((r->>'after_year_end')::boolean) || ':' || count(*) from jsonb_array_elements(pg_temp.late()->'revisions') r),
+  'true:2', 'both revisions are listed, each marked as after the year ended');
+select is(pg_temp.late()->>'final_seq', pg_temp.late()->>'first_seq',
+  'a revision after the year ended is never the one in force');
+select is(pg_temp.late()->'expenditure'->0->>'final_minor', '800000', 'so the lowered figure does not become the final');
 
 -- ---- a closed year
 select api_add_person('soc_b', 'Auditor', 'aud@b.test');

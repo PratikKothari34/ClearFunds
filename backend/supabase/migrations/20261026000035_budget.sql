@@ -39,7 +39,9 @@ begin
     if jsonb_typeof(x) <> 'object' then
       perform cf.err('each budget line is a category and an amount');
     end if;
-    c := btrim(x->>'category');
+    -- NFC first, exactly as cf.append will store it, so the length, the
+    -- duplicate check and the sort all see the text the chain will hold.
+    c := btrim(normalize(x->>'category', nfc));
     if c is null or c = '' then
       perform cf.err('each budget line needs a category');
     end if;
@@ -505,7 +507,16 @@ begin
     return null;
   end if;
   f := cf.entry(p_society, (revs->0->>'posting_seq')::bigint);
-  l := cf.entry(p_society, (revs->-1->>'posting_seq')::bigint);
+  -- The final budget is the one in force at the year's end: the last posted
+  -- on or before its last day. A revision chained after that is listed and
+  -- marked, but never becomes what the year is measured against, or a budget
+  -- lowered after the money was spent would turn an overrun into no variance.
+  -- If every revision came after the year ended, none was in force, and the
+  -- first one recorded stands.
+  l := cf.entry(p_society, coalesce(
+    (select (r->>'posting_seq')::bigint from jsonb_array_elements(revs) with ordinality t(r, i)
+      where not (r->>'after_year_end')::boolean order by i desc limit 1),
+    (revs->0->>'posting_seq')::bigint));
   fl := cf.entry(p_society, (f.body->>'proposal_seq')::bigint - 1);
   ll := cf.entry(p_society, (l.body->>'proposal_seq')::bigint - 1);
   return jsonb_build_object(
