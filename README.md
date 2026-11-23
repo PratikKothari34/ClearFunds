@@ -117,4 +117,4 @@ migrations alone, and both implementations against the shared test vectors in
 ## Licence
 
 GPL-3.0 — see [`LICENSE`](LICENSE), kept verbatim. Copyright holders are
-recorded in [`COPYRIGHT`](COPYRIGHT).
+recorded in [`AUTHORS`](AUTHORS).

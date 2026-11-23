@@ -19,7 +19,7 @@ will read that way. What it means for you:
   repository holds itself to the same test (rule 2 below). It also means an
   outside PR waits on a human, not on CI.
 - **The licence is GPL-3.0.** Contributions are accepted under it, and
-  contributors are recorded in [`COPYRIGHT`](COPYRIGHT).
+  contributors are recorded in [`AUTHORS`](AUTHORS).
 
 To see the product running, follow [`demo.md`](demo.md) — it seeds a demo
 society locally with sign-in buttons for every role. The deployed build is not
@@ -67,7 +67,7 @@ ClearFunds/
 │   ├── decisions/      one file per load-bearing decision                        → both
 │   └── design/         the frontend design                                       → Pratik
 ├── AGENTS.md  CONTRIBUTING.md  README.md                                         → both
-└── LICENSE  COPYRIGHT  .gitattributes  .gitignore                                → both
+└── LICENSE  AUTHORS  .gitattributes  .gitignore                                  → both
 ```
 
 All three lanes exist. **Nobody creates a placeholder in the other person's
@@ -88,8 +88,8 @@ two disagree, fix CODEOWNERS in its own PR.
 | `docs/design/**` | Pratik | Prem |
 | `AGENTS.md`, `CONTRIBUTING.md`, `README.md` | **Both** | Both |
 | `.github/**` (templates, CODEOWNERS, rulesets, workflows) | **Both** | Both |
-| `.gitignore`, `.gitattributes`, `COPYRIGHT` | **Both** | Both |
-| `LICENSE` | Nobody | **Never edited.** Verbatim GPL-3.0; contributors go in `COPYRIGHT` |
+| `.gitignore`, `.gitattributes`, `AUTHORS` | **Both** | Both |
+| `LICENSE` | Nobody | **Never edited.** Verbatim GPL-3.0; contributors go in `AUTHORS` |
 
 ### 1.2 Every Markdown file, and who keeps it true
 

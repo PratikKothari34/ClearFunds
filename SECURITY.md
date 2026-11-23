@@ -29,7 +29,7 @@ rather than hours.
   the report was missed and say so on the advisory.
 - **An assessment within 30 days** — whether it is a defect, how serious, and
   what the fix looks like.
-- **Credit in the advisory and in [`COPYRIGHT`](COPYRIGHT)** unless you ask us
+- **Credit in the advisory and in [`AUTHORS`](AUTHORS)** unless you ask us
   not to.
 - **No bounty.** There is no money in this project.
 

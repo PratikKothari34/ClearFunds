@@ -427,7 +427,7 @@ rather than picking a default.
 - **Line endings** are normalized by `.gitattributes`: LF everywhere, CRLF for
   `.ps1`, `.cmd`, and `.bat`. Do not override it.
 - **Licensing: GPL-3.0** (`LICENSE`, verbatim and not to be edited).
-  Copyright holders are listed in `COPYRIGHT`; add a contributor there rather
+  Copyright holders are listed in `AUTHORS`; add a contributor there rather
   than altering `LICENSE`, which would break automated license detection.
 - **Never commit secrets**, `.env` files, or build output. `.gitignore` covers
   the common cases, but it is not a safety net you should lean on. **This

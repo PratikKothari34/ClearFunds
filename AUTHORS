@@ -1,5 +1,5 @@
-ClearFunds - copyright and licensing
-====================================
+ClearFunds - authors, copyright and licensing
+=============================================
 
 Copyright (C) 2026 Pratik V Kothari <PratikKothari34>
 Copyright (C) 2026 Prem Prateek Tadinada <tadiPro250>
@@ -23,3 +23,9 @@ with this program. If not, see <https://www.gnu.org/licenses/>.
 The full license text is in LICENSE, reproduced verbatim and unmodified.
 That file is kept pristine so automated tools can identify the license;
 this file records who holds the copyright.
+
+This file was named COPYRIGHT until 2026-11-23. It was renamed because
+GitHub treats that filename as a license and rendered a second License
+tab beside the real one, which read as two licenses on one project.
+AUTHORS carries the same content under a name no tool mistakes for a
+license.
