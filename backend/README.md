@@ -156,6 +156,9 @@ deno test -A --config supabase/functions/api/deno.json supabase/functions/api/an
 
 ## Deploying to a Supabase project
 
+Production is deployed only from `main`, and migrations go on in file order:
+never a branch's migration ahead of its merge, never one skipped.
+
 ```sh
 supabase link --project-ref <ref>
 supabase db push
