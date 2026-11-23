@@ -28,6 +28,16 @@ const cors = {
   "Access-Control-Allow-Methods": "GET, POST, PUT, OPTIONS",
 };
 
+// .invalid is reserved (RFC 2606): no account can ever have this address.
+const NO_ADDRESS = "no-account@clearfunds.invalid";
+
+// Work that must finish but must not delay the response.
+const after = (p: Promise<unknown>) => {
+  const rt = (globalThis as { EdgeRuntime?: { waitUntil(p: Promise<unknown>): void } }).EdgeRuntime;
+  if (rt) rt.waitUntil(p);
+  else p.catch((e) => console.error(e));
+};
+
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...cors, "Content-Type": "application/json" } });
 
@@ -131,17 +141,21 @@ Deno.serve(async (req) => {
       const anon = createClient(URL_, ANON, { auth: { persistSession: false } });
       if (route === "/auth/request-code") {
         const email = await rpc<string | null>(admin, "api_auth_request", { p_id: id });
+        // Answer before the mail goes out: waiting for the send would make a
+        // known ID measurably slower than an unknown one (#134).
         if (email) {
-          const { error } = await anon.auth.signInWithOtp({ email, options: { shouldCreateUser: true } });
-          if (error) console.error("otp", error.message);
+          after(anon.auth.signInWithOtp({ email, options: { shouldCreateUser: true } })
+            .then(({ error }) => { if (error) console.error("otp", error.message); }));
         }
         return json({ sent: true });
       }
       if (route === "/auth/verify-code") {
         const email = await rpc<string | null>(admin, "api_auth_verify", { p_id: id });
-        const { data, error } = email
-          ? await anon.auth.verifyOtp({ email, token: String(body.code ?? ""), type: "email" })
-          : { data: null, error: true };
+        // An unknown or closed ID is checked against an address that can
+        // never hold a code, so it takes the same round trip as a known one
+        // and fails the same way (#134).
+        const { data, error } = await anon.auth.verifyOtp({ email: email ?? NO_ADDRESS,
+          token: String(body.code ?? ""), type: "email" });
         await rpc(admin, "api_auth_result", { p_id: id, p_ok: !error });
         if (error || !data?.session) return json({ error: "That code is wrong or has expired." }, 400);
         const { access_token, refresh_token, expires_at } = data.session;
