@@ -32,3 +32,4 @@ Append-only. One line per contract PR:
 2026-11-08 | chain-entry.v1 | FIX the lone-surrogate must_reject vector: one backslash, so it parses to U+D800 | #124 | not breaking
 2026-11-11 | api.v1 | ADD Amounts: the ±(2^53 − 1) range on every *_minor, the too-large message, the posted-total bound; DOCUMENT society.committee_threshold and the required-count formula on api_me | #136 #137 | additive
 2026-11-11 | api.v1 | CLARIFY which years api_years lists: from the first posting or any auditor appointment, whichever is earlier | #138 | not breaking
+2026-11-16 | chain-entry.v1, api.v1 | ADD budget kinds: budget_lines immediately before a proposal with action budget, posting effect budget (no amount); proposals.lines and income_lines; api_report.budget (final = the budget in force at the year's end) | #76 | additive

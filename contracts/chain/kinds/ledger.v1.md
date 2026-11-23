@@ -60,7 +60,7 @@ by that signature's `key_seq`, which MUST be earlier in the chain.
 
 | # | Field | Type | Notes |
 |---|---|---|---|
-| 1 | `action` | text | `expense` `receipt` `charge` `reversal` `limit_change` `seat_admin` `unseat_admin` `appoint_auditor` |
+| 1 | `action` | text | `expense` `receipt` `charge` `reversal` `limit_change` `seat_admin` `unseat_admin` `appoint_auditor` `budget` |
 | 2 | `amount_minor` | int? | Always positive. For `limit_change`, the new limit |
 | 3 | `currency` | text? | |
 | 4 | `counterparty` | text? | Payee or payer |
@@ -101,7 +101,7 @@ by that signature's `key_seq`, which MUST be earlier in the chain.
 | # | Field | Type | Notes |
 |---|---|---|---|
 | 1 | `proposal_seq` | int | |
-| 2 | `effect` | text | `expense` `receipt` `charge` `reversal` `charge_reversal` `limit` `seat` `unseat` `auditor` |
+| 2 | `effect` | text | `expense` `receipt` `charge` `reversal` `charge_reversal` `limit` `seat` `unseat` `auditor` `budget` |
 | 3 | `amount_minor` | int? | **Signed** effect on the balance: receipt +, expense −, a reversal the negation of its target |
 | 4 | `currency` | text? | |
 | 5 | `limit_minor` | int? | `limit` |

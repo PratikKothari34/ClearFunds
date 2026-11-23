@@ -11,6 +11,7 @@ these files. Neither side's code defines the contract.
 | [`chain/kinds/society.v1.md`](chain/kinds/society.v1.md) | Kinds written at open and on task changes: `document_attached`, `tasks_set`, the task catalogue |
 | [`chain/kinds/claims.v1.md`](chain/kinds/claims.v1.md) | Residents' payment claims: `payment_claim`, `claim_closed` |
 | [`chain/kinds/notices.v1.md`](chain/kinds/notices.v1.md) | Notices, per-flat votes and citing a vote: `notice`, `vote_opened`, `ballot`, `vote_closed`, `proposal_ref` |
+| [`chain/kinds/budget.v1.md`](chain/kinds/budget.v1.md) | **Draft (#76).** A year's budget, set by committee approval: `budget_lines`, action and effect `budget` |
 | [`api/v1.md`](api/v1.md) | Reads, writes and the signing edge function |
 | [`anchor/v1.md`](anchor/v1.md) | The chain head published monthly outside admin control, and what a client checks against it |
 | [`CHANGELOG.md`](CHANGELOG.md) | One line per contract change, append-only |
